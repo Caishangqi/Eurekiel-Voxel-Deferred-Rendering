@@ -84,9 +84,9 @@ void App::Startup(char*)
     // Create ResourceSubsystem with configuration
     enigma::resource::ResourceConfig resourceConfig;
     resourceConfig.baseAssetPath    = ".enigma/assets";
-    resourceConfig.enableHotReload  = true;
-    resourceConfig.logResourceLoads = true;
-    resourceConfig.printScanResults = true;
+    resourceConfig.enableHotReload  = false;
+    resourceConfig.logResourceLoads = false;
+    resourceConfig.printScanResults = false;
     resourceConfig.AddNamespace("simpleminer", ""); // Add custom namespaces
 
     auto resourceSubsystem = std::make_unique<enigma::resource::ResourceSubsystem>(resourceConfig);
@@ -169,7 +169,7 @@ void App::Shutdown()
     g_theWindow->Shutdown();
     g_theInput->Shutdown();
     g_theEventSystem->Shutdown();
-    
+
     delete g_theWindow;
     g_theWindow = nullptr;
 

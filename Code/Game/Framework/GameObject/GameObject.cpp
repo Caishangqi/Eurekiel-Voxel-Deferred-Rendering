@@ -5,6 +5,7 @@
 
 GameObject::GameObject(Game* parent)
 {
+    UNUSED(parent);
 }
 
 GameObject::~GameObject()

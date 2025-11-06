@@ -218,10 +218,15 @@
         </ProjectReference>
     </ItemGroup>
     <ItemGroup>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_basic.ps.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_basic.vs.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_textured.ps.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_textured.vs.hlsl"/>
         <ClCompile Include="Framework\GameObject\GameObject.cpp"/>
         <ClCompile Include="Framework\GameObject\Geometry.cpp"/>
         <ClCompile Include="Framework\GameObject\PlayerCharacter.cpp"/>
         <ClCompile Include="Gameplay\Game.cpp"/>
+        <Content Include="..\..\Readme.md"/>
         <Content Include="..\..\Run\.enigma\config\engine\chunkstorage.yml"/>
         <Content Include="..\..\Run\.enigma\config\engine\renderer.yml"/>
         <Content Include="..\..\Run\.enigma\config\engine\schedule.yml"/>
@@ -273,10 +278,6 @@
         <Content Include="..\..\Run\.enigma\data\Shaders\Default2D.hlsl"/>
         <Content Include="..\..\Run\.enigma\data\Shaders\Diffuse.hlsl"/>
         <None Include="..\..\Run\.enigma\assets\engine\shaders\core\Common.hlsl"/>
-        <None Include="..\..\Run\.enigma\assets\engine\shaders\core\gbuffers_basic.ps.hlsl"/>
-        <None Include="..\..\Run\.enigma\assets\engine\shaders\core\gbuffers_basic.vs.hlsl"/>
-        <None Include="..\..\Run\.enigma\assets\engine\shaders\core\gbuffers_textured.ps.hlsl"/>
-        <None Include="..\..\Run\.enigma\assets\engine\shaders\core\gbuffers_textured.vs.hlsl"/>
         <ClCompile Include="Framework\App.cpp"/>
         <ClCompile Include="Framework\WindowConfigParser.cpp"/>
         <ClCompile Include="GameCommon.cpp"/>
@@ -510,7 +511,6 @@
     <ItemGroup>
         <Folder Include="..\..\Run\.enigma\assets\engine\shaders\include\"/>
         <Folder Include="..\..\Run\.enigma\assets\engine\shaders\post\"/>
-        <Folder Include="..\..\Run\.enigma\assets\engine\shaders\program\"/>
         <Folder Include="..\..\Run\.enigma\shaderpacks\CaiziiDefault\shaders\world0\"/>
         <Folder Include="..\..\Run\.enigma\shaderpacks\CaiziiDefault\shaders\world1\"/>
         <Folder Include="Test\"/>

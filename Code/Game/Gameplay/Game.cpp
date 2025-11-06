@@ -7,8 +7,6 @@
 
 Game::Game()
 {
-    auto pppath = std::filesystem::current_path();
-
     /// Prepare clock;
     m_gameClock = std::make_unique<Clock>();
     m_gameClock->Reset();
