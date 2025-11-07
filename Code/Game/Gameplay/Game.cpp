@@ -63,6 +63,10 @@ void Game::Render()
     m_cubeA->Render(); // Inside the render func, it should draw vertex
     m_cubeB->Render();
 
+    /// [TEST] PresentRenderTarget functionality - display ColorTex0 to screen
+    /// This replaces the previous PresentWithShader approach for testing
+    g_theRendererSubsystem->PresentRenderTarget(0, RTType::ColorTex);
+
     /// The result of Scene Test fundation should have
     /// - 2 Cube display in perspective view
 }
