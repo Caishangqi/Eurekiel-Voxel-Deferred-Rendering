@@ -18,16 +18,19 @@ void Geometry::Update(float deltaSeconds)
 
 void Geometry::Render() const
 {
-    // [NEW] Upload modelMatrix to UniformManager
-    // Calculate modelMatrix (model to world space transformation)
+    // 1. 计算Model矩阵
     Mat44 modelMatrix        = GetModelToWorldTransform();
     Mat44 modelMatrixInverse = modelMatrix.GetInverse();
 
-    //Upload to UniformManager
+    // 2. [NEW] 计算normalMatrix = transpose(inverse(modelMatrix))
+    Mat44 normalMatrix = modelMatrixInverse.GetTranspose();
+
+    // 3. 上传到UniformManager
     g_theRendererSubsystem->GetUniformManager()->UniformMat4("modelMatrix", modelMatrix);
     g_theRendererSubsystem->GetUniformManager()->UniformMat4("modelMatrixInverse", modelMatrixInverse);
+    g_theRendererSubsystem->GetUniformManager()->UniformMat4("normalMatrix", normalMatrix); // [NEW]
 
-    // We Draw the vertex array
+    // 4. 绘制
     g_theRendererSubsystem->DrawVertexArray(m_vertices);
 }
 
