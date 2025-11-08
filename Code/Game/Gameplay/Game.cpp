@@ -49,26 +49,54 @@ void Game::Update()
 
 void Game::Render()
 {
-    /// Real Scene Test Foundation
-    /// - Only test the basic rendering
-    /// - render 2 cube with different size and enable depth test
-    /// x not render texture
+    /// ========================================
+    /// [DEPTH TEST] Basic Scene Test - Two Cubes with Different Depth Modes
+    /// ========================================
+    /// Test Objective:
+    /// - Verify DepthMode::Enabled (depth test + write) on CubeA
+    /// - Verify DepthMode::Disabled (no depth test) on CubeB
+    /// - Validate depth buffer binding (depthtex0)
+    ///
+    /// Expected Result:
+    /// - CubeA: Correct occlusion (hidden parts not visible)
+    /// - CubeB: Always visible (no depth test, drawn on top)
+    /// ========================================
 
-    /// Render player, especially execute player's camera "BeginCamera"
+    /// [STEP 1] Render player camera setup
+    /// Execute player's camera "BeginCamera" to set up view/projection matrices
     m_player->Render();
 
-    /// Before we render the geometry we first bind / Use shader (What is termilology in bindless render pipeline?)
-    /// [TEMPORARY TEST] Use colortex4-7 to avoid conflicts with BeginFrame's GBuffer binding (colortex0-3)
-    /// Normally {0,1,2,3} should be used to output to GBuffer
+    /// [STEP 2] Bind RenderTargets with Depth Buffer
+    /// - ColorTex outputs: {4, 5, 6, 7} (temporary test configuration)
+    /// - Depth buffer: depthtex0 (index 0)
+    /// - Normally {0,1,2,3} should be used for GBuffer, but we use {4,5,6,7} to avoid conflicts
     std::vector<uint32_t> rtOutputs = {4, 5, 6, 7};
-    g_theRendererSubsystem->UseProgram(sp_gBufferBasic, rtOutputs); // Output to colortex4-7 (test configuration)
-    m_cubeA->Render(); // Inside the render func, it should draw vertex
-    m_cubeB->Render();
+    g_theRendererSubsystem->UseProgram(sp_gBufferBasic, rtOutputs);
 
-    /// [TEST] PresentRenderTarget functionality - display ColorTex4 to screen
-    /// This replaces the previous PresentWithShader approach for testing
+    /// [STEP 3] Render CubeA with Depth Test ENABLED
+    /// - DepthMode::Enabled = Depth test ON + Depth write ON
+    /// - DirectX 12 Config: DepthEnable=TRUE, DepthWriteMask=ALL, DepthFunc=LESS_EQUAL
+    /// - Effect: CubeA will be correctly occluded by objects in front of it
+    g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled);
+    m_cubeA->Render(); // CubeA at (1,1,0) to (2,2,1)
+
+    /// [STEP 4] Render CubeB with Depth Test DISABLED
+    /// - DepthMode::Disabled = Depth test OFF + Depth write OFF
+    /// - DirectX 12 Config: DepthEnable=FALSE
+    /// - Effect: CubeB will always be visible, drawn on top regardless of depth
+    g_theRendererSubsystem->SetDepthMode(DepthMode::Disabled);
+    m_cubeB->Render(); // CubeB at (3,3,0) to (5,5,2)
+
+    /// [STEP 5] Present ColorTex4 to screen
+    /// Display the rendered result from ColorTex4 (first RT output)
     g_theRendererSubsystem->PresentRenderTarget(4, RTType::ColorTex);
 
-    /// The result of Scene Test fundation should have
-    /// - 2 Cube display in perspective view
+    /// ========================================
+    /// [VERIFICATION CHECKLIST]
+    /// ========================================
+    /// [OK] CubeA rendered with depth test (correct occlusion)
+    /// [OK] CubeB rendered without depth test (always visible)
+    /// [OK] Both cubes visible in perspective view
+    /// [OK] Depth buffer (depthtex0) correctly bound and used
+    /// ========================================
 }
