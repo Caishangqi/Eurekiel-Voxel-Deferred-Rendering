@@ -70,8 +70,9 @@ void Game::Render()
     /// - ColorTex outputs: {4, 5, 6, 7} (temporary test configuration)
     /// - Depth buffer: depthtex0 (index 0)
     /// - Normally {0,1,2,3} should be used for GBuffer, but we use {4,5,6,7} to avoid conflicts
-    std::vector<uint32_t> rtOutputs = {4, 5, 6, 7};
-    g_theRendererSubsystem->UseProgram(sp_gBufferBasic, rtOutputs);
+    std::vector<uint32_t> rtOutputs     = {4, 5, 6, 7};
+    int                   depthTexIndex = 0;
+    g_theRendererSubsystem->UseProgram(sp_gBufferBasic, rtOutputs, depthTexIndex);
 
     /// [STEP 3] Render CubeA with Depth Test ENABLED
     /// - DepthMode::Enabled = Depth test ON + Depth write ON
