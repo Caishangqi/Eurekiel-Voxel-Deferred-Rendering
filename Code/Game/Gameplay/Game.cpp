@@ -58,14 +58,16 @@ void Game::Render()
     m_player->Render();
 
     /// Before we render the geometry we first bind / Use shader (What is termilology in bindless render pipeline?)
-    std::vector<uint32_t> rtOutputs = {0, 1, 2, 3};
-    g_theRendererSubsystem->UseProgram(sp_gBufferBasic, rtOutputs); // We test rt out put, we fill rt 0 ,1, 2, 3
+    /// [TEMPORARY TEST] Use colortex4-7 to avoid conflicts with BeginFrame's GBuffer binding (colortex0-3)
+    /// Normally {0,1,2,3} should be used to output to GBuffer
+    std::vector<uint32_t> rtOutputs = {4, 5, 6, 7};
+    g_theRendererSubsystem->UseProgram(sp_gBufferBasic, rtOutputs); // Output to colortex4-7 (test configuration)
     m_cubeA->Render(); // Inside the render func, it should draw vertex
     m_cubeB->Render();
 
-    /// [TEST] PresentRenderTarget functionality - display ColorTex0 to screen
+    /// [TEST] PresentRenderTarget functionality - display ColorTex4 to screen
     /// This replaces the previous PresentWithShader approach for testing
-    g_theRendererSubsystem->PresentRenderTarget(0, RTType::ColorTex);
+    g_theRendererSubsystem->PresentRenderTarget(4, RTType::ColorTex);
 
     /// The result of Scene Test fundation should have
     /// - 2 Cube display in perspective view
