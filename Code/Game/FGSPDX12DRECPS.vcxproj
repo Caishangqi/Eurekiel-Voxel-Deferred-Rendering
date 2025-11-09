@@ -222,6 +222,10 @@
         <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_basic.vs.hlsl"/>
         <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_textured.ps.hlsl"/>
         <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_textured.vs.hlsl"/>
+        <ClInclude Include="..\..\Run\.enigma\data\Shaders\BlinnPhong.hlsl"/>
+        <ClInclude Include="..\..\Run\.enigma\data\Shaders\Default.hlsl"/>
+        <ClInclude Include="..\..\Run\.enigma\data\Shaders\Default2D.hlsl"/>
+        <ClInclude Include="..\..\Run\.enigma\data\Shaders\Diffuse.hlsl"/>
         <ClCompile Include="Framework\GameObject\GameObject.cpp"/>
         <ClCompile Include="Framework\GameObject\Geometry.cpp"/>
         <ClCompile Include="Framework\GameObject\PlayerCharacter.cpp"/>

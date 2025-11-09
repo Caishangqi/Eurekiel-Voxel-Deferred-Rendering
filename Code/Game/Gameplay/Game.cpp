@@ -1,6 +1,7 @@
 ﻿#include "Game.hpp"
 
 
+#include "Engine/Core/VertexUtils.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Math/AABB3.hpp"
 #include "Game/Framework/GameObject/Geometry.hpp"
@@ -12,8 +13,9 @@ Game::Game()
     m_gameClock->Reset();
 
     /// Prepare scene
-    m_cubeA        = std::make_unique<Geometry>(this);
-    AABB3 geoCubeA = AABB3(Vec3(1, 1, 0), Vec3(2, 2, 1));
+    m_cubeA             = std::make_unique<Geometry>(this);
+    AABB3 geoCubeA      = AABB3(Vec3(0, 0, 0), Vec3(2, 2, 2));
+    m_cubeA->m_position = Vec3(3, 0, 0);
     m_cubeA->SetVertices(geoCubeA.GetVertices())->SetIndices(geoCubeA.GetIndices());
 
     m_cubeB        = std::make_unique<Geometry>(this);
@@ -85,8 +87,10 @@ void Game::Render()
     /// - DepthMode::Disabled = Depth test OFF + Depth write OFF
     /// - DirectX 12 Config: DepthEnable=FALSE
     /// - Effect: CubeB will always be visible, drawn on top regardless of depth
+    /*
     g_theRendererSubsystem->SetDepthMode(DepthMode::Disabled);
     m_cubeB->Render(); // CubeB at (3,3,0) to (5,5,2)
+    */
 
     /// [STEP 5] Present ColorTex4 to screen
     /// Display the rendered result from ColorTex4 (first RT output)
