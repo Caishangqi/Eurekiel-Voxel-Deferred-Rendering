@@ -12,5 +12,9 @@ public:
     Mat44 GetModelToWorldTransform() const override;
 
 private:
+    void HandleInputAction(float deltaSeconds);
+    void UpdateCamera(float deltaSeconds);
+
+private:
     std::unique_ptr<enigma::graphic::EnigmaCamera> m_camera = nullptr;
 };

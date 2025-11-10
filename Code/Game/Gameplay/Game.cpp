@@ -9,8 +9,8 @@
 Game::Game()
 {
     /// Prepare clock;
-    m_gameClock = std::make_unique<Clock>();
-    m_gameClock->Reset();
+    m_gameClock = std::make_unique<Clock>(Clock::GetSystemClock());
+    m_gameClock->Unpause();
 
     /// Prepare scene
     m_cubeA             = std::make_unique<Geometry>(this);

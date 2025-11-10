@@ -148,15 +148,3 @@ void AddVertsForCube3D(std::vector<Vertex_PCU>& verts, const Rgba8& colorX, cons
                       colorNZ
     );
 }
-
-const char* CameraModeToString(CameraMode mode)
-{
-    switch (mode)
-    {
-    case CameraMode::SPECTATOR_FULL: return "SpectatorFull";
-    case CameraMode::SPECTATOR_XY: return "SpectatorXY";
-    case CameraMode::THIRD_PERSON: return "ThirdPerson";
-    case CameraMode::FIRST_PERSON: return "FirstPerson";
-    default: return "Unknown";
-    }
-}
