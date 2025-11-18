@@ -122,7 +122,7 @@ void App::Startup(char*)
     g_theWindow->Startup();
 
     // Render Subsystem
-    enigma::graphic::RendererSubsystemConfig renderConfig;
+    RendererSubsystemConfig renderConfig;
     renderConfig.targetWindow            = g_theWindow;
     renderConfig.renderWidth             = static_cast<uint32_t>(windowConfig.m_resolution.x);
     renderConfig.renderHeight            = static_cast<uint32_t>(windowConfig.m_resolution.y);
@@ -130,12 +130,12 @@ void App::Startup(char*)
     renderConfig.enableDebugLayer        = ENABLE_DEBUG;
     renderConfig.enableGPUValidation     = ENABLE_GPU_VALIDATION;
     renderConfig.enableBindlessResources = true;
-    auto rendererSubsystem               = std::make_unique<enigma::graphic::RendererSubsystem>(renderConfig);
+    auto rendererSubsystem               = std::make_unique<RendererSubsystem>(renderConfig);
     GEngine->RegisterSubsystem(std::move(rendererSubsystem));
 
     // Imgui Subsystem
     ImGuiSubsystemConfig imguiConfig;
-    auto*                rendererSubsystemPtr = GEngine->GetSubsystem<enigma::graphic::RendererSubsystem>();
+    auto*                rendererSubsystemPtr = GEngine->GetSubsystem<RendererSubsystem>();
     imguiConfig.renderContext                 = std::make_shared<RendererSubsystemImGuiContext>(rendererSubsystemPtr);
     imguiConfig.targetWindow                  = g_theWindow;
     auto imguiSubsystem                       = std::make_unique<ImGuiSubsystem>(imguiConfig);
@@ -143,7 +143,7 @@ void App::Startup(char*)
 
     GEngine->Startup();
 
-    g_theLogger->SetGlobalLogLevel(enigma::core::LogLevel::DEBUG);
+    g_theLogger->SetGlobalLogLevel(LogLevel::DEBUG);
 
     m_game    = std::make_unique<Game>();
     g_theGame = m_game.get();

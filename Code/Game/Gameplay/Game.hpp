@@ -23,14 +23,26 @@ public:
     std::unique_ptr<PlayerCharacter> m_player = nullptr; // player
 #pragma endregion
 
+#pragma region INPUT_ACTION
+
+private:
+    void ProcessInputAction(float deltaSeconds);
+    void HandleESC();
+#pragma endregion
+
 #pragma region RENDER
     // Basic GBuffer program that convert model space to screen / clip space and render model color
     // The conversion is in Common.hlsl
-    std::shared_ptr<enigma::graphic::ShaderProgram> sp_gBufferBasic    = nullptr;   // The non-texture program
-    std::shared_ptr<enigma::graphic::ShaderProgram> sp_gBufferTextured = nullptr;   // The texture program
+    std::shared_ptr<enigma::graphic::ShaderProgram> sp_gBufferBasic    = nullptr; // The non-texture program
+    std::shared_ptr<enigma::graphic::ShaderProgram> sp_gBufferTextured = nullptr; // The texture program
 
 #pragma endregion RENDER
-#pragma region
+
+#pragma region SCENE_TEST
+
+
+#pragma endregion
+#pragma region GAME_CLOCK
     std::unique_ptr<Clock> m_gameClock = nullptr;
 #pragma endregion
 };

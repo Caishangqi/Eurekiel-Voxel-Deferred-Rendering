@@ -218,6 +218,11 @@
         </ProjectReference>
     </ItemGroup>
     <ItemGroup>
+        <ClCompile Include="SceneTest\SceneUnitTest.cpp"/>
+        <ClCompile Include="SceneTest\SceneUnitTest_StencilXRay.cpp"/>
+        <ClInclude Include="SceneTest\SceneRenderContextProvider.hpp"/>
+        <ClInclude Include="SceneTest\SceneUnitTest.hpp"/>
+        <ClInclude Include="SceneTest\SceneUnitTest_StencilXRay.hpp"/>
         <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_basic.ps.hlsl"/>
         <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_basic.vs.hlsl"/>
         <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_textured.ps.hlsl"/>
@@ -517,7 +522,6 @@
         <Folder Include="..\..\Run\.enigma\assets\engine\shaders\post\"/>
         <Folder Include="..\..\Run\.enigma\shaderpacks\CaiziiDefault\shaders\world0\"/>
         <Folder Include="..\..\Run\.enigma\shaderpacks\CaiziiDefault\shaders\world1\"/>
-        <Folder Include="Test\"/>
     </ItemGroup>
     <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>
     <ImportGroup Label="ExtensionTargets">
