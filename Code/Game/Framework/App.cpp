@@ -257,9 +257,6 @@ void App::Update()
     // Update Engine subsystems (including ConsoleSubsystem)
     GEngine->Update(Clock::GetSystemClock().GetDeltaSeconds());
 
-    // Cursor
-    g_theInput->SetCursorMode(CursorMode::POINTER);
-
     HandleKeyBoardEvent();
 
     if (m_game) m_game->Update();

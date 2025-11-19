@@ -3,6 +3,7 @@
 
 #include "Engine/Core/VertexUtils.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
+#include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Input/InputSystem.hpp"
 #include "Engine/Math/AABB3.hpp"
 #include "Game/GameCommon.hpp"
@@ -11,6 +12,11 @@
 
 Game::Game()
 {
+    /// Set the game state
+
+    // Set CursorMode
+    g_theInput->SetCursorMode(CursorMode::FPS);
+
     /// Prepare clock;
     m_gameClock = std::make_unique<Clock>(Clock::GetSystemClock());
     m_gameClock->Unpause();
@@ -43,6 +49,19 @@ Game::Game()
     );
 
     /// Ideally the shader code hlsl will include "Common.hlsl"
+    // [FIX] 保存CreateTexture2D返回的纹理指针到tex_testUV
+    // CreateTexture2D返回裸指针，需要包装为shared_ptr
+    tex_testUV = g_theRendererSubsystem->CreateTexture2D(
+        ".enigma/assets/engine/textures/test/TestUV.png",
+        TextureUsage::ShaderResource,
+        "TestUV"
+    );
+
+    tex_testCaizii = g_theRendererSubsystem->CreateTexture2D(
+        ".enigma/assets/engine/textures/test/Caizii.png",
+        TextureUsage::ShaderResource,
+        "TestCaizii"
+    );
 }
 
 Game::~Game()
@@ -125,6 +144,7 @@ void Game::Render()
     // Result: stencil=2 (visible CubeA), stencil=1 (occluded CubeA), stencil=0 (background)
     // This creates the "visibility mask" that separates visible from occluded regions
 
+    g_theRendererSubsystem->SetCustomImage(0, tex_testCaizii.get());
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::MarkAlways());
     g_theRendererSubsystem->SetStencilRefValue(2);
     g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled); // [CRITICAL] Enable depth to mark only visible pixels
@@ -139,6 +159,7 @@ void Game::Render()
     // WHY Depth ENABLED: Standard depth testing ensures correct depth ordering in final image
     // Result: CubeB written to depth buffer and color buffer, stencil buffer unchanged
 
+    g_theRendererSubsystem->SetCustomImage(0, tex_testUV.get());
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::Disabled());
     g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled);
     m_cubeB->Render();
@@ -159,7 +180,7 @@ void Game::Render()
     //   - TestNotEqual(2) means "pass if stencil != 2"
     //   - This filters out visible pixels (stencil=2), leaving occluded pixels (stencil=1)
     //   - Common mistake: Using ref=1 would filter occluded pixels instead of visible ones
-
+    g_theRendererSubsystem->SetCustomImage(0, nullptr);
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::TestNotEqual());
     g_theRendererSubsystem->SetStencilRefValue(2); // [CORRECT] Test for stencil != 2 (filter visible, keep occluded)
     g_theRendererSubsystem->SetDepthMode(DepthMode::Disabled); // [CRITICAL] Disable depth for X-Ray effect
@@ -190,6 +211,7 @@ void Game::ProcessInputAction(float deltaSeconds)
 {
     UNUSED(deltaSeconds)
     if (g_theInput->WasKeyJustPressed(KEYCODE_ESC)) g_theApp->m_isQuitting = true;
+    if (g_theInput->WasKeyJustPressed(KEYCODE_TILDE)) g_theInput->GetCursorMode() == CursorMode::POINTER ? g_theInput->SetCursorMode(CursorMode::FPS) : g_theInput->SetCursorMode(CursorMode::POINTER);
 }
 
 void Game::HandleESC()

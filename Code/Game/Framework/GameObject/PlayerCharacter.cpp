@@ -50,11 +50,10 @@ Mat44 PlayerCharacter::GetModelToWorldTransform() const
 
 void PlayerCharacter::HandleInputAction(float deltaSeconds)
 {
-    g_theInput->SetCursorMode(CursorMode::FPS);
-    Vec2 cursorDelta = g_theInput->GetCursorClientDelta();
-    m_orientation.m_yawDegrees += -cursorDelta.x * 0.125f;
+    Vec2 cursorDelta             = g_theInput->GetCursorClientDelta();
+    m_orientation.m_yawDegrees   += -cursorDelta.x * 0.125f;
     m_orientation.m_pitchDegrees += -cursorDelta.y * 0.125f;
-    float speed = 2.0f;
+    float speed                  = 2.0f;
     if (g_theInput->IsKeyDown(KEYCODE_LEFT_SHIFT))speed *= 10.f;
     if (g_theInput->IsKeyDown('Q'))m_orientation.m_rollDegrees += 0.125f;
 

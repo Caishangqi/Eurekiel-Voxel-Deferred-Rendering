@@ -5,6 +5,11 @@
 #include "Engine/Graphic/Shader/ShaderPack/ShaderProgram.hpp"
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
 
+namespace enigma::graphic
+{
+    class D12Texture;
+}
+
 class Geometry;
 
 class Game
@@ -36,6 +41,8 @@ private:
     std::shared_ptr<enigma::graphic::ShaderProgram> sp_gBufferBasic    = nullptr; // The non-texture program
     std::shared_ptr<enigma::graphic::ShaderProgram> sp_gBufferTextured = nullptr; // The texture program
 
+    std::shared_ptr<enigma::graphic::D12Texture> tex_testUV     = nullptr;
+    std::shared_ptr<enigma::graphic::D12Texture> tex_testCaizii = nullptr;
 #pragma endregion RENDER
 
 #pragma region SCENE_TEST
