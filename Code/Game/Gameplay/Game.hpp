@@ -3,6 +3,7 @@
 
 #include "Engine/Core/Clock.hpp"
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
+#include "Game/Framework/RenderPass/SceneRenderPass.hpp"
 #include "Game/SceneTest/SceneUnitTest.hpp"
 
 namespace enigma::graphic
@@ -26,11 +27,19 @@ public:
     std::unique_ptr<SceneUnitTest> m_scene = nullptr;
 #pragma endregion
 
+#pragma region RENDER_PASSES
+
+public:
+    std::unique_ptr<SceneRenderPass> m_skyRenderPass   = nullptr;
+    std::unique_ptr<SceneRenderPass> m_cloudRenderPass = nullptr;
+
+    std::unique_ptr<SceneRenderPass> m_compositeRenderPass = nullptr;
+    std::unique_ptr<SceneRenderPass> m_finalRenderPass     = nullptr;
+#pragma endregion
+
 #pragma region GAME_OBJECT
     std::unique_ptr<PlayerCharacter> m_player = nullptr; // player
 #pragma endregion
-
-
 #pragma region INPUT_ACTION
 
 private:

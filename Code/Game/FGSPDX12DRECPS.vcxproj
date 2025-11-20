@@ -218,8 +218,22 @@
         </ProjectReference>
     </ItemGroup>
     <ItemGroup>
+        <ClCompile Include="Framework\RenderPass\RenderCloud\CloudGeometryBuilder.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderCloud\CloudRenderPass.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderComposite\CompositeRenderPass.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderFinal\FinalRenderPass.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderSky\SkyGeometryHelper.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderSky\SkyRenderPass.cpp"/>
+        <ClCompile Include="Framework\RenderPass\SceneRenderPass.cpp"/>
         <ClCompile Include="SceneTest\SceneUnitTest.cpp"/>
         <ClCompile Include="SceneTest\SceneUnitTest_StencilXRay.cpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderCloud\CloudGeometryBuilder.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderCloud\CloudRenderPass.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderComposite\CompositeRenderPass.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderFinal\FinalRenderPass.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderSky\SkyGeometryHelper.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderSky\SkyRenderPass.hpp"/>
+        <ClInclude Include="Framework\RenderPass\SceneRenderPass.hpp"/>
         <ClInclude Include="SceneTest\SceneRenderContextProvider.hpp"/>
         <ClInclude Include="SceneTest\SceneUnitTest.hpp"/>
         <ClInclude Include="SceneTest\SceneUnitTest_StencilXRay.hpp"/>

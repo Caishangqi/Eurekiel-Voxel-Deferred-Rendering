@@ -3,12 +3,14 @@
 
 #include "Engine/Core/VertexUtils.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
-#include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Input/InputSystem.hpp"
-#include "Engine/Math/AABB3.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Framework/App.hpp"
 #include "Game/Framework/GameObject/Geometry.hpp"
+#include "Game/Framework/RenderPass/RenderCloud/CloudRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderComposite/CompositeRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderFinal/FinalRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderSky/SkyRenderPass.hpp"
 #include "Game/SceneTest/SceneUnitTest_StencilXRay.hpp"
 
 Game::Game()
@@ -26,8 +28,14 @@ Game::Game()
     m_player             = std::make_unique<PlayerCharacter>(this);
     m_player->m_position = Vec3(0, 0, 0);
 
-    /// Scene
+    /// Scene (Test Only)
     m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
+
+    /// Render Passes (Production)
+    m_skyRenderPass       = std::make_unique<SkyRenderPass>();
+    m_cloudRenderPass     = std::make_unique<CloudRenderPass>();
+    m_compositeRenderPass = std::make_unique<CompositeRenderPass>();
+    m_finalRenderPass     = std::make_unique<FinalRenderPass>();
 }
 
 Game::~Game()
@@ -40,7 +48,10 @@ void Game::Update()
     ProcessInputAction(m_gameClock->GetDeltaSeconds());
     /// Update Player locomotion
     m_player->Update(m_gameClock->GetDeltaSeconds());
+
+#ifdef SCENE_TEST
     if (m_scene) m_scene->Update();
+#endif
 }
 
 void Game::Render()
@@ -49,7 +60,17 @@ void Game::Render()
     // [SETUP] Camera and Render Targets
     // ========================================
     m_player->Render();
+#ifdef SCENE_TEST
     if (m_scene) m_scene->Render();
+#endif
+
+    /// Geometry data collection
+    m_skyRenderPass->Execute();
+    m_cloudRenderPass->Execute();
+
+    /// End of the Passes, Process Composite and Present
+    m_compositeRenderPass->Execute();
+    m_finalRenderPass->Execute();
 }
 
 void Game::ProcessInputAction(float deltaSeconds)

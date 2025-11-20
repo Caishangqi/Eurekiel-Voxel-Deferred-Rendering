@@ -7,6 +7,7 @@
 /// Whether or not enable cosmic circle (developer)
 #define COSMIC
 
+//#define SCENE_TEST
 
 namespace enigma::resource
 {
