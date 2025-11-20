@@ -1,6 +1,8 @@
 ﻿#include "SceneUnitTest_StencilXRay.hpp"
 
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
+#include "Engine/Graphic/Sprite/Sprite.hpp"
+#include "Engine/Graphic/Sprite/SpriteAtlas.hpp"
 #include "Engine/Math/AABB3.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Framework/GameObject/Geometry.hpp"

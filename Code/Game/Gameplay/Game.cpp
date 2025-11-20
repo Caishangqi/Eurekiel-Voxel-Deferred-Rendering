@@ -11,6 +11,7 @@
 #include "Game/Framework/RenderPass/RenderComposite/CompositeRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderFinal/FinalRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderSky/SkyRenderPass.hpp"
+#include "Game/SceneTest/SceneUnitTest_SpriteAtlas.hpp"
 #include "Game/SceneTest/SceneUnitTest_StencilXRay.hpp"
 
 Game::Game()
@@ -29,7 +30,8 @@ Game::Game()
     m_player->m_position = Vec3(0, 0, 0);
 
     /// Scene (Test Only)
-    m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
+    //m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
+    m_scene = std::make_unique<SceneUnitTest_SpriteAtlas>();
 
     /// Render Passes (Production)
     m_skyRenderPass       = std::make_unique<SkyRenderPass>();
