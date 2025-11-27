@@ -1,6 +1,6 @@
 ﻿#include "Game.hpp"
 
-
+#include <memory>
 #include "Engine/Core/VertexUtils.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Input/InputSystem.hpp"
@@ -50,7 +50,7 @@ Game::Game()
     /// Register ImGUI
     g_theImGui->RegisterWindow("GameSetting", [this]()
     {
-        RenderImGui();
+        ImguiGameSettings::ShowWindow(&m_showGameSettings);
     });
 }
 
@@ -67,19 +67,28 @@ void Game::Update()
     m_timeOfDayManager->Update();
 
 #ifdef SCENE_TEST
-    if (m_scene) m_scene->Update();
+    UpdateScene();
 #endif
 }
 
 void Game::Render()
+{
+    // [STEP 1] Setup Camera (Player updates camera matrices)
+    m_player->Render();
+    if (!m_enableSceneTest) RenderWorld();
+
+#ifdef SCENE_TEST
+    RenderScene();
+#endif
+}
+
+void Game::RenderWorld()
 {
     // ========================================
     // [Task 19] Deferred Rendering Pipeline Integration
     // Render Order: Sky → Terrain → Cloud → Final (Skip Composite)
     // ========================================
 
-    // [STEP 1] Setup Camera (Player updates camera matrices)
-    m_player->Render();
 
     // [STEP 2] Sky Rendering (Must render FIRST, depth = 1.0)
     // Renders sky void gradient and sun/moon billboards to colortex0
@@ -87,9 +96,7 @@ void Game::Render()
 
     // [STEP 3] Terrain/Scene Rendering (Middle layer, normal depth)
     // Renders opaque geometry (blocks, entities) to colortex0
-#ifdef SCENE_TEST
-    if (m_scene) m_scene->Render();
-#endif
+
 
     // [STEP 4] Cloud Rendering (Must render AFTER terrain, alpha blending)
     // Renders translucent clouds to colortex0 with alpha blending
@@ -119,11 +126,14 @@ void Game::HandleESC()
 {
 }
 
-void Game::RenderImGui()
+void Game::UpdateScene()
 {
-    // [Task 18] Render ImGui Game Settings window
-    // This method is called from App::Render() after game rendering
-    // ImGuiSubsystem handles BeginFrame/EndFrame, we only need to render UI content
+    if (!m_enableSceneTest) return;
+    if (m_scene) m_scene->Update();
+}
 
-    ImguiGameSettings::ShowWindow(&m_showGameSettings);
+void Game::RenderScene()
+{
+    if (!m_enableSceneTest) return;
+    if (m_scene) m_scene->Render();
 }

@@ -23,7 +23,7 @@ void ImguiSceneRendering::Show()
     // ImguiSettingCloud::Show(cloudPass);
 
     // [MODULE 3] Sun & Moon Parameters
-    ShowSunMoonParameters();
+    ShowSunMoonParameters(); /// WRONG should be ImguiSettingSunMoon::Show()
 
     // [FUTURE] Add more rendering modules here
     // - Terrain Rendering

@@ -22,11 +22,14 @@ public:
 #pragma region LIFE_HOOK
     void Update();
     void Render();
-    void RenderImGui(); // [Task 18] ImGui rendering for game settings
 #pragma endregion LIFE_HOOT
 
 #pragma region SCENE
-    std::unique_ptr<SceneUnitTest> m_scene = nullptr;
+    std::unique_ptr<SceneUnitTest> m_scene           = nullptr;
+    bool                           m_enableSceneTest = true;
+
+    void UpdateScene();
+    void RenderScene();
 #pragma endregion
 
 #pragma region RENDER_PASSES
@@ -37,6 +40,8 @@ public:
 
     std::unique_ptr<SceneRenderPass> m_compositeRenderPass = nullptr;
     std::unique_ptr<SceneRenderPass> m_finalRenderPass     = nullptr;
+
+    void RenderWorld();
 #pragma endregion
 
 #pragma region GAME_OBJECT

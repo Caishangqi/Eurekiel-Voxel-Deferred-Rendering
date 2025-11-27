@@ -267,10 +267,6 @@ void App::Update()
 void App::Render() const
 {
     g_theGame->Render();
-
-    // [Task 18] Render ImGui UI (Game Settings window)
-    // ImGuiSubsystem handles BeginFrame/EndFrame in GEngine->BeginFrame/EndFrame
-    g_theGame->RenderImGui();
 }
 
 void App::EndFrame()
