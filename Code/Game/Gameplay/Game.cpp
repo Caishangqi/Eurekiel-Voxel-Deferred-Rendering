@@ -14,6 +14,10 @@
 #include "Game/SceneTest/SceneUnitTest_SpriteAtlas.hpp"
 #include "Game/SceneTest/SceneUnitTest_StencilXRay.hpp"
 
+// [Task 18] ImGui Integration
+#include "Engine/Core/ImGui/ImGuiSubsystem.hpp"
+#include "Game/Framework/Imgui/ImguiGameSettings.hpp"
+
 Game::Game()
 {
     /// Set the game state
@@ -24,6 +28,9 @@ Game::Game()
     /// Prepare clock;
     m_gameClock = std::make_unique<Clock>(Clock::GetSystemClock());
     m_gameClock->Unpause();
+
+    /// Prepare TimeOfDayManager
+    m_timeOfDayManager = std::make_unique<TimeOfDayManager>(m_gameClock.get());
 
     /// Prepare player
     m_player             = std::make_unique<PlayerCharacter>(this);
@@ -38,6 +45,13 @@ Game::Game()
     m_cloudRenderPass     = std::make_unique<CloudRenderPass>();
     m_compositeRenderPass = std::make_unique<CompositeRenderPass>();
     m_finalRenderPass     = std::make_unique<FinalRenderPass>();
+
+
+    /// Register ImGUI
+    g_theImGui->RegisterWindow("GameSetting", [this]()
+    {
+        RenderImGui();
+    });
 }
 
 Game::~Game()
@@ -50,6 +64,7 @@ void Game::Update()
     ProcessInputAction(m_gameClock->GetDeltaSeconds());
     /// Update Player locomotion
     m_player->Update(m_gameClock->GetDeltaSeconds());
+    m_timeOfDayManager->Update();
 
 #ifdef SCENE_TEST
     if (m_scene) m_scene->Update();
@@ -59,19 +74,31 @@ void Game::Update()
 void Game::Render()
 {
     // ========================================
-    // [SETUP] Camera and Render Targets
+    // [Task 19] Deferred Rendering Pipeline Integration
+    // Render Order: Sky → Terrain → Cloud → Final (Skip Composite)
     // ========================================
+
+    // [STEP 1] Setup Camera (Player updates camera matrices)
     m_player->Render();
+
+    // [STEP 2] Sky Rendering (Must render FIRST, depth = 1.0)
+    // Renders sky void gradient and sun/moon billboards to colortex0
+    m_skyRenderPass->Execute();
+
+    // [STEP 3] Terrain/Scene Rendering (Middle layer, normal depth)
+    // Renders opaque geometry (blocks, entities) to colortex0
 #ifdef SCENE_TEST
     if (m_scene) m_scene->Render();
 #endif
 
-    /// Geometry data collection
-    m_skyRenderPass->Execute();
+    // [STEP 4] Cloud Rendering (Must render AFTER terrain, alpha blending)
+    // Renders translucent clouds to colortex0 with alpha blending
     m_cloudRenderPass->Execute();
 
-    /// End of the Passes, Process Composite and Present
-    m_compositeRenderPass->Execute();
+    // [STEP 5] Final Pass (Skip Composite, RT Flipper not tested yet)
+    // Samples colortex0 and outputs to backbuffer
+    // TODO: Implement Composite Pass when RT Flipper mechanism is tested
+    // m_compositeRenderPass->Execute(); // [DISABLED] RT Flipper未测试
     m_finalRenderPass->Execute();
 }
 
@@ -80,8 +107,23 @@ void Game::ProcessInputAction(float deltaSeconds)
     UNUSED(deltaSeconds)
     if (g_theInput->WasKeyJustPressed(KEYCODE_ESC)) g_theApp->m_isQuitting = true;
     if (g_theInput->WasKeyJustPressed(KEYCODE_TILDE)) g_theInput->GetCursorMode() == CursorMode::POINTER ? g_theInput->SetCursorMode(CursorMode::FPS) : g_theInput->SetCursorMode(CursorMode::POINTER);
+
+    // [Task 18] F1 key toggles ImGui Game Settings window
+    if (g_theInput->WasKeyJustPressed(KEYCODE_F1))
+    {
+        m_showGameSettings = !m_showGameSettings;
+    }
 }
 
 void Game::HandleESC()
 {
+}
+
+void Game::RenderImGui()
+{
+    // [Task 18] Render ImGui Game Settings window
+    // This method is called from App::Render() after game rendering
+    // ImGuiSubsystem handles BeginFrame/EndFrame, we only need to render UI content
+
+    ImguiGameSettings::ShowWindow(&m_showGameSettings);
 }

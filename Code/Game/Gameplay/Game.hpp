@@ -4,6 +4,7 @@
 #include "Engine/Core/Clock.hpp"
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
+#include "Game/Framework/Time/TimeOfDayManager.hpp"
 #include "Game/SceneTest/SceneUnitTest.hpp"
 
 namespace enigma::graphic
@@ -21,6 +22,7 @@ public:
 #pragma region LIFE_HOOK
     void Update();
     void Render();
+    void RenderImGui(); // [Task 18] ImGui rendering for game settings
 #pragma endregion LIFE_HOOT
 
 #pragma region SCENE
@@ -48,5 +50,15 @@ private:
 #pragma endregion
 #pragma region GAME_CLOCK
     std::unique_ptr<Clock> m_gameClock = nullptr;
+#pragma endregion
+#pragma region TIME_OF_DAY
+
+public:
+    std::unique_ptr<TimeOfDayManager> m_timeOfDayManager = nullptr;
+#pragma endregion
+#pragma region IMGUI_SETTINGS
+
+private:
+    bool m_showGameSettings = false; // [Task 18] Toggle for ImGui Game Settings window (F1 key)
 #pragma endregion
 };

@@ -218,100 +218,49 @@
         </ProjectReference>
     </ItemGroup>
     <ItemGroup>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\final.ps.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\final.vs.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_clouds.ps.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_clouds.vs.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_skybasic.ps.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_skybasic.vs.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_skytextured.ps.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_skytextured.vs.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\composite.ps.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\composite.vs.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\include\celestial_uniforms.hlsl"/>
+        <ClCompile Include="Framework\Imgui\ImguiGameLogic.cpp"/>
+        <ClCompile Include="Framework\Imgui\ImguiGameSettings.cpp"/>
+        <ClCompile Include="Framework\Imgui\ImguiSceneRendering.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudGeometryBuilder.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudRenderPass.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderCloud\ImguiSettingCloud.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderComposite\CompositeRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderFinal\FinalRenderPass.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderSky\ImguiSettingSky.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderSky\SkyGeometryHelper.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderSky\SkyRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\SceneRenderPass.cpp"/>
+        <ClCompile Include="Framework\Time\ImguiSettingTime.cpp"/>
+        <ClCompile Include="Framework\Time\TimeOfDayManager.cpp"/>
         <ClCompile Include="SceneTest\SceneUnitTest.cpp"/>
-        <ClCompile Include="SceneTest\SceneUnitTest_SpriteAtlas.cpp">
-            <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-            <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-            <Optimization>Disabled</Optimization>
-            <SupportJustMyCode>true</SupportJustMyCode>
-            <AssemblerOutput>NoListing</AssemblerOutput>
-            <AssemblerListingLocation>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</AssemblerListingLocation>
-            <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-            <BrowseInformation>false</BrowseInformation>
-            <BrowseInformationFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</BrowseInformationFile>
-            <CompileAs>Default</CompileAs>
-            <UseDynamicDebugging>false</UseDynamicDebugging>
-            <ConformanceMode>true</ConformanceMode>
-            <DiagnosticsFormat>Column</DiagnosticsFormat>
-            <DisableLanguageExtensions>false</DisableLanguageExtensions>
-            <ErrorReporting>Prompt</ErrorReporting>
-            <ExpandAttributedSource>false</ExpandAttributedSource>
-            <ExceptionHandling>Sync</ExceptionHandling>
-            <EnableASAN>false</EnableASAN>
-            <EnableFuzzer>false</EnableFuzzer>
-            <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-            <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
-            <EnableVectorLength>NotSet</EnableVectorLength>
-            <FloatingPointModel>Precise</FloatingPointModel>
-            <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-            <GenerateModuleDependencies>false</GenerateModuleDependencies>
-            <GenerateSourceDependencies>false</GenerateSourceDependencies>
-            <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-            <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-            <IntrinsicFunctions>false</IntrinsicFunctions>
-            <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-            <LanguageStandard>stdcpp17</LanguageStandard>
-            <LanguageStandard_C>Default</LanguageStandard_C>
-            <MinimalRebuild>false</MinimalRebuild>
-            <ModuleDependenciesFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</ModuleDependenciesFile>
-            <ModuleOutputFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</ModuleOutputFile>
-            <OmitDefaultLibName>false</OmitDefaultLibName>
-            <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-            <WholeProgramOptimization>false</WholeProgramOptimization>
-            <ObjectFileName>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</ObjectFileName>
-            <CallingConvention>Cdecl</CallingConvention>
-            <ProgramDataBaseFileName>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\vc143.pdb</ProgramDataBaseFileName>
-            <PrecompiledHeader>NotUsing</PrecompiledHeader>
-            <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
-            <PrecompiledHeaderOutputFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\FGSPDX12DRECPS_Debug_x64.pch</PrecompiledHeaderOutputFile>
-            <PreprocessToFile>false</PreprocessToFile>
-            <PreprocessKeepComments>false</PreprocessKeepComments>
-            <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-            <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-            <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-            <ShowIncludes>false</ShowIncludes>
-            <SourceDependenciesFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</SourceDependenciesFile>
-            <SuppressStartupBanner>true</SuppressStartupBanner>
-            <BufferSecurityCheck>true</BufferSecurityCheck>
-            <SmallerTypeCheck>false</SmallerTypeCheck>
-            <SpectreMitigation>false</SpectreMitigation>
-            <StructMemberAlignment>Default</StructMemberAlignment>
-            <TrackerLogDirectory>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\FGSPDX12DRECPS.tlog\</TrackerLogDirectory>
-            <TranslateIncludes>false</TranslateIncludes>
-            <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-            <TreatWarningAsError>false</TreatWarningAsError>
-            <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-            <UseFullPaths>true</UseFullPaths>
-            <WarningLevel>Level4</WarningLevel>
-            <XMLDocumentationFileName>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</XMLDocumentationFileName>
-            <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-            <IntelJCCErratum>false</IntelJCCErratum>
-            <BuildStlModules>false</BuildStlModules>
-            <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-            <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-            <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-            <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-            <PreprocessorDefinitions>_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
-            <SDLCheck>true</SDLCheck>
-            <AdditionalIncludeDirectories>F:\p4\Personal\SD\Thesis\Code/;F:\p4\Personal\SD\Thesis\../Engine/Code/</AdditionalIncludeDirectories>
-            <MultiProcessorCompilation>true</MultiProcessorCompilation>
-            <LinkCompiled>true</LinkCompiled>
-        </ClCompile>
+        <ClCompile Include="SceneTest\SceneUnitTest_SpriteAtlas.cpp"/>
         <ClCompile Include="SceneTest\SceneUnitTest_StencilXRay.cpp"/>
+        <ClInclude Include="Framework\Imgui\ImguiGameLogic.hpp"/>
+        <ClInclude Include="Framework\Imgui\ImguiGameSettings.hpp"/>
+        <ClInclude Include="Framework\Imgui\ImguiSceneRendering.hpp"/>
+        <ClInclude Include="Framework\RenderPass\ConstantBuffer\CelestialConstantBuffer.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderCloud\CloudGeometryBuilder.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderCloud\CloudRenderPass.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderCloud\ImguiSettingCloud.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderComposite\CompositeRenderPass.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderFinal\FinalRenderPass.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderSky\ImguiSettingSky.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderSky\SkyGeometryHelper.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderSky\SkyRenderPass.hpp"/>
         <ClInclude Include="Framework\RenderPass\SceneRenderPass.hpp"/>
+        <ClInclude Include="Framework\Time\ImguiSettingTime.hpp"/>
+        <ClInclude Include="Framework\Time\TimeOfDayManager.hpp"/>
         <ClInclude Include="SceneTest\SceneRenderContextProvider.hpp"/>
         <ClInclude Include="SceneTest\SceneUnitTest.hpp"/>
         <ClInclude Include="SceneTest\SceneUnitTest_SpriteAtlas.hpp"/>
@@ -617,7 +566,6 @@
         <Content Include="..\..\Run\.enigma\logs\latest.log"/>
     </ItemGroup>
     <ItemGroup>
-        <Folder Include="..\..\Run\.enigma\assets\engine\shaders\include\"/>
         <Folder Include="..\..\Run\.enigma\assets\engine\shaders\post\"/>
         <Folder Include="..\..\Run\.enigma\shaderpacks\CaiziiDefault\shaders\world0\"/>
         <Folder Include="..\..\Run\.enigma\shaderpacks\CaiziiDefault\shaders\world1\"/>

@@ -2,9 +2,6 @@
 #include "Engine/Core/Vertex_PCU.hpp"
 #include <vector>
 
-#include "Engine/Graphic/Core/EnigmaGraphicCommon.hpp"
-
-class AABB2;
 //-----------------------------------------------------------------------------------------------
 /**
  * @brief Static helper class for generating sky geometry (Minecraft vanilla style)
@@ -22,8 +19,8 @@ class SkyGeometryHelper
 {
 public:
     // [REMOVED] Static-only class - no instantiation allowed
-    SkyGeometryHelper()                                    = delete;
-    SkyGeometryHelper(const SkyGeometryHelper&)            = delete;
+    SkyGeometryHelper() = delete;
+    SkyGeometryHelper(const SkyGeometryHelper&) = delete;
     SkyGeometryHelper& operator=(const SkyGeometryHelper&) = delete;
 
     //-----------------------------------------------------------------------------------------------
@@ -45,27 +42,4 @@ public:
      * @note Reference: Minecraft LevelRenderer.java:571-582 buildSkyDisc()
      */
     static std::vector<Vertex> GenerateSkyDisc(float centerZ, const Rgba8& color = Rgba8::WHITE);
-
-    /**
-     * @brief Generate a celestial billboard mesh (sun/moon) with CPU-calculated UV
-     * 
-     * Creates a 6-vertex quad (2 triangles) for rendering sun or moon as a billboard.
-     * Billboard vertices are generated with offset positions that will be transformed
-     * by the vertex shader to face the camera.
-     * 
-     * @param celestialType 0.0f for Sun, 1.0f for Moon (passed to vertex shader)
-     * @param uvBounds UV bounds from SpriteAtlas::GetSprite(index).GetUVBounds()
-     * @param color Vertex color (default: white)
-     * @return std::vector<Vertex> Vertex array ready for TRIANGLE_LIST rendering (6 vertices)
-     * 
-     * @note Vertex count: 6 (2 triangles forming a quad)
-     * @note UV calculation: CPU-side using SpriteAtlas (follows design.md line 156)
-     * @note Position.xy: Billboard offset (-0.5 to 0.5)
-     * @note Position.z: Celestial type (0 = Sun, 1 = Moon)
-     */
-    static std::vector<Vertex> GenerateCelestialBillboard(
-        float        celestialType,
-        const AABB2& uvBounds,
-        const Rgba8& color = Rgba8::WHITE
-    );
 };
