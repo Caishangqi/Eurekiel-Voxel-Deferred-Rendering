@@ -1,0 +1,12 @@
+{
+  "parent": "block/cube",
+  "textures": {
+    "particle": "simpleminer:block/stone",
+    "down": "simpleminer:block/stone",
+    "up": "simpleminer:block/stone",
+    "north": "simpleminer:block/stone",
+    "east": "simpleminer:block/stone",
+    "south": "simpleminer:block/stone",
+    "west": "simpleminer:block/stone"
+  }
+}

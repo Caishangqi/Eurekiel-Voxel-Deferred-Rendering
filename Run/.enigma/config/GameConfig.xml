@@ -1,0 +1,7 @@
+<GameConfig
+        screenSizeX="1600"
+        screenSizeY="800"
+        worldSizeX="200"
+        worldSizeY="100"
+        debugDrawLineThickness="0.03"
+/>

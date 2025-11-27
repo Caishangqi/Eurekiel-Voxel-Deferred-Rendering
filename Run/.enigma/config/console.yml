@@ -1,0 +1,31 @@
+console:
+  enabled: true
+  
+  # Output mode for development vs runtime
+  # "auto" = Debug+Debugger->IDE, Release->External (RECOMMENDED)
+  # "ide_only" = Only IDE Console, "external_only" = Only External, "both" = Both
+  output_mode: "external_only"
+  
+  # Key mappings:
+  # ~ = Toggle DevConsole (rendered in-game)
+  # \ = Show External Console window (bring to front)
+  
+  external_console:
+    enabled: true
+    ansi_colors: true
+    startup_visible: true
+    window:
+      title: "Eurekiel Engine Console"
+      width: 120
+      height: 30
+    input:
+      capture_when_focused: true
+      toggle_key: true
+    history:
+      max_commands: 1000
+      save_to_file: true
+      file_path: ".enigma/logs/console_history.log"
+    windows:
+      allocate_new_console: true
+      enable_vt_processing: true
+      close_app_on_console_close: true

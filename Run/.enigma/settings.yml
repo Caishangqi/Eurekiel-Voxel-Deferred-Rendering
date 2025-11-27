@@ -1,0 +1,24 @@
+general:
+  appName: "SimpleMiner"
+  version: "0.1.0"
+video:
+  windowMode: "windowed"  # windowed, fullscreen, borderlessFullscreen
+  resolution:
+    width: 1600
+    height: 800
+  aspectRatio: 2  # 16:9
+  targetFPS: 60
+  vsync: true
+  renderDistance: 24  # unit chunk
+  simulationDistance: 24 # unit chunk
+performance:
+  chunkUpdateThreads: 6 # default to max 32
+  alwaysDeferChunkUpdate: true
+  useBlockFaceCulling: true
+  useCompactVertexFormat: true
+  useFogOcclusion: true
+  useEntityCulling: true
+audio:
+  masterVolume: 1.0
+  sfxVolume: 0.8
+  musicVolume: 0.6
