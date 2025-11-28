@@ -17,6 +17,7 @@
 // [Task 18] ImGui Integration
 #include "Engine/Core/ImGui/ImGuiSubsystem.hpp"
 #include "Game/Framework/Imgui/ImguiGameSettings.hpp"
+#include "Game/SceneTest/SceneUnitTest_CustomConstantBuffer.hpp"
 
 Game::Game()
 {
@@ -38,7 +39,7 @@ Game::Game()
 
     /// Scene (Test Only)
     //m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
-    m_scene = std::make_unique<SceneUnitTest_SpriteAtlas>();
+    m_scene = std::make_unique<SceneUnitTest_CustomConstantBuffer>();
 
     /// Render Passes (Production)
     m_skyRenderPass       = std::make_unique<SkyRenderPass>();

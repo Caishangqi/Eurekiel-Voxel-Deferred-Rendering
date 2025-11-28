@@ -229,6 +229,8 @@
         <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\composite.ps.hlsl"/>
         <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\composite.vs.hlsl"/>
         <Content Include="..\..\Run\.enigma\assets\engine\shaders\include\celestial_uniforms.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\develop\gbuffers_test_custom_buffer.ps.hlsl"/>
+        <Content Include="..\..\Run\.enigma\assets\engine\shaders\develop\gbuffers_test_custom_buffer.vs.hlsl"/>
         <ClCompile Include="Framework\Imgui\ImguiGameLogic.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiGameSettings.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiSceneRendering.cpp"/>
@@ -244,6 +246,7 @@
         <ClCompile Include="Framework\Time\ImguiSettingTime.cpp"/>
         <ClCompile Include="Framework\Time\TimeOfDayManager.cpp"/>
         <ClCompile Include="SceneTest\SceneUnitTest.cpp"/>
+        <ClCompile Include="SceneTest\SceneUnitTest_CustomConstantBuffer.cpp"/>
         <ClCompile Include="SceneTest\SceneUnitTest_SpriteAtlas.cpp"/>
         <ClCompile Include="SceneTest\SceneUnitTest_StencilXRay.cpp"/>
         <ClInclude Include="Framework\Imgui\ImguiGameLogic.hpp"/>
@@ -263,6 +266,7 @@
         <ClInclude Include="Framework\Time\TimeOfDayManager.hpp"/>
         <ClInclude Include="SceneTest\SceneRenderContextProvider.hpp"/>
         <ClInclude Include="SceneTest\SceneUnitTest.hpp"/>
+        <ClInclude Include="SceneTest\SceneUnitTest_CustomConstantBuffer.hpp"/>
         <ClInclude Include="SceneTest\SceneUnitTest_SpriteAtlas.hpp"/>
         <ClInclude Include="SceneTest\SceneUnitTest_StencilXRay.hpp"/>
         <Content Include="..\..\Run\.enigma\assets\engine\shaders\program\gbuffers_basic.ps.hlsl"/>
