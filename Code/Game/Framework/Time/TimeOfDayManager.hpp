@@ -3,6 +3,7 @@
 // Forward declaration
 class Clock;
 struct Vec3;
+struct Mat44;
 
 /**
  * TimeOfDayManager - Minecraft style 24000 tick day and night cycle system
@@ -32,12 +33,21 @@ public:
     float GetCompensatedCelestialAngle() const;
     float GetCloudTime() const;
 
-    // [FIX P1] Calculate celestial body positions (moved from SkyRenderPass)
-    // These methods follow Iris CelestialUniforms.java:108-122 for position calculation
-    Vec3 CalculateSunPosition() const;
-    Vec3 CalculateMoonPosition() const;
+    // [FIX P1] Calculate celestial body direction vectors (moved from SkyRenderPass)
+    // These methods follow Iris CelestialUniforms.java:119-133 for position calculation
+    // Returns VIEW SPACE DIRECTION VECTOR (w=0), not position!
+    // The vector points toward the celestial body, ignoring camera translation.
+    // @param gbufferModelView The World->Camera transform matrix (from BeginCamera)
+    Vec3 CalculateSunPosition(const Mat44& gbufferModelView) const;
+    Vec3 CalculateMoonPosition(const Mat44& gbufferModelView) const;
 
 private:
+    // Internal helper: Calculate celestial direction vector in view space
+    // @param y Initial direction magnitude (100 for sun, -100 for moon)
+    // @param gbufferModelView The World->Camera transform matrix
+    // @return View space direction vector (w=0), length ~100 units
+    Vec3 CalculateCelestialPosition(float y, const Mat44& gbufferModelView) const;
+
     // Constants
     static constexpr float SECONDS_PER_TICK       = 0.05f; // 20 ticks per second
     static constexpr int   TICKS_PER_DAY          = 24000; // Full day-night cycle

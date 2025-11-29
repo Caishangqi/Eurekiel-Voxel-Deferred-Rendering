@@ -8,6 +8,7 @@
 #include "ThirdParty/imgui/imgui.h"
 #include "Engine/Math/Vec3.hpp"
 #include "Engine/Math/Mat44.hpp"
+#include <cmath> // std::sin, std::cos
 
 TimeOfDayManager::TimeOfDayManager(Clock* gameClock)
     : m_clock(gameClock)
@@ -80,69 +81,73 @@ float TimeOfDayManager::GetCloudTime() const
 }
 
 // =============================================================================
-// [FIX P1] Sun/Moon Position Calculation (moved from SkyRenderPass)
+// [FIX] Sun/Moon Direction Vector Calculation - VIEW SPACE
 // =============================================================================
-// Reference: Iris CelestialUniforms.java:108-122
-// 
-// Iris Implementation:
-//   celestial.rotate(Axis.YP.rotationDegrees(-90.0F));  // Y-axis rotation
-//   celestial.rotate(Axis.ZP.rotationDegrees(sunPathRotation));  // Z-axis rotation (sunPathRotation = 0 for now)
-//   celestial.rotate(Axis.XP.rotationDegrees(getSkyAngle() * 360.0F));  // X-axis rotation
-//   position = celestial.transform(position);
+// Reference: Iris CelestialUniforms.java:119-133 getCelestialPosition()
 //
-// Matrix Transformation Order (right-to-left):
-//   1. Start with position (0, y, 0) where y = 100 for sun, y = -100 for moon
-//   2. Apply X-axis rotation (celestial angle * 360 degrees)
-//   3. Apply Z-axis rotation (sunPathRotation, currently 0)
-//   4. Apply Y-axis rotation (-90 degrees)
+// Key Implementation: Returns VIEW SPACE DIRECTION VECTOR (w=0), not position.
+// Uses TransformVectorQuantity3D to ignore camera translation, ensuring
+// celestial bodies maintain correct orientation regardless of player movement.
+//
+// Algorithm:
+// 1. Start with initial direction (0, 0, y) where y=100 for sun, y=-100 for moon
+// 2. Apply Y-axis rotation (celestialAngle * 360 degrees) for day/night cycle
+// 3. Transform as direction vector (w=0) through gbufferModelView
+// 4. Result: View space direction pointing toward celestial body
 // =============================================================================
 
-Vec3 TimeOfDayManager::CalculateSunPosition() const
+Vec3 TimeOfDayManager::CalculateCelestialPosition(float y, const Mat44& gbufferModelView) const
 {
-    // [Step 1] Initial position: (0, 100, 0) - Sun at +Y axis
-    Vec3 position(0.0f, 100.0f, 0.0f);
+    // ==========================================================================
+    // Coordinate System Adaptation: Iris (Y-up) -> Engine (Z-up)
+    // ==========================================================================
+    // Iris/Minecraft: Y-up, Z-forward (OpenGL style)
+    // Our Engine: Z-up, X-forward
+    //
+    // Iris sun path: rotates around X-axis (east-west), Y is up
+    // Our sun path: rotates around Y-axis (left-right), Z is up
+    //
+    // Mapping: Iris Y -> Engine Z, Iris X -> Engine Y, Iris Z -> Engine X
+    // ==========================================================================
 
-    // [Step 2] Get celestial angle (0.0-1.0) and convert to degrees
+    // [Step 1] Initial direction - start pointing UP (+Z in our engine)
+    // In Iris this would be (0, y, 0) pointing up along Y
+    // In our engine, up is Z, so we use (0, 0, y)
+    Vec3 direction(0.0f, 0.0f, y);
+
+    // [Step 2] Get sky angle for rotation
     float celestialAngle = GetCelestialAngle();
     float angleDegrees   = celestialAngle * 360.0f;
 
-    // [Step 3] Apply rotations (Iris order: X -> Z -> Y)
-    // X-axis rotation (celestial angle)
-    Mat44 rotX = Mat44::MakeXRotationDegrees(angleDegrees);
-    position   = rotX.TransformPosition3D(position);
+    // [Step 3] Build transformation matrix
+    // In our Z-up coordinate system:
+    // - Sun rises in East (-Y), peaks at Zenith (+Z), sets in West (+Y)
+    // - This requires rotation around Y-axis (left-right axis)
+    Mat44 celestial = gbufferModelView;
 
-    // Z-axis rotation (sunPathRotation = 0, skip for now)
-    // Mat44 rotZ = Mat44::CreateZRotationDegrees(0.0f);
-    // position = rotZ.TransformPosition3D(position);
+    // Apply Y rotation for celestial angle (sun path rotation)
+    // This rotates the sun from +Z (up) around the Y-axis
+    Mat44 rotY = Mat44::MakeYRotationDegrees(angleDegrees);
+    celestial.Append(rotY);
 
-    // Y-axis rotation (-90 degrees)
-    Mat44 rotY = Mat44::MakeYRotationDegrees(-90.0f);
-    position   = rotY.TransformPosition3D(position);
+    // [Step 4] Transform as DIRECTION VECTOR (w=0), not position!
+    // This ignores the translation component of gbufferModelView
+    // Result is a VIEW SPACE direction pointing toward the celestial body
+    direction = celestial.TransformVectorQuantity3D(direction);
 
-    return position;
+    return direction;
 }
 
-Vec3 TimeOfDayManager::CalculateMoonPosition() const
+Vec3 TimeOfDayManager::CalculateSunPosition(const Mat44& gbufferModelView) const
 {
-    // [Step 1] Initial position: (0, -100, 0) - Moon at -Y axis (opposite of sun)
-    Vec3 position(0.0f, -100.0f, 0.0f);
+    // Sun direction: initial magnitude +100 (pointing upward in local space)
+    // Transformed to view space direction vector (w=0)
+    return CalculateCelestialPosition(100.0f, gbufferModelView);
+}
 
-    // [Step 2] Get celestial angle (0.0-1.0) and convert to degrees
-    float celestialAngle = GetCelestialAngle();
-    float angleDegrees   = celestialAngle * 360.0f;
-
-    // [Step 3] Apply rotations (Iris order: X -> Z -> Y)
-    // X-axis rotation (celestial angle)
-    Mat44 rotX = Mat44::MakeXRotationDegrees(angleDegrees);
-    position   = rotX.TransformPosition3D(position);
-
-    // Z-axis rotation (sunPathRotation = 0, skip for now)
-    // Mat44 rotZ = Mat44::CreateZRotationDegrees(0.0f);
-    // position = rotZ.TransformPosition3D(position);
-
-    // Y-axis rotation (-90 degrees)
-    Mat44 rotY = Mat44::MakeYRotationDegrees(-90.0f);
-    position   = rotY.TransformPosition3D(position);
-
-    return position;
+Vec3 TimeOfDayManager::CalculateMoonPosition(const Mat44& gbufferModelView) const
+{
+    // Moon direction: initial magnitude -100 (opposite to sun in local space)
+    // Transformed to view space direction vector (w=0)
+    return CalculateCelestialPosition(-100.0f, gbufferModelView);
 }
