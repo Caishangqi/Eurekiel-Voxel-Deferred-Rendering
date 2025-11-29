@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include <memory>
+#include <vector>
 
+#include "Engine/Graphic/Core/EnigmaGraphicCommon.hpp"
 #include "Engine/Math/Vec3.hpp"
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
 
@@ -46,6 +48,7 @@ private:
 
     // [Component 5.1] Sky disc VertexBuffer (cached)
     std::shared_ptr<enigma::graphic::D12VertexBuffer> m_skyDiscVB = nullptr;
+    std::vector<Vertex>                               m_skyDiscVertices;
 
     // [Component 6.4] Sky Rendering Parameters
     bool m_enableVoidGradient = true; // Void gradient toggle

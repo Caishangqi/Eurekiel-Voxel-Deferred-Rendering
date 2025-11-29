@@ -2,6 +2,7 @@
 #include "SkyGeometryHelper.hpp"
 #include "Engine/Graphic/Resource/Buffer/D12VertexBuffer.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
+#include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
 #include "Game/GameCommon.hpp"
 #include "Engine/Graphic/Sprite/SpriteAtlas.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
@@ -39,9 +40,9 @@ SkyRenderPass::SkyRenderPass()
     m_moonPhasesAtlas->BuildFromGrid(".enigma/assets/engine/textures/environment/moon_phases.png", IntVec2(4, 2));
 
     // [Component 5.1] Generate and cache sky disc VertexBuffer
-    std::vector<Vertex> skyDiscVertices = SkyGeometryHelper::GenerateSkyDisc(16.0f);
-    size_t              vertexDataSize  = skyDiscVertices.size() * sizeof(Vertex);
-    m_skyDiscVB.reset(g_theRendererSubsystem->CreateVertexBuffer(vertexDataSize, sizeof(Vertex)));
+    m_skyDiscVertices = SkyGeometryHelper::GenerateSkyDisc(16.0f);
+    //size_t vertexDataSize = m_skyDiscVertices.size() * sizeof(Vertex);
+    //m_skyDiscVB.reset(g_theRendererSubsystem->CreateVertexBuffer(vertexDataSize, sizeof(Vertex)));
 
     // [Component 2] Register CelestialConstantBuffer to slot 15 (PerFrame update)
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CelestialConstantBuffer>(
@@ -74,7 +75,8 @@ void SkyRenderPass::Execute()
 
     // [Component 5.1] Draw sky disc (16 segments)
     size_t vertexCount = 10; // [FIX P0] TRIANGLE_FAN: 1 center + 9 perimeter vertices
-    g_theRendererSubsystem->DrawVertexBuffer(m_skyDiscVB, vertexCount); // [FIX P0] Match GenerateSkyDisc() output
+    UNUSED(vertexCount);
+    g_theRendererSubsystem->DrawVertexArray(m_skyDiscVertices); // [FIX P0] Match GenerateSkyDisc() output
 
     // ==================== [Component 2] Draw Sky Textured (Sun/Moon) ====================
     g_theRendererSubsystem->UseProgram(m_skyTexturedShader, rtOutputs, depthTexIndex);
@@ -94,7 +96,7 @@ void SkyRenderPass::Execute()
         g_theRendererSubsystem->SetCustomImage(0, m_sunAtlas->GetSprite(0).GetTexture().get());
 
         // Draw sun billboard (2 triangles = 6 vertices)
-        g_theRendererSubsystem->DrawVertexArray(sunVertices.data(), static_cast<int>(sunVertices.size()));
+        g_theRendererSubsystem->DrawVertexArray(sunVertices);
     }
 
     // [Component 2] Draw Moon Billboard
@@ -116,7 +118,7 @@ void SkyRenderPass::Execute()
         g_theRendererSubsystem->SetCustomImage(0, m_moonPhasesAtlas->GetSprite(moonPhase).GetTexture().get());
 
         // Draw moon billboard (2 triangles = 6 vertices)
-        g_theRendererSubsystem->DrawVertexArray(moonVertices.data(), static_cast<int>(moonVertices.size()));
+        g_theRendererSubsystem->DrawVertexArray(moonVertices);
     }
 
     EndPass();
@@ -124,13 +126,7 @@ void SkyRenderPass::Execute()
 
 void SkyRenderPass::BeginPass()
 {
-    // ==================== [Component 2] Bind colortex0 as RenderTarget ====================
-    std::vector<RTType> rtTypes    = {RTType::ColorTex};
-    std::vector<int>    rtIndices  = {0};
-    RTType              depthType  = RTType::DepthTex;
-    uint32_t            depthIndex = 0;
-    g_theRendererSubsystem->BindRenderTargets(rtTypes, rtIndices, depthType, depthIndex);
-
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(PerObjectUniforms());
     // ==================== [Component 2] Set Depth State to ALWAYS (depth value 1.0) ====================
     // WHY: Sky is rendered at maximum depth (1.0) to ensure it's always behind all geometry
     // Depth test ALWAYS ensures all sky pixels pass depth test regardless of depth buffer content
@@ -151,6 +147,3 @@ void SkyRenderPass::EndPass()
     // [CLEANUP] Reset blend mode to opaque
     g_theRendererSubsystem->SetBlendMode(BlendMode::Opaque);
 }
-
-// [REMOVED] CalculateSunPosition() and CalculateMoonPosition() moved to TimeOfDayManager (P1 fix)
-// Now call g_theGame->m_timeOfDayManager->CalculateSunPosition/MoonPosition() instead
