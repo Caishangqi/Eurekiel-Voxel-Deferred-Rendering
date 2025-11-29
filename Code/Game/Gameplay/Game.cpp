@@ -120,7 +120,7 @@ void Game::RenderWorld()
 
     // [STEP 4] Cloud Rendering (Must render AFTER terrain, alpha blending)
     // Renders translucent clouds to colortex0 with alpha blending
-    m_cloudRenderPass->Execute();
+    //m_cloudRenderPass->Execute();
 
     // [STEP 5] Final Pass (Skip Composite, RT Flipper not tested yet)
     // Samples colortex0 and outputs to backbuffer
