@@ -24,12 +24,6 @@ SceneUnitTest_CustomConstantBuffer::SceneUnitTest_CustomConstantBuffer()
         shaderCompileOptions
     );
 
-    tex_testUV = g_theRendererSubsystem->CreateTexture2D(
-        ".enigma/assets/engine/textures/test/TestUV.png",
-        TextureUsage::ShaderResource,
-        "TestUV"
-    );
-
     tex_testCaizii = g_theRendererSubsystem->CreateTexture2D(
         ".enigma/assets/engine/textures/test/Caizii.png",
         TextureUsage::ShaderResource,
