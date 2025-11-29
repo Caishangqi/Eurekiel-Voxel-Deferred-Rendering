@@ -50,12 +50,12 @@ struct CelestialConstantBuffer
     float             cloudTime; // 云时间 (tick * 0.03)，用于云动画
     float             _padding1; // 填充到 16 字节
 
-    // ==================== 太阳位置（16 字节） ====================
-    alignas(16) Vec3 sunPosition; // 太阳位置（世界坐标）
+    // ==================== 太阳方向向量（16 字节） ====================
+    alignas(16) Vec3 sunPosition; // 太阳方向向量（视图空间，w=0），长度约100单位
     float            _padding2; // 填充到 16 字节
 
-    // ==================== 月亮位置（16 字节） ====================
-    alignas(16) Vec3 moonPosition; // 月亮位置（世界坐标）
+    // ==================== 月亮方向向量（16 字节） ====================
+    alignas(16) Vec3 moonPosition; // 月亮方向向量（视图空间，w=0），长度约100单位
     float            _padding3; // 填充到 16 字节
 };
 
