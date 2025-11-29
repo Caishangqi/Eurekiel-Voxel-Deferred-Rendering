@@ -26,7 +26,7 @@ public:
 
 #pragma region SCENE
     std::unique_ptr<SceneUnitTest> m_scene           = nullptr;
-    bool                           m_enableSceneTest = true;
+    bool                           m_enableSceneTest = false;
 
     void UpdateScene();
     void RenderScene();
@@ -41,7 +41,10 @@ public:
     std::unique_ptr<SceneRenderPass> m_compositeRenderPass = nullptr;
     std::unique_ptr<SceneRenderPass> m_finalRenderPass     = nullptr;
 
+    std::unique_ptr<SceneRenderPass> m_debugRenderPass = nullptr;
+
     void RenderWorld();
+    void RenderDebug();
 #pragma endregion
 
 #pragma region GAME_OBJECT

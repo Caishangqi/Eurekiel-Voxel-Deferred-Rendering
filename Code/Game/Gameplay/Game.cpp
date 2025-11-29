@@ -17,6 +17,8 @@
 // [Task 18] ImGui Integration
 #include "Engine/Core/ImGui/ImGuiSubsystem.hpp"
 #include "Game/Framework/Imgui/ImguiGameSettings.hpp"
+#include "Game/Framework/Imgui/ImguiLeftDebugOverlay.hpp"
+#include "Game/Framework/RenderPass/RenderDebug/DebugRenderPass.hpp"
 #include "Game/SceneTest/SceneUnitTest_CustomConstantBuffer.hpp"
 
 Game::Game()
@@ -47,11 +49,19 @@ Game::Game()
     m_compositeRenderPass = std::make_unique<CompositeRenderPass>();
     m_finalRenderPass     = std::make_unique<FinalRenderPass>();
 
+    /// Render Passes (Debug)
+    m_debugRenderPass = std::make_unique<DebugRenderPass>();
+
 
     /// Register ImGUI
     g_theImGui->RegisterWindow("GameSetting", [this]()
     {
         ImguiGameSettings::ShowWindow(&m_showGameSettings);
+    });
+
+    g_theImGui->RegisterWindow("DebugOverlay", [this]()
+    {
+        ImguiLeftDebugOverlay::ShowWindow(&m_showGameSettings);
     });
 }
 
@@ -76,7 +86,16 @@ void Game::Render()
 {
     // [STEP 1] Setup Camera (Player updates camera matrices)
     m_player->Render();
-    if (!m_enableSceneTest) RenderWorld();
+    if (!m_enableSceneTest)
+    {
+        RenderWorld();
+        RenderDebug();
+
+        /// Curretly presnet in here but later will move to Final Shader program's execute phases.
+        /// TODO: Move it to Final Shader Program.
+        g_theRendererSubsystem->PresentRenderTarget(0, RTType::ColorTex);
+    }
+
 
 #ifdef SCENE_TEST
     RenderScene();
@@ -108,6 +127,11 @@ void Game::RenderWorld()
     // TODO: Implement Composite Pass when RT Flipper mechanism is tested
     // m_compositeRenderPass->Execute(); // [DISABLED] RT Flipper未测试
     m_finalRenderPass->Execute();
+}
+
+void Game::RenderDebug()
+{
+    m_debugRenderPass->Execute();
 }
 
 void Game::ProcessInputAction(float deltaSeconds)
