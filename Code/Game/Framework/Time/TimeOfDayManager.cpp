@@ -27,7 +27,7 @@ void TimeOfDayManager::Update()
     if (!m_clock) return;
 
     float deltaSeconds = m_clock->GetDeltaSeconds();
-    m_accumulatedTime  += deltaSeconds;
+    m_accumulatedTime  += deltaSeconds * m_timeScale;
 
     int deltaTicks = static_cast<int>(m_accumulatedTime / SECONDS_PER_TICK);
 
@@ -150,4 +150,14 @@ Vec3 TimeOfDayManager::CalculateMoonPosition(const Mat44& gbufferModelView) cons
     // Moon direction: initial magnitude -100 (opposite to sun in local space)
     // Transformed to view space direction vector (w=0)
     return CalculateCelestialPosition(-100.0f, gbufferModelView);
+}
+
+void TimeOfDayManager::SetTimeScale(float timeScale)
+{
+    m_timeScale = timeScale;
+}
+
+float TimeOfDayManager::GetTimeScale() const
+{
+    return m_timeScale;
 }

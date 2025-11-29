@@ -38,8 +38,10 @@ public:
     // Returns VIEW SPACE DIRECTION VECTOR (w=0), not position!
     // The vector points toward the celestial body, ignoring camera translation.
     // @param gbufferModelView The World->Camera transform matrix (from BeginCamera)
-    Vec3 CalculateSunPosition(const Mat44& gbufferModelView) const;
-    Vec3 CalculateMoonPosition(const Mat44& gbufferModelView) const;
+    Vec3  CalculateSunPosition(const Mat44& gbufferModelView) const;
+    Vec3  CalculateMoonPosition(const Mat44& gbufferModelView) const;
+    void  SetTimeScale(float timeScale);
+    float GetTimeScale() const;
 
 private:
     // Internal helper: Calculate celestial direction vector in view space
@@ -59,6 +61,7 @@ private:
     float  m_accumulatedTime = 0.0f;
     int    m_currentTick     = 0;
     int    m_dayCount        = 0;
+    float  m_timeScale       = 1.0f;
 
     /// Imgui Debugger
     bool showDemoWindow = true;
