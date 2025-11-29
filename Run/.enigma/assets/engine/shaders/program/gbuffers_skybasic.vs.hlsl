@@ -30,7 +30,7 @@ VSOutput main(VSInput input)
     VSOutput output;
 
     // [STEP 1] World → Camera Transform
-    float4 worldPos  = float4(input.Position, 1.0);
+    float4 worldPos = float4(input.Position, 1.0);
     float4 cameraPos = mul(worldPos, gbufferModelView);
 
     // [STEP 2] Camera → Render Transform (Player rotation)
@@ -43,13 +43,13 @@ VSOutput main(VSInput input)
     // This makes sky render behind all geometry
     clipPos.z = clipPos.w; // z/w = 1.0 → NDC depth
 
-    output.Position  = clipPos;
-    output.Color     = input.Color;
-    output.TexCoord  = input.TexCoord;
-    output.Normal    = input.Normal;
-    output.Tangent   = input.Tangent;
+    output.Position = clipPos;
+    output.Color = input.Color;
+    output.TexCoord = input.TexCoord;
+    output.Normal = input.Normal;
+    output.Tangent = input.Tangent;
     output.Bitangent = input.Bitangent;
-    output.WorldPos  = worldPos.xyz;
+    output.WorldPos = worldPos.xyz;
 
     return output;
 }

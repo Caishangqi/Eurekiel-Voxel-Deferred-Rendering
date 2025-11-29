@@ -30,8 +30,8 @@
  */
 struct PSOutput
 {
-    float4 Color : SV_Target0; // colortex0: Cloud color (RGB) + Alpha
-    float4 Normal : SV_Target1; // colortex6: Normal data
+    float4 Color    : SV_Target0; // colortex0: Cloud color (RGB) + Alpha
+    float4 Normal   : SV_Target1; // colortex6: Normal data
     float4 Specular : SV_Target2; // colortex3: Specular data
 };
 
@@ -70,7 +70,7 @@ PSOutput main(VSOutput input)
     // [STEP 4] Output to colortex6 (Normal Data)
     // Clouds use flat upward-facing normal (+Z in engine coordinates)
     float3 cloudNormal = float3(0.0, 0.0, 1.0); // +Z up
-    output.Normal      = float4(cloudNormal * 0.5 + 0.5, 1.0); // Encode normal to [0,1] range
+    output.Normal = float4(cloudNormal * 0.5 + 0.5, 1.0); // Encode normal to [0,1] range
 
     // [STEP 5] Output to colortex3 (Specular Data)
     // Clouds are diffuse only, no specular reflection

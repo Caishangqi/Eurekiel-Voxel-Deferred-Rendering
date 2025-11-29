@@ -51,7 +51,7 @@ PSOutput main(PSInput input)
 
     // [STEP 2] Sample Celestial Texture from Atlas
     Texture2D celestialAtlas = GetCustomImage(CELESTIAL_ATLAS_SLOT);
-    float4    texColor       = celestialAtlas.Sample(linearSampler, atlasUV);
+    float4 texColor = celestialAtlas.Sample(pointSampler, atlasUV);
 
     // [STEP 3] Calculate Brightness Modulation based on celestial angle
     // Brightness fades based on time of day
@@ -59,7 +59,7 @@ PSOutput main(PSInput input)
 
     // [STEP 4] Apply Brightness and Alpha Blending
     float3 finalColor = texColor.rgb * brightness;
-    float  alpha      = texColor.a;
+    float alpha = texColor.a;
 
     // [STEP 5] Output Final Color
     output.Color0 = float4(finalColor, alpha);
