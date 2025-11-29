@@ -1,6 +1,9 @@
 ﻿#include "ImguiLeftDebugOverlay.hpp"
 
+#include "Engine/Core/Clock.hpp"
+#include "Game/GameCommon.hpp"
 #include "Game/Framework/GameObject/ImguiPlayerDebugInfo.hpp"
+#include "Game/Gameplay/Game.hpp"
 #include "ThirdParty/imgui/imgui.h"
 
 void ImguiLeftDebugOverlay::ShowWindow(bool* pOpen)
@@ -29,9 +32,9 @@ void ImguiLeftDebugOverlay::ShowWindow(bool* pOpen)
         window_flags |= ImGuiWindowFlags_NoMove;
     }
     ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
-    if (ImGui::Begin("Example: Simple overlay", pOpen, window_flags))
+    if (ImGui::Begin("Debugger Overlay", pOpen, window_flags))
     {
-        ImGui::Text("Simple overlay\n" "(right-click to change position)");
+        ImGui::Text("Debugger Overlay");
         ImGui::Separator();
         if (ImGui::IsMousePosValid())
             ImGui::Text("Mouse Position: (%.1f,%.1f)", io.MousePos.x, io.MousePos.y);
@@ -49,6 +52,8 @@ void ImguiLeftDebugOverlay::ShowWindow(bool* pOpen)
             if (pOpen && ImGui::MenuItem("Close")) *pOpen = false;
             ImGui::EndPopup();
         }
+        ImGui::Separator();
+        ImGui::Text("FPS: %.1f", g_theGame->GetGameClock()->GetFrameRate());
     }
     ImGui::End();
 }

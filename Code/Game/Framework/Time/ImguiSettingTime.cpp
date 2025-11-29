@@ -31,7 +31,7 @@ void ImguiSettingTime::Show(TimeOfDayManager* timeManager)
         ImGui::Indent();
 
         // ==================== Read-Only Parameter Display ====================
-
+        ImGui::SeparatorText("Time Info");
         // Current Tick (0-23999)
         int currentTick = timeManager->GetCurrentTick();
         ImGui::Text("Current Tick: %d / 24000", currentTick);
@@ -78,22 +78,19 @@ void ImguiSettingTime::Show(TimeOfDayManager* timeManager)
 
         ImGui::BulletText("%s", phaseText.c_str());
 
-        // ==================== Future: Interactive Controls ====================
-        // [TODO] Add SliderInt for tick override (requires TimeOfDayManager::SetTick API)
-        // [TODO] Add SliderFloat for time speed multiplier (requires TimeOfDayManager::SetTimeScale API)
-        //
-        // Example implementation (when APIs are available):
-        // static int tickOverride = 0;
-        // if (ImGui::SliderInt("Tick Override", &tickOverride, 0, 23999))
-        // {
-        //     timeManager->SetTick(tickOverride);
-        // }
-        //
-        // static float timeScale = 1.0f;
-        // if (ImGui::SliderFloat("Time Speed", &timeScale, 0.0f, 10.0f, "%.1f"))
-        // {
-        //     timeManager->SetTimeScale(timeScale);
-        // }
+        ImGui::SeparatorText("Time Settings");
+
+        static float timeScale = 1.0f;
+        if (ImGui::SliderFloat("Time Speed", &timeScale, 0.0f, 100.0f, "%.1f"))
+        {
+            timeManager->SetTimeScale(timeScale);
+        }
+
+        if (ImGui::Button("Reset"))
+        {
+            timeScale = 1.0f;
+            timeManager->SetTimeScale(timeScale);
+        }
 
         ImGui::Unindent();
     }
