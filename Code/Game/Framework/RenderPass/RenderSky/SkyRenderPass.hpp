@@ -43,8 +43,9 @@ private:
     std::shared_ptr<enigma::graphic::ShaderProgram> m_skyTexturedShader = nullptr;
 
     // [Component 2] Textures
-    std::shared_ptr<enigma::graphic::SpriteAtlas> m_sunAtlas        = nullptr;
+    std::shared_ptr<enigma::graphic::D12Texture>  m_sunTexture      = nullptr;
     std::shared_ptr<enigma::graphic::SpriteAtlas> m_moonPhasesAtlas = nullptr;
+    std::shared_ptr<enigma::graphic::D12Texture>  m_testUV          = nullptr;
 
     // [Component 5.1] Sky Sphere VertexBuffers (cached)
     // Upper hemisphere (sky dome) + Lower hemisphere (void dome)

@@ -33,9 +33,19 @@ SkyRenderPass::SkyRenderPass()
         shaderCompileOptions
     );
 
-    // [Component 2] Load sun.png as SpriteAtlas (1x1 grid - single sprite)
-    m_sunAtlas = std::make_shared<SpriteAtlas>("Sun");
-    m_sunAtlas->BuildFromGrid(".enigma/assets/engine/textures/environment/sun.png", IntVec2(1, 1));
+
+    // [Component 2] Load sun.png 
+    m_sunTexture = g_theRendererSubsystem->CreateTexture2D(
+        ".enigma/assets/engine/textures/environment/sun.png",
+        TextureUsage::ShaderResource,
+        "Sun Texture"
+    );
+
+    m_testUV = g_theRendererSubsystem->CreateTexture2D(
+        ".enigma/assets/engine/textures/test/TestUV.png",
+        TextureUsage::ShaderResource,
+        "Test UV Texture"
+    );
 
     // [Component 2] Load moon_phases.png as SpriteAtlas (4x2 grid)
     m_moonPhasesAtlas = std::make_shared<SpriteAtlas>("MoonPhases");
@@ -100,22 +110,19 @@ void SkyRenderPass::Execute()
 
     // ==================== [Component 2] Draw Sky Textured (Sun/Moon) ====================
     // [FIX] Enable Alpha Blending for sun/moon soft edges
-    g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
+    g_theRendererSubsystem->SetBlendMode(BlendMode::Additive);
     g_theRendererSubsystem->UseProgram(m_skyTexturedShader, rtOutputs, depthTexIndex);
 
     // [Component 2] Draw Sun Billboard
     {
-        // Calculate sun UV from atlas (CPU-side calculation)
-        AABB2 sunUV = m_sunAtlas->GetSprite(0).GetUVBounds();
-
         // Generate sun billboard vertices with calculated UV
         std::vector<Vertex> sunVertices = SkyGeometryHelper::GenerateCelestialBillboard(
             0.0f, // celestialType = 0 (Sun)
-            sunUV
+            AABB2::ZERO_TO_ONE
         );
 
         // Bind sun texture to customImage0
-        g_theRendererSubsystem->SetCustomImage(0, m_sunAtlas->GetSprite(0).GetTexture().get());
+        g_theRendererSubsystem->SetCustomImage(0, m_sunTexture.get());
 
         // Draw sun billboard (2 triangles = 6 vertices)
         g_theRendererSubsystem->DrawVertexArray(sunVertices);
@@ -123,9 +130,9 @@ void SkyRenderPass::Execute()
 
     // [Component 2] Draw Moon Billboard
     {
-        // Calculate moon phase (CPU-side calculation)
-        float celestialAngle = g_theGame->m_timeOfDayManager->GetCelestialAngle();
-        int   moonPhase      = static_cast<int>(celestialAngle * 8.0f) % 8;
+        // [FIX] Calculate moon phase using dayCount (changes daily, not per-tick)
+        // Minecraft: moonPhase = dayCount % 8 (0=full moon, cycles through 8 phases)
+        int moonPhase = g_theGame->m_timeOfDayManager->GetDayCount() % 8;
 
         // Calculate moon UV from atlas (CPU-side calculation)
         AABB2 moonUV = m_moonPhasesAtlas->GetSprite(moonPhase).GetUVBounds();
@@ -148,11 +155,11 @@ void SkyRenderPass::Execute()
 
 void SkyRenderPass::BeginPass()
 {
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(PerObjectUniforms());
     // ==================== [Component 2] Set Depth State to ALWAYS (depth value 1.0) ====================
     // WHY: Sky is rendered at maximum depth (1.0) to ensure it's always behind all geometry
     // Depth test ALWAYS ensures all sky pixels pass depth test regardless of depth buffer content
     g_theRendererSubsystem->SetDepthMode(DepthMode::Always);
+    g_theRendererSubsystem->SetCustomImage(0, nullptr);
 }
 
 void SkyRenderPass::EndPass()
