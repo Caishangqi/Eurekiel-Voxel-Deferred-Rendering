@@ -61,7 +61,14 @@ void Geometry::Render() const
     // 2. 绑定Root Constants
     // 3. 执行DrawIndexedInstanced
     //
-    g_theRendererSubsystem->DrawVertexArray(m_vertices, m_indices);
+    if (m_vertices.empty() && m_indices.empty())
+        ERROR_RECOVERABLE("Empty vertices or indices in Geometry")
+    if (m_indices.empty())
+        g_theRendererSubsystem->DrawVertexArray(m_vertices);
+    else
+    {
+        g_theRendererSubsystem->DrawVertexArray(m_vertices, m_indices);
+    }
 }
 
 Mat44 Geometry::GetModelToWorldTransform() const
