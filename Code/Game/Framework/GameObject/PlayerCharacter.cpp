@@ -48,6 +48,11 @@ Mat44 PlayerCharacter::GetModelToWorldTransform() const
     return GameObject::GetModelToWorldTransform();
 }
 
+enigma::graphic::EnigmaCamera* PlayerCharacter::GetCamera() const
+{
+    return m_camera.get();
+}
+
 void PlayerCharacter::HandleInputAction(float deltaSeconds)
 {
     Vec2 cursorDelta             = g_theInput->GetCursorClientDelta();

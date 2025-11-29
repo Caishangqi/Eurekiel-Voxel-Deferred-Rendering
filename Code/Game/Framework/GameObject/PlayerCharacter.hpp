@@ -7,9 +7,10 @@ class PlayerCharacter : public GameObject
 public:
     explicit PlayerCharacter(Game* parent);
     ~PlayerCharacter() override;
-    void  Update(float deltaSeconds) override;
-    void  Render() const override;
-    Mat44 GetModelToWorldTransform() const override;
+    void                           Update(float deltaSeconds) override;
+    void                           Render() const override;
+    Mat44                          GetModelToWorldTransform() const override;
+    enigma::graphic::EnigmaCamera* GetCamera() const;
 
 private:
     void HandleInputAction(float deltaSeconds);
