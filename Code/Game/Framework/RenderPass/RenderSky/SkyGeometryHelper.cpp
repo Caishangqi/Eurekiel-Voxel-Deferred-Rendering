@@ -5,65 +5,111 @@
 //-----------------------------------------------------------------------------------------------
 std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba8& color)
 {
-    // [REQUIRED] 10 vertices total: 1 center + 9 perimeter
+    // ==========================================================================
+    // [FIX] Sky Dome Geometry - Inverted Bowl Shape
+    // ==========================================================================
+    // Problem: Previous implementation created a FLAT disc at Z=centerZ
+    //          Player at (0,0,0) was BELOW the disc and couldn't see it
+    //
+    // Solution: Create an INVERTED BOWL (dome) shape:
+    //          - Center point at TOP (Z = +centerZ, above player)
+    //          - Perimeter points at HORIZON level (Z = 0, around player)
+    //          - Player looks UP from INSIDE the dome to see sky
+    //
+    // Minecraft Reference: LevelRenderer.java:571-582
+    // ==========================================================================
+
     std::vector<Vertex> vertices;
-    vertices.reserve(10);
+    vertices.reserve(24); // 8 triangles * 3 vertices
 
-    // [IMPORTANT] Minecraft vanilla specs (LevelRenderer.java:571-582)
-    constexpr float RADIUS     = 512.0f; // Perimeter radius
-    constexpr float ANGLE_STEP = 45.0f; // 45° step between perimeter vertices
-    constexpr float DEG_TO_RAD = 0.017453292f; // π/180 (Minecraft uses this constant)
+    // [IMPORTANT] Minecraft vanilla specs
+    constexpr float RADIUS     = 32.0f; // Perimeter radius (horizontal distance)
+    constexpr float ANGLE_STEP = 45.0f; // 45 degree step between perimeter vertices
+    constexpr float DEG_TO_RAD = 0.017453292f; // PI/180
 
-    // [NEW] Step 1: Add center vertex (TRIANGLE_FAN starts with center)
-    // Coordinate conversion: Minecraft (0, centerZ, 0) -> Engine (0, 0, centerZ)
+    // ==========================================================================
+    // [FIX] Center vertex at TOP of dome (zenith)
+    // ==========================================================================
+    // centerZ > 0: Sky dome (center above player)
+    // centerZ < 0: Void dome (center below player)
     Vec3 centerPosition(0.0f, 0.0f, centerZ);
-    Vec2 centerUV(0.5f, 0.5f); // Center of texture
-    Vec3 normalUp(0.0f, 0.0f, 1.0f); // Normal points up (+Z)
+    Vec2 centerUV(0.5f, 0.5f);
 
-    vertices.emplace_back(
-        centerPosition,
-        color,
-        centerUV,
-        normalUp,
-        Vec3(1.0f, 0.0f, 0.0f), // Tangent (arbitrary for sky disc)
-        Vec3(0.0f, 1.0f, 0.0f) // Bitangent (arbitrary for sky disc)
-    );
+    // Normal points INWARD (toward player) for correct lighting
+    Vec3 normalDown(0.0f, 0.0f, -1.0f);
+    Vec3 tangent(1.0f, 0.0f, 0.0f);
+    Vec3 bitangent(0.0f, 1.0f, 0.0f);
 
-    // [NEW] Step 2: Add 9 perimeter vertices from -180° to +180° (45° steps)
-    // Minecraft loop: for(int i = -180; i <= 180; i += 45)
+    // [Step 1] Pre-calculate all 9 perimeter vertices at HORIZON level
+    std::vector<Vec3> perimeterPositions;
+    std::vector<Vec2> perimeterUVs;
+    perimeterPositions.reserve(9);
+    perimeterUVs.reserve(9);
+
     for (int angleDeg = -180; angleDeg <= 180; angleDeg += static_cast<int>(ANGLE_STEP))
     {
         float angleRad = static_cast<float>(angleDeg) * DEG_TO_RAD;
 
-        // [IMPORTANT] Minecraft formula (LevelRenderer.java:578):
-        // X = sign(centerZ) * 512.0 * cos(angle)
-        // Y = centerZ
-        // Z = 512.0 * sin(angle)
-        float signCenterZ = (centerZ >= 0.0f) ? 1.0f : -1.0f;
-        float mcX         = signCenterZ * RADIUS * std::cos(angleRad);
-        float mcY         = centerZ;
-        float mcZ         = RADIUS * std::sin(angleRad);
+        // ==========================================================================
+        // [FIX] Perimeter vertices at HORIZON (Z = 0)
+        // ==========================================================================
+        // X = RADIUS * cos(angle) - horizontal position
+        // Y = RADIUS * sin(angle) - horizontal position
+        // Z = 0 - at horizon level (same height as player)
+        //
+        // This creates a dome shape:
+        //     Center (0, 0, +16) at zenith
+        //           /    |    \
+        //          /     |     \
+        //    (-512,0,0)--+---(+512,0,0) at horizon
+        // ==========================================================================
+        float x = RADIUS * std::cos(angleRad);
+        float y = RADIUS * std::sin(angleRad);
+        float z = 0.0f; // Horizon level
 
-        // [IMPORTANT] Coordinate system conversion: (MC_X, MC_Y, MC_Z) -> (Engine_X, Engine_Z, Engine_Y)
-        Vec3 perimeterPosition(mcX, mcZ, mcY);
+        perimeterPositions.emplace_back(x, y, z);
 
-        // [GOOD] UV mapping: map angle to [0, 1] range
-        float u = (static_cast<float>(angleDeg) + 180.0f) / 360.0f; // [-180, 180] -> [0, 1]
-        float v = 1.0f; // Perimeter vertices at edge of texture
-        Vec2  perimeterUV(u, v);
-
-        vertices.emplace_back(
-            perimeterPosition,
-            color,
-            perimeterUV,
-            normalUp,
-            Vec3(1.0f, 0.0f, 0.0f), // Tangent (arbitrary for sky disc)
-            Vec3(0.0f, 1.0f, 0.0f) // Bitangent (arbitrary for sky disc)
-        );
+        // UV mapping: angle to U, center-to-edge to V
+        float u = (static_cast<float>(angleDeg) + 180.0f) / 360.0f;
+        float v = 1.0f;
+        perimeterUVs.emplace_back(u, v);
     }
 
-    // [DONE] Verify vertex count (should be exactly 10)
-    // 1 center + 9 perimeter = 10 vertices
+    // ==========================================================================
+    // [Step 2] Generate TRIANGLE_LIST with CORRECT winding order
+    // ==========================================================================
+    // Winding order depends on which side player views from:
+    // - Upper hemisphere (centerZ > 0): Player looks UP from below
+    //   -> CCW from below = Center -> Next -> Current
+    // - Lower hemisphere (centerZ < 0): Player looks DOWN from above
+    //   -> CCW from above = Center -> Current -> Next (opposite order)
+    // ==========================================================================
+    bool isUpperHemisphere = (centerZ > 0.0f);
+
+    // Normal direction: always point toward player (inward)
+    Vec3 normal = isUpperHemisphere ? Vec3(0.0f, 0.0f, -1.0f) : Vec3(0.0f, 0.0f, 1.0f);
+
+    for (size_t i = 0; i < perimeterPositions.size() - 1; ++i)
+    {
+        if (isUpperHemisphere)
+        {
+            // Upper hemisphere: CCW from below (player looks up)
+            // Order: Center -> Next -> Current
+            vertices.emplace_back(centerPosition, color, centerUV, normal, tangent, bitangent);
+            vertices.emplace_back(perimeterPositions[i + 1], color, perimeterUVs[i + 1], normal, tangent, bitangent);
+            vertices.emplace_back(perimeterPositions[i], color, perimeterUVs[i], normal, tangent, bitangent);
+        }
+        else
+        {
+            // Lower hemisphere: CCW from above (player looks down)
+            // Order: Center -> Current -> Next (reversed)
+            vertices.emplace_back(centerPosition, color, centerUV, normal, tangent, bitangent);
+            vertices.emplace_back(perimeterPositions[i], color, perimeterUVs[i], normal, tangent, bitangent);
+            vertices.emplace_back(perimeterPositions[i + 1], color, perimeterUVs[i + 1], normal, tangent, bitangent);
+        }
+    }
+
+    // [DONE] Vertex count: 8 triangles * 3 = 24 vertices
     return vertices;
 }
 
