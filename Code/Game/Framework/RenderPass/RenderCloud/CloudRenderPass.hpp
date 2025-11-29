@@ -19,6 +19,9 @@
 
 #pragma once
 #include <memory>
+#include <vector>
+
+#include "Engine/Graphic/Core/EnigmaGraphicCommon.hpp"
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
 
 namespace enigma::graphic
@@ -56,7 +59,8 @@ private:
     std::shared_ptr<enigma::graphic::ShaderProgram> m_cloudsShader = nullptr;
 
     // [Component 5.2] Cloud mesh VertexBuffer (cached)
-    std::shared_ptr<enigma::graphic::D12VertexBuffer> m_cloudMeshVB      = nullptr;
+    std::shared_ptr<enigma::graphic::D12VertexBuffer> m_cloudMeshVB = nullptr;
+    std::vector<Vertex>                               m_cloudVertices;
     size_t                                            m_cloudVertexCount = 0; // 6144 (Fast) or 24576 (Fancy)
 
     // [Component 6.5] Cloud Rendering Parameters

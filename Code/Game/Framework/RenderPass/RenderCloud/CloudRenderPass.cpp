@@ -7,6 +7,7 @@
 #include "CloudRenderPass.hpp"
 #include "CloudGeometryBuilder.hpp"
 #include "Engine/Graphic/Resource/Buffer/D12VertexBuffer.hpp"
+#include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/CelestialConstantBuffer.hpp"
@@ -35,17 +36,12 @@ CloudRenderPass::CloudRenderPass()
 
     // [Component 5.2] Generate cloud mesh using CloudGeometryBuilder (Fast mode)
     // Parameters: cellCount=32, cloudHeight=192.0f, fancyMode=false
-    std::vector<Vertex> cloudVertices = CloudGeometryBuilder::GenerateCloudMesh(32, 192.0f, false);
-    m_cloudVertexCount                = cloudVertices.size(); // Should be 6144 vertices (32*32*2*3)
+    m_cloudVertices    = CloudGeometryBuilder::GenerateCloudMesh(32, 192.0f, false);
+    m_cloudVertexCount = m_cloudVertices.size(); // Should be 6144 vertices (32*32*2*3)
 
     // [Component 3] Create and cache cloud mesh VertexBuffer
-    size_t vertexDataSize = cloudVertices.size() * sizeof(Vertex);
-    m_cloudMeshVB.reset(g_theRendererSubsystem->CreateVertexBuffer(vertexDataSize, sizeof(Vertex)));
-
-    // [Component 3] Upload vertex data to GPU
-    void* mappedData = m_cloudMeshVB->Map();
-    memcpy(mappedData, cloudVertices.data(), vertexDataSize);
-    m_cloudMeshVB->Unmap();
+    //size_t vertexDataSize = m_cloudVertices.size() * sizeof(Vertex);
+    //m_cloudMeshVB.reset(g_theRendererSubsystem->CreateVertexBuffer(vertexDataSize, sizeof(Vertex)));
 }
 
 CloudRenderPass::~CloudRenderPass()
@@ -81,8 +77,8 @@ void CloudRenderPass::Execute()
     g_theRendererSubsystem->UseProgram(m_cloudsShader, rtOutputs, depthTexIndex);
 
     // [Component 5.2] Draw cloud mesh (6144 vertices in Fast mode)
-    g_theRendererSubsystem->DrawVertexBuffer(m_cloudMeshVB, m_cloudVertexCount);
-
+    g_theRendererSubsystem->DrawVertexArray(m_cloudVertices);
+    
     EndPass();
 }
 
@@ -96,12 +92,8 @@ void CloudRenderPass::Execute()
  */
 void CloudRenderPass::BeginPass()
 {
-    // ==================== [Component 3] Bind colortex0/6/3 as RenderTargets ====================
-    std::vector<RTType> rtTypes    = {RTType::ColorTex, RTType::ColorTex, RTType::ColorTex};
-    std::vector<int>    rtIndices  = {0, 6, 3};
-    RTType              depthType  = RTType::DepthTex;
-    uint32_t            depthIndex = 0;
-    g_theRendererSubsystem->BindRenderTargets(rtTypes, rtIndices, depthType, depthIndex);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(PerObjectUniforms());
+    
 
     // ==================== [Component 3] Set Depth State (LESS_EQUAL, no write) ====================
     // Clouds render after sky, depth test enabled but no depth write
@@ -145,15 +137,10 @@ void CloudRenderPass::SetFancyMode(bool fancy)
     m_fancyMode = fancy;
 
     // [Component 5.2] Regenerate cloud mesh with new mode
-    std::vector<Vertex> cloudVertices = CloudGeometryBuilder::GenerateCloudMesh(32, 192.0f, fancy);
-    m_cloudVertexCount                = cloudVertices.size(); // 6144 (Fast) or 24576 (Fancy)
+    m_cloudVertices    = CloudGeometryBuilder::GenerateCloudMesh(32, 192.0f, fancy);
+    m_cloudVertexCount = m_cloudVertices.size(); // 6144 (Fast) or 24576 (Fancy)
 
     // [Component 3] Recreate VertexBuffer
-    size_t vertexDataSize = cloudVertices.size() * sizeof(Vertex);
+    size_t vertexDataSize = m_cloudVertices.size() * sizeof(Vertex);
     m_cloudMeshVB.reset(g_theRendererSubsystem->CreateVertexBuffer(vertexDataSize, sizeof(Vertex)));
-
-    // [Component 3] Upload vertex data to GPU
-    void* mappedData = m_cloudMeshVB->Map();
-    memcpy(mappedData, cloudVertices.data(), vertexDataSize);
-    m_cloudMeshVB->Unmap();
 }
