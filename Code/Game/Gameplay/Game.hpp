@@ -58,6 +58,9 @@ private:
 #pragma endregion
 #pragma region GAME_CLOCK
     std::unique_ptr<Clock> m_gameClock = nullptr;
+
+public:
+    const Clock* GetGameClock() const { return m_gameClock.get(); }
 #pragma endregion
 #pragma region TIME_OF_DAY
 
