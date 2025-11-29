@@ -46,9 +46,11 @@ private:
     std::shared_ptr<enigma::graphic::SpriteAtlas> m_sunAtlas        = nullptr;
     std::shared_ptr<enigma::graphic::SpriteAtlas> m_moonPhasesAtlas = nullptr;
 
-    // [Component 5.1] Sky disc VertexBuffer (cached)
+    // [Component 5.1] Sky Sphere VertexBuffers (cached)
+    // Upper hemisphere (sky dome) + Lower hemisphere (void dome)
     std::shared_ptr<enigma::graphic::D12VertexBuffer> m_skyDiscVB = nullptr;
-    std::vector<Vertex>                               m_skyDiscVertices;
+    std::vector<Vertex>                               m_skyDomeVertices; // Upper: centerZ = +16
+    std::vector<Vertex>                               m_voidDomeVertices; // Lower: centerZ = -16
 
     // [Component 6.4] Sky Rendering Parameters
     bool m_enableVoidGradient = true; // Void gradient toggle

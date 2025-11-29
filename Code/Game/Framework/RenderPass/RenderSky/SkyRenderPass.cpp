@@ -10,6 +10,8 @@
 #include "Game/Framework/RenderPass/ConstantBuffer/CelestialConstantBuffer.hpp"
 #include "Game/Gameplay/Game.hpp"
 #include "Engine/Math/Mat44.hpp"
+#include "Game/Framework/GameObject/PlayerCharacter.hpp"
+#include "Engine/Graphic/Camera/EnigmaCamera.hpp"
 
 SkyRenderPass::SkyRenderPass()
 {
@@ -39,10 +41,22 @@ SkyRenderPass::SkyRenderPass()
     m_moonPhasesAtlas = std::make_shared<SpriteAtlas>("MoonPhases");
     m_moonPhasesAtlas->BuildFromGrid(".enigma/assets/engine/textures/environment/moon_phases.png", IntVec2(4, 2));
 
-    // [Component 5.1] Generate and cache sky disc VertexBuffer
-    m_skyDiscVertices = SkyGeometryHelper::GenerateSkyDisc(16.0f);
-    //size_t vertexDataSize = m_skyDiscVertices.size() * sizeof(Vertex);
-    //m_skyDiscVB.reset(g_theRendererSubsystem->CreateVertexBuffer(vertexDataSize, sizeof(Vertex)));
+    // ==========================================================================
+    // [Component 5.1] Generate Sky Sphere (Two Hemispheres)
+    // ==========================================================================
+    // Minecraft sky structure:
+    //     ● (0,0,+16) Sky Zenith
+    //    /|\
+    //   / | \  Upper Hemisphere (Sky Dome)
+    //  /  |  \
+    // ●───●───● Z=0 Horizon (Player Level)
+    //  \  |  /
+    //   \ | /  Lower Hemisphere (Void Dome)
+    //    \|/
+    //     ● (0,0,-16) Void Nadir
+    // ==========================================================================
+    m_skyDomeVertices  = SkyGeometryHelper::GenerateSkyDisc(16.0f); // Upper hemisphere (sky)
+    m_voidDomeVertices = SkyGeometryHelper::GenerateSkyDisc(-16.0f); // Lower hemisphere (void)
 
     // [Component 2] Register CelestialConstantBuffer to slot 15 (PerFrame update)
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CelestialConstantBuffer>(
@@ -60,25 +74,33 @@ void SkyRenderPass::Execute()
     BeginPass();
 
     // ==================== [Component 2] Upload CelestialConstantBuffer ====================
+    // [FIX] Get gbufferModelView (World->Camera transform) from player camera
+    // This is needed to calculate VIEW SPACE sun/moon positions (following Iris CelestialUniforms.java)
+    Mat44 gbufferModelView = g_theGame->m_player->GetCamera()->GetWorldToCameraTransform();
+
     CelestialConstantBuffer celestialData;
     celestialData.celestialAngle            = g_theGame->m_timeOfDayManager->GetCelestialAngle();
     celestialData.compensatedCelestialAngle = g_theGame->m_timeOfDayManager->GetCompensatedCelestialAngle();
     celestialData.cloudTime                 = g_theGame->m_timeOfDayManager->GetCloudTime();
-    celestialData.sunPosition               = g_theGame->m_timeOfDayManager->CalculateSunPosition(); // [FIX P1] Moved to TimeOfDayManager
-    celestialData.moonPosition              = g_theGame->m_timeOfDayManager->CalculateMoonPosition(); // [FIX P1] Moved to TimeOfDayManager
+    celestialData.sunPosition               = g_theGame->m_timeOfDayManager->CalculateSunPosition(gbufferModelView); // [FIX] VIEW SPACE position
+    celestialData.moonPosition              = g_theGame->m_timeOfDayManager->CalculateMoonPosition(gbufferModelView); // [FIX] VIEW SPACE position
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
-    // ==================== [Component 2] Draw Sky Basic (Void Gradient) ====================
+    // ==================== [Component 2] Draw Sky Basic (Sky Sphere) ====================
     std::vector<uint32_t> rtOutputs     = {0}; // colortex0
     int                   depthTexIndex = 0; // depthtex0
     g_theRendererSubsystem->UseProgram(m_skyBasicShader, rtOutputs, depthTexIndex);
 
-    // [Component 5.1] Draw sky disc (16 segments)
-    size_t vertexCount = 10; // [FIX P0] TRIANGLE_FAN: 1 center + 9 perimeter vertices
-    UNUSED(vertexCount);
-    g_theRendererSubsystem->DrawVertexArray(m_skyDiscVertices); // [FIX P0] Match GenerateSkyDisc() output
+    // [FIX] Draw both hemispheres to form complete sky sphere
+    // Upper hemisphere: Sky dome (player looks up to see sky)
+    g_theRendererSubsystem->DrawVertexArray(m_skyDomeVertices);
+
+    // Lower hemisphere: Void dome (player looks down to see void gradient)
+    g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
 
     // ==================== [Component 2] Draw Sky Textured (Sun/Moon) ====================
+    // [FIX] Enable Alpha Blending for sun/moon soft edges
+    g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
     g_theRendererSubsystem->UseProgram(m_skyTexturedShader, rtOutputs, depthTexIndex);
 
     // [Component 2] Draw Sun Billboard
