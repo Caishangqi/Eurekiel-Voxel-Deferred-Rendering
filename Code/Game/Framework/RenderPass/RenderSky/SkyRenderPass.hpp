@@ -38,6 +38,8 @@ public:
     void SetSkyHorizonColor(const Vec3& color) { m_skyHorizonColor = color; }
 
 private:
+    // [Component 2] Sunrise/Sunset Strip
+    Vec4 CalculateSunriseColor(float celestialAngle) const;
     // [Component 2] Shaders
     std::shared_ptr<enigma::graphic::ShaderProgram> m_skyBasicShader    = nullptr;
     std::shared_ptr<enigma::graphic::ShaderProgram> m_skyTexturedShader = nullptr;

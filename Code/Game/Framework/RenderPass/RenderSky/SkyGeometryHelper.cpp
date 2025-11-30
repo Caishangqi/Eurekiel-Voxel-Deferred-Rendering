@@ -158,3 +158,98 @@ std::vector<Vertex> SkyGeometryHelper::GenerateCelestialBillboard(
 
     return vertices;
 }
+
+//-----------------------------------------------------------------------------------------------
+std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseColor)
+{
+    // ==========================================================================
+    // [Sunrise/Sunset Strip] - Minecraft Vanilla Style (Fixed)
+    // ==========================================================================
+    // Geometry: TRIANGLE_FAN converted to TRIANGLE_LIST
+    // - Center point at (0, 0, 0) facing +X direction (forward)
+    // - 16 outer vertices forming a semi-circle arc
+    // - Alpha gradient: center (high alpha) -> outer (zero alpha)
+    // - NO rotation here - CPU matrix transform applied by caller
+    // - Matches sky dome radius and structure
+    // ==========================================================================
+
+    std::vector<Vertex> vertices;
+    vertices.reserve(48); // 16 triangles * 3 vertices
+
+    constexpr int   SEGMENTS = 16;
+    constexpr float RADIUS   = 32.0f; // Match sky dome radius
+    constexpr float TWO_PI   = 6.28318530718f;
+    constexpr float HALF_PI  = 1.57079632679f; // 90 degrees
+
+    // ==========================================================================
+    // [STEP 1] Define center vertex at origin (no height offset)
+    // ==========================================================================
+    // Strip center at (0, 0, 0) - this will be rotated to horizon position
+    // by CPU matrix transform (not geometry-level modification)
+    Vec3 centerPosition(0.0f, 0.0f, 0.0f);
+
+    // Center color: full sunriseColor with original alpha (typically 0.8)
+    Rgba8 centerColor = Rgba8(
+        static_cast<unsigned char>(sunriseColor.x * 255.0f),
+        static_cast<unsigned char>(sunriseColor.y * 255.0f),
+        static_cast<unsigned char>(sunriseColor.z * 255.0f),
+        static_cast<unsigned char>(sunriseColor.w * 255.0f)
+    );
+
+    // Outer color: same RGB but alpha = 0 (transparent)
+    Rgba8 outerColor = Rgba8(
+        static_cast<unsigned char>(sunriseColor.x * 255.0f),
+        static_cast<unsigned char>(sunriseColor.y * 255.0f),
+        static_cast<unsigned char>(sunriseColor.z * 255.0f),
+        0
+    );
+
+    // Default vertex attributes
+    Vec2 defaultUV(0.5f, 0.5f);
+    Vec3 normal(0.0f, 0.0f, 1.0f);
+    Vec3 tangent(1.0f, 0.0f, 0.0f);
+    Vec3 bitangent(0.0f, 1.0f, 0.0f);
+
+    // ==========================================================================
+    // [STEP 2] Generate outer vertices in semi-circle arc
+    // ==========================================================================
+    // Arc from -90° to +90° (left to right in Y-Z plane)
+    // This creates a fan shape facing +X direction (engine forward)
+    std::vector<Vec3> outerPositions;
+    outerPositions.reserve(SEGMENTS + 1);
+
+    for (int i = 0; i <= SEGMENTS; ++i)
+    {
+        // Map i to angle range [-90°, +90°]
+        float t     = static_cast<float>(i) / static_cast<float>(SEGMENTS); // 0.0 to 1.0
+        float angle = -HALF_PI + t * (TWO_PI / 2.0f); // -π/2 to +π/2
+
+        // Outer vertices in Y-Z plane (X=0), forming arc
+        float y = std::cos(angle) * RADIUS; // -RADIUS to +RADIUS
+        float z = std::sin(angle) * RADIUS; // -RADIUS to +RADIUS
+        float x = 0.0f; // On Y-Z plane
+
+        outerPositions.emplace_back(x, y, z);
+    }
+
+    // ==========================================================================
+    // [STEP 3] Generate TRIANGLE_LIST (16 triangles)
+    // ==========================================================================
+    // Each triangle: center -> outer[i] -> outer[i+1]
+    for (int i = 0; i < SEGMENTS; ++i)
+    {
+        // Triangle vertices (CCW winding for front-facing)
+        // Vertex 1: Center
+        vertices.emplace_back(centerPosition, centerColor, defaultUV, normal, tangent, bitangent);
+
+        // Vertex 2: Outer[i]
+        vertices.emplace_back(outerPositions[i], outerColor, defaultUV, normal, tangent, bitangent);
+
+        // Vertex 3: Outer[i+1]
+        vertices.emplace_back(outerPositions[i + 1], outerColor, defaultUV, normal, tangent, bitangent);
+    }
+
+    // [DONE] 16 triangles * 3 vertices = 48 vertices
+    // Rotation to sun/sunset position will be applied by caller using Mat44 transform
+    return vertices;
+}

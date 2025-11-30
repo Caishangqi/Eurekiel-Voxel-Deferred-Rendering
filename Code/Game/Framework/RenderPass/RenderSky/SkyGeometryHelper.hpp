@@ -68,4 +68,21 @@ public:
         const AABB2& uvBounds,
         const Rgba8& color = Rgba8::WHITE
     );
+
+    /**
+     * @brief Generate sunrise/sunset strip mesh (TRIANGLE_LIST topology)
+     * 
+     * Creates a 48-vertex fan mesh (16 triangles) for rendering sunrise/sunset glow.
+     * Center vertex has high alpha (orange), outer vertices have zero alpha (transparent).
+     * GPU interpolation creates smooth gradient effect.
+     * 
+     * @param sunriseColor RGBA color from CalculateSunriseColor() (r, g, b, alpha)
+     * @param celestialAngle Current celestial angle for rotation calculation
+     * @return std::vector<Vertex> Vertex array ready for TRIANGLE_LIST rendering (48 vertices)
+     * 
+     * @note Vertex count: 16 triangles * 3 = 48 vertices
+     * @note Z-axis curvature: z = sin(angle) * 40.0 * alpha (creates bowl shape)
+     * @note Reference: Minecraft LevelRenderer.java renderSunriseSunsetStrip()
+     */
+    static std::vector<Vertex> GenerateSunriseStrip(const Vec4& sunriseColor);
 };
