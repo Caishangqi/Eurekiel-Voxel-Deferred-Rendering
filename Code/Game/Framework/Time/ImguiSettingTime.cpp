@@ -86,9 +86,38 @@ void ImguiSettingTime::Show(TimeOfDayManager* timeManager)
             timeManager->SetTimeScale(timeScale);
         }
 
+        // [NEW] Current Tick Slider - directly set time of day
+        static int tickValue = 0;
+        tickValue            = timeManager->GetCurrentTick(); // Sync with actual value
+        if (ImGui::SliderInt("Current Tick", &tickValue, 0, 23999))
+        {
+            timeManager->SetCurrentTick(tickValue);
+        }
+        // Quick preset buttons for common times
+        if (ImGui::Button("Sunrise"))
+        {
+            timeManager->SetCurrentTick(0);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Noon"))
+        {
+            timeManager->SetCurrentTick(6000);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Sunset"))
+        {
+            timeManager->SetCurrentTick(12000);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Midnight"))
+        {
+            timeManager->SetCurrentTick(18000);
+        }
+        ImGui::Separator();
         if (ImGui::Button("Reset"))
         {
             timeScale = 1.0f;
+            tickValue = 0.f;
             timeManager->SetTimeScale(timeScale);
         }
 
