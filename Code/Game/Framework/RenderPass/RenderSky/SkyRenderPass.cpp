@@ -125,7 +125,7 @@ void SkyRenderPass::Execute()
     int                   depthTexIndex = 0; // depthtex0
     g_theRendererSubsystem->UseProgram(m_skyBasicShader, rtOutputs, depthTexIndex);
 
-    // [STEP 0] Reset modelMatrix to identity for sky dome (no transformation needed)
+    // [STEP 0] Upload IDENTITY modelMatrix (transformation done on CPU side)
     enigma::graphic::PerObjectUniforms skyDomePerObj;
     skyDomePerObj.modelMatrix        = Mat44::IDENTITY;
     skyDomePerObj.modelMatrixInverse = Mat44::IDENTITY;
@@ -135,12 +135,19 @@ void SkyRenderPass::Execute()
     skyDomePerObj.modelColor[3]      = 1.0f;
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer<enigma::graphic::PerObjectUniforms>(skyDomePerObj);
 
-    // [FIX] Draw both hemispheres to form complete sky sphere
+    // [CPU-SIDE VERTEX TRANSFORM] Transform Sky Dome vertices with skyViewMatrix
+    // Following Minecraft/Iris approach: vertices transformed on CPU, GPU only does Projection
+    // Sky Dome has no celestial rotation, only camera rotation (skyViewMatrix)
+
     // Upper hemisphere: Sky dome (player looks up to see sky)
-    g_theRendererSubsystem->DrawVertexArray(m_skyDomeVertices);
+    std::vector<Vertex> transformedSkyDome = m_skyDomeVertices;
+    TransformVertexArray3D(transformedSkyDome, skyViewMatrix);
+    g_theRendererSubsystem->DrawVertexArray(transformedSkyDome);
 
     // Lower hemisphere: Void dome (player looks down to see void gradient)
-    g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
+    std::vector<Vertex> transformedVoidDome = m_voidDomeVertices;
+    TransformVertexArray3D(transformedVoidDome, skyViewMatrix);
+    g_theRendererSubsystem->DrawVertexArray(transformedVoidDome);
 
     // ==================== [NEW] Draw Sunrise/Sunset Strip ====================
     // Only render during sunrise (celestialAngle near 0.0) or sunset (near 0.5)
