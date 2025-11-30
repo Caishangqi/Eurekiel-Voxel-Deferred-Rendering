@@ -43,6 +43,11 @@ public:
     void  SetTimeScale(float timeScale);
     float GetTimeScale() const;
 
+    // [NEW] Direct tick manipulation for debugging
+    // Sets the current tick value (0-23999), automatically wraps if out of range
+    // This will immediately update celestial positions on next frame
+    void SetCurrentTick(int tick);
+
 private:
     // Internal helper: Calculate celestial direction vector in view space
     // @param y Initial direction magnitude (100 for sun, -100 for moon)

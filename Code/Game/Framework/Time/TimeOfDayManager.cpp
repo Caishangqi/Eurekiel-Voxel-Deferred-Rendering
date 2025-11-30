@@ -166,3 +166,15 @@ float TimeOfDayManager::GetTimeScale() const
 {
     return m_timeScale;
 }
+
+void TimeOfDayManager::SetCurrentTick(int tick)
+{
+    // Wrap tick value to valid range [0, 23999]
+    m_currentTick = tick % TICKS_PER_DAY;
+    if (m_currentTick < 0)
+    {
+        m_currentTick += TICKS_PER_DAY;
+    }
+    // Reset accumulated time to prevent immediate tick advancement
+    m_accumulatedTime = 0.0f;
+}
