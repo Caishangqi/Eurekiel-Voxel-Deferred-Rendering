@@ -48,7 +48,7 @@ struct CelestialConstantBuffer
     alignas(16) float celestialAngle; // 天体角度 (0.0-1.0)，对应 Minecraft worldTime % 24000
     float             compensatedCelestialAngle; // 补偿角度 (+0.25)，用于日出/日落平滑过渡
     float             cloudTime; // 云时间 (tick * 0.03)，用于云动画
-    float             _padding1; // 填充到 16 字节
+    float             skyBrightness; // 天空亮度 (0.0-1.0)，正午1.0，午夜0.0
 
     // ==================== 太阳方向向量（16 字节） ====================
     alignas(16) Vec3 sunPosition; // 太阳方向向量（视图空间，w=0），长度约100单位
@@ -69,7 +69,7 @@ struct CelestialConstantBuffer
 //   - float celestialAngle               → HLSL: float celestialAngle
 //   - float compensatedCelestialAngle    → HLSL: float compensatedCelestialAngle
 //   - float cloudTime                    → HLSL: float cloudTime
-//   - float _padding1                    → HLSL: (自动填充，无需声明)
+//   - float skyBrightness                → HLSL: float skyBrightness
 //   - Vec3 sunPosition                   → HLSL: float3 sunPosition
 //   - float _padding2                    → HLSL: (自动填充，无需声明)
 //   - Vec3 moonPosition                  → HLSL: float3 moonPosition
@@ -81,7 +81,7 @@ struct CelestialConstantBuffer
 //       float  celestialAngle;
 //       float  compensatedCelestialAngle;
 //       float  cloudTime;
-//       // padding 由 HLSL 编译器自动处理
+//       float  skyBrightness;
 //       float3 sunPosition;
 //       // padding 由 HLSL 编译器自动处理
 //       float3 moonPosition;

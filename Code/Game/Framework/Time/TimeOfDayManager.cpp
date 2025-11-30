@@ -116,8 +116,13 @@ Vec3 TimeOfDayManager::CalculateCelestialPosition(float y, const Mat44& gbufferM
     Vec3 direction(0.0f, 0.0f, y);
 
     // [Step 2] Get sky angle for rotation
+    // [FIX] Apply -90 degree offset so that:
+    // - celestialAngle=0.00 (sunrise) -> sun at horizon (east)
+    // - celestialAngle=0.25 (noon)    -> sun at zenith (top)
+    // - celestialAngle=0.50 (sunset)  -> sun at horizon (west)
+    // - celestialAngle=0.75 (midnight)-> sun below horizon
     float celestialAngle = GetCelestialAngle();
-    float angleDegrees   = celestialAngle * 360.0f;
+    float angleDegrees   = (celestialAngle - 0.25f) * 360.0f; // -90 degree offset
 
     // [Step 3] Build transformation matrix
     // In our Z-up coordinate system:
