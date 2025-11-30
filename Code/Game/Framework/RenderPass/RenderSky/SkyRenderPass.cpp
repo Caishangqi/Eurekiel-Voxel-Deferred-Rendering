@@ -10,6 +10,7 @@
 #include "Game/Framework/RenderPass/ConstantBuffer/CelestialConstantBuffer.hpp"
 #include "Game/Gameplay/Game.hpp"
 #include "Engine/Math/Mat44.hpp"
+#include "Engine/Math/MathUtils.hpp"
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
 #include "Engine/Graphic/Camera/EnigmaCamera.hpp"
 
@@ -92,8 +93,11 @@ void SkyRenderPass::Execute()
     celestialData.celestialAngle            = g_theGame->m_timeOfDayManager->GetCelestialAngle();
     celestialData.compensatedCelestialAngle = g_theGame->m_timeOfDayManager->GetCompensatedCelestialAngle();
     celestialData.cloudTime                 = g_theGame->m_timeOfDayManager->GetCloudTime();
-    celestialData.sunPosition               = g_theGame->m_timeOfDayManager->CalculateSunPosition(gbufferModelView); // [FIX] VIEW SPACE position
-    celestialData.moonPosition              = g_theGame->m_timeOfDayManager->CalculateMoonPosition(gbufferModelView); // [FIX] VIEW SPACE position
+
+    celestialData.skyBrightness = cosf((celestialData.celestialAngle - 0.25f) * 6.28318530718f) * 0.5f + 0.5f;
+
+    celestialData.sunPosition  = g_theGame->m_timeOfDayManager->CalculateSunPosition(gbufferModelView); // [FIX] VIEW SPACE position
+    celestialData.moonPosition = g_theGame->m_timeOfDayManager->CalculateMoonPosition(gbufferModelView); // [FIX] VIEW SPACE position
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
     // ==================== [Component 2] Draw Sky Basic (Sky Sphere) ====================
