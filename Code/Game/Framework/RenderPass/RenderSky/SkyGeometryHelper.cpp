@@ -1,6 +1,8 @@
-#include "Game/Framework/RenderPass/RenderSky/SkyGeometryHelper.hpp"
+﻿#include "Game/Framework/RenderPass/RenderSky/SkyGeometryHelper.hpp"
 #include "Engine/Math/MathUtils.hpp"
 #include <cmath>
+
+#include "Game/GameCommon.hpp"
 
 //-----------------------------------------------------------------------------------------------
 std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba8& color)
@@ -22,8 +24,18 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba
     std::vector<Vertex> vertices;
     vertices.reserve(24); // 8 triangles * 3 vertices
 
-    // [IMPORTANT] Minecraft vanilla specs
-    constexpr float RADIUS     = 32.0f; // Perimeter radius (horizontal distance)
+    // ==========================================================================
+    // [Minecraft Vanilla Specs] LevelRenderer.java:571-582
+    // ==========================================================================
+    // buildSkyDisc(tesselator, 16.0f):
+    //   float g = Math.signum(f) * 512.0F;  // Radius = 512
+    //   float h = 512.0F;
+    //   bufferBuilder.addVertex(0.0F, f, 0.0F);  // Center at (0, ±16, 0)
+    //   for(int i = -180; i <= 180; i += 45) {   // 45° step
+    //       bufferBuilder.addVertex(g * cos(i), f, 512 * sin(i));
+    //   }
+    // ==========================================================================
+    constexpr float RADIUS     = 512.0f; // [FIX] Minecraft uses 512.0, not 32.0!
     constexpr float ANGLE_STEP = 45.0f; // 45 degree step between perimeter vertices
     constexpr float DEG_TO_RAD = 0.017453292f; // PI/180
 
@@ -163,32 +175,75 @@ std::vector<Vertex> SkyGeometryHelper::GenerateCelestialBillboard(
 std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseColor)
 {
     // ==========================================================================
-    // [Sunrise/Sunset Strip] - Minecraft Vanilla Style (Fixed)
+    // [Sunrise/Sunset Strip] - Engine Coordinate System Version
     // ==========================================================================
-    // Geometry: TRIANGLE_FAN converted to TRIANGLE_LIST
-    // - Center point at (0, 0, 0) facing +X direction (forward)
-    // - 16 outer vertices forming a semi-circle arc
-    // - Alpha gradient: center (high alpha) -> outer (zero alpha)
-    // - NO rotation here - CPU matrix transform applied by caller
-    // - Matches sky dome radius and structure
+    //
+    // [Original Minecraft Geometry] (Y-up coordinate system):
+    //   Center: (0, 100, 0) - 100 units UP (+Y)
+    //   Outer:  X = sin(theta) * 120  (horizontal left-right)
+    //           Y = cos(theta) * 120  (vertical up-down)
+    //           Z = -cos(theta) * 40 * alpha (depth toward/away)
+    //
+    // [Minecraft Transform] XP(90) -> ZP(flip) -> ZP(90):
+    //   This rotates the vertical fan to horizontal, facing sunrise/sunset
+    //
+    // [Final Position in Camera Space]:
+    //   The strip becomes a HORIZONTAL ARC at the HORIZON
+    //   - Center point: in the +X direction (forward toward horizon)
+    //   - Arc spans: left-right along Y axis
+    //   - Depth variation: creates the "bowl" effect
+    //
+    // ==========================================================================
+    // [ENGINE COORDINATE SYSTEM] (Z-up, X-forward, Y-left):
+    //
+    //   After all transforms, the strip should be positioned:
+    //   - Center: somewhere on the horizon ring, toward sunrise/sunset
+    //   - Arc: horizontal band spanning left-right
+    //   - Player looks toward +X to see the strip
+    //
+    //   We generate directly in ENGINE SPACE, no coordinate conversion needed!
+    //   The SkyRenderPass only needs to apply camera view rotation.
     // ==========================================================================
 
     std::vector<Vertex> vertices;
-    vertices.reserve(48); // 16 triangles * 3 vertices
-
-    constexpr int   SEGMENTS = 16;
-    constexpr float RADIUS   = 32.0f; // Match sky dome radius
-    constexpr float TWO_PI   = 6.28318530718f;
-    constexpr float HALF_PI  = 1.57079632679f; // 90 degrees
+    vertices.reserve(51); // 17 triangles * 3 vertices
 
     // ==========================================================================
-    // [STEP 1] Define center vertex at origin (no height offset)
+    // [Minecraft Vanilla Specs] LevelRenderer.java:1538-1546
     // ==========================================================================
-    // Strip center at (0, 0, 0) - this will be rotated to horizon position
-    // by CPU matrix transform (not geometry-level modification)
-    Vec3 centerPosition(0.0f, 0.0f, 0.0f);
+    // bufferBuilder.addVertex(matrix4f3, 0.0F, 100.0F, 0.0F)           // Center
+    // for(int o = 0; o <= 16; ++o) {
+    //     p = (float)o * 6.2831855F / 16.0F;                           // 16 segments
+    //     q = Mth.sin(p);
+    //     r = Mth.cos(p);
+    //     bufferBuilder.addVertex(q * 120.0F, r * 120.0F, -r * 40.0F * fs[3]);
+    // }
+    // ==========================================================================
+    constexpr int   SEGMENTS    = 16;
+    constexpr float CENTER_DIST = 100.0f; // [FIX] Minecraft: (0, 100, 0)
+    constexpr float OUTER_DIST  = 120.0f; // [FIX] Minecraft: sin*120, cos*120
+    constexpr float DEPTH_SCALE = 40.0f; // [FIX] Minecraft: -cos*40*alpha
+    constexpr float TWO_PI      = 6.28318530718f;
 
-    // Center color: full sunriseColor with original alpha (typically 0.8)
+    // ==========================================================================
+    // [ENGINE SPACE] Strip Geometry
+    // ==========================================================================
+    // After Minecraft's XP(90)->ZP(90) transform, the geometry becomes:
+    //   - The "up" direction (MC +Y) becomes "forward" (Engine +X)
+    //   - The "right" direction (MC +X) becomes "left" (Engine +Y)
+    //   - The "toward" direction (MC -Z) becomes "up" (Engine +Z)
+    //
+    // So in ENGINE SPACE:
+    //   Center: (CENTER_DIST, 0, 0) - toward +X (forward/horizon)
+    //   Outer arc: spans in Y direction (left-right)
+    //              with X variation (depth toward horizon)
+    //              and Z variation (height, the "bowl" curve)
+    // ==========================================================================
+
+    // Center position: forward toward horizon (+X direction)
+    Vec3 centerPosition(CENTER_DIST, 0.0f, 0.0f);
+
+    // Center color: full sunriseColor with original alpha
     Rgba8 centerColor = Rgba8(
         static_cast<unsigned char>(sunriseColor.x * 255.0f),
         static_cast<unsigned char>(sunriseColor.y * 255.0f),
@@ -196,7 +251,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
         static_cast<unsigned char>(sunriseColor.w * 255.0f)
     );
 
-    // Outer color: same RGB but alpha = 0 (transparent)
+    // Outer color: same RGB but alpha = 0 (transparent edge)
     Rgba8 outerColor = Rgba8(
         static_cast<unsigned char>(sunriseColor.x * 255.0f),
         static_cast<unsigned char>(sunriseColor.y * 255.0f),
@@ -206,28 +261,43 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
 
     // Default vertex attributes
     Vec2 defaultUV(0.5f, 0.5f);
-    Vec3 normal(0.0f, 0.0f, 1.0f);
-    Vec3 tangent(1.0f, 0.0f, 0.0f);
-    Vec3 bitangent(0.0f, 1.0f, 0.0f);
+    Vec3 normal(-1.0f, 0.0f, 0.0f); // Facing back toward player (-X)
+    Vec3 tangent(0.0f, 1.0f, 0.0f);
+    Vec3 bitangent(0.0f, 0.0f, 1.0f);
 
     // ==========================================================================
-    // [STEP 2] Generate outer vertices in semi-circle arc
+    // [STEP 2] Generate outer vertices in ENGINE SPACE
     // ==========================================================================
-    // Arc from -90° to +90° (left to right in Y-Z plane)
-    // This creates a fan shape facing +X direction (engine forward)
+    // Mapping from Minecraft post-transform to Engine:
+    //   MC X (after transform) -> Engine Y (left-right)
+    //   MC Y (after transform) -> Engine X (forward, toward horizon)
+    //   MC Z (after transform) -> Engine Z (up-down)
+    //
+    // Original MC outer: (sin*120, cos*120, -cos*40*alpha)
+    // After XP(90): Y->-Z, Z->Y => (sin*120, -(-cos*40*alpha), -cos*120)
+    //             = (sin*120, cos*40*alpha, -cos*120)
+    // After ZP(90): X->-Y, Y->X => (-cos*40*alpha, sin*120, -cos*120)
+    //
+    // In Engine space:
+    //   X (forward) = cos(theta) * DEPTH_SCALE * alpha  (depth toward horizon)
+    //   Y (left)    = sin(theta) * OUTER_DIST           (horizontal span)
+    //   Z (up)      = -cos(theta) * OUTER_DIST          (vertical curve)
+    // ==========================================================================
     std::vector<Vec3> outerPositions;
     outerPositions.reserve(SEGMENTS + 1);
 
+    float depthOffset = DEPTH_SCALE * sunriseColor.w; // Scale by alpha
+
     for (int i = 0; i <= SEGMENTS; ++i)
     {
-        // Map i to angle range [-90°, +90°]
-        float t     = static_cast<float>(i) / static_cast<float>(SEGMENTS); // 0.0 to 1.0
-        float angle = -HALF_PI + t * (TWO_PI / 2.0f); // -π/2 to +π/2
+        float angle = static_cast<float>(i) * TWO_PI / static_cast<float>(SEGMENTS);
+        float sinA  = std::sin(angle);
+        float cosA  = std::cos(angle);
 
-        // Outer vertices in Y-Z plane (X=0), forming arc
-        float y = std::cos(angle) * RADIUS; // -RADIUS to +RADIUS
-        float z = std::sin(angle) * RADIUS; // -RADIUS to +RADIUS
-        float x = 0.0f; // On Y-Z plane
+        // Engine space coordinates (derived from MC transform)
+        float x = cosA * depthOffset; // Forward depth (toward horizon)
+        float y = sinA * OUTER_DIST; // Left-right span
+        float z = -cosA * OUTER_DIST; // Up-down curve (inverted bowl)
 
         outerPositions.emplace_back(x, y, z);
     }
@@ -235,21 +305,14 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
     // ==========================================================================
     // [STEP 3] Generate TRIANGLE_LIST (16 triangles)
     // ==========================================================================
-    // Each triangle: center -> outer[i] -> outer[i+1]
     for (int i = 0; i < SEGMENTS; ++i)
     {
-        // Triangle vertices (CCW winding for front-facing)
-        // Vertex 1: Center
+        // CCW winding when viewed from behind (player at origin looking toward +X)
         vertices.emplace_back(centerPosition, centerColor, defaultUV, normal, tangent, bitangent);
-
-        // Vertex 2: Outer[i]
         vertices.emplace_back(outerPositions[i], outerColor, defaultUV, normal, tangent, bitangent);
-
-        // Vertex 3: Outer[i+1]
         vertices.emplace_back(outerPositions[i + 1], outerColor, defaultUV, normal, tangent, bitangent);
     }
 
     // [DONE] 16 triangles * 3 vertices = 48 vertices
-    // Rotation to sun/sunset position will be applied by caller using Mat44 transform
     return vertices;
 }
