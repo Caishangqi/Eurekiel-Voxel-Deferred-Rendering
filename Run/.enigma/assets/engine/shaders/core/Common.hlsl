@@ -234,6 +234,7 @@ Texture2D GetCustomImage(uint slotIndex)
 SamplerState linearSampler : register(s0); // 线性过滤
 SamplerState pointSampler : register(s1); // 点采样
 SamplerState shadowSampler : register(s2); // 阴影比较采样器
+SamplerState wrapSampler : register(s3); // Point sampling with WRAP mode
 
 //──────────────────────────────────────────────────────
 // 注意事项
