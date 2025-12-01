@@ -59,6 +59,4 @@ private:
     bool m_enableVoidGradient = true; // Void gradient toggle
     Vec3 m_skyZenithColor     = Vec3(0.47f, 0.65f, 1.0f); // Sky zenith color (blue)
     Vec3 m_skyHorizonColor    = Vec3(0.75f, 0.85f, 1.0f); // Sky horizon color (light blue)
-
-    // [REMOVED] Celestial position calculation moved to TimeOfDayManager (P1 fix)
 };

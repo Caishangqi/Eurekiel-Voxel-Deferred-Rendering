@@ -85,24 +85,30 @@ void SkyRenderPass::Execute()
 {
     BeginPass();
 
-    // ==================== [CPU-Side Vertex Transform] Pure Rotation View Matrix ====================
-    // Following Minecraft/Iris approach: vertices are transformed on CPU with pure rotation matrix
+    // ==================== [CPU-Side Vertex Transform] Complete Transform Matrix ====================
+    // Following Minecraft/Iris approach: vertices are transformed on CPU, GPU only does Projection
     // 
     // Minecraft data flow (from GameRenderer.java:1156):
     //   Quaternionf quaternionf = camera.rotation().conjugate(new Quaternionf());
     //   Matrix4f matrix4f2 = (new Matrix4f()).rotation(quaternionf);  // Pure rotation, NO translation!
     //
     // Our approach:
-    //   1. Get camera orientation (EulerAngles: yaw, pitch, roll)
+    //   1. Get camera orientation (EulerAngles: yaw, pitch, roll) - in ENGINE coordinate system
     //   2. Build rotation-only matrix using GetAsMatrix_IFwd_JLeft_KUp()
-    //   3. This matrix has NO translation component (translation = [0,0,0])
+    //   3. Apply cameraToRenderTransform to convert to RENDER coordinate system
+    //   4. Combined transform: skyViewMatrix * cameraToRenderTransform
     //
     // Engine coordinate system: +X forward, +Y left, +Z up
+    // Render coordinate system: +Z forward, +X right, +Y up (DirectX)
     // =========================================================================================
     EulerAngles cameraOrientation = g_theGame->m_player->GetCamera()->GetOrientation();
     Mat44       skyViewMatrix     = cameraOrientation.GetAsMatrix_IFwd_JLeft_KUp();
-    // GetAsMatrix_IFwd_JLeft_KUp() returns a pure rotation matrix (translation is already [0,0,0,1])
-    // No need to explicitly clear translation - it's already zero by construction
+
+    // [CRITICAL] Apply coordinate system transformation (Engine → Render/DirectX)
+    // Without this, the sky geometry stays in engine coordinate system while
+    // gbufferProjection expects render coordinate system
+    Mat44 cameraToRenderTransform = g_theGame->m_player->GetCamera()->GetCameraToRenderTransform();
+    skyViewMatrix.Append(cameraToRenderTransform);
 
     // ==================== [Component 2] Upload CelestialConstantBuffer ====================
     // [FIX] Get gbufferModelView (World->Camera transform) from player camera
@@ -149,48 +155,12 @@ void SkyRenderPass::Execute()
     TransformVertexArray3D(transformedVoidDome, skyViewMatrix);
     g_theRendererSubsystem->DrawVertexArray(transformedVoidDome);
 
-    // ==================== [NEW] Draw Sunrise/Sunset Strip ====================
-    // Only render during sunrise (celestialAngle near 0.0) or sunset (near 0.5)
-    Vec4 sunriseColor = CalculateSunriseColor(celestialData.celestialAngle);
-    if (sunriseColor.w > 0.0f) // alpha > 0 means we should render
-    {
-        // [STEP 1] Generate strip geometry in Y-Z plane (facing +X direction)
-        std::vector<Vertex> stripVertices = SkyGeometryHelper::GenerateSunriseStrip(sunriseColor);
-
-        // [STEP 2] Build celestial rotation matrix (strip follows sun position)
-        // Engine coordinate system: +X forward, +Y left, +Z up
-        // Rotation 1: Y-axis rotation - follow sun direction (0-360 degrees)
-        // Rotation 2: X-axis 90 degrees - tilt to horizon position
-        float rotationAngleY    = celestialData.celestialAngle * 360.0f;
-        Mat44 celestialRotation = Mat44::IDENTITY;
-        celestialRotation.AppendYRotation(rotationAngleY);
-        celestialRotation.AppendXRotation(90.0f);
-
-        // [STEP 3] CPU-SIDE VERTEX TRANSFORM (following Minecraft/Iris approach)
-        // Combined transform: celestialRotation * skyViewMatrix
-        // Order: First apply celestial rotation (position strip in world), then apply camera rotation
-        Mat44 combinedTransform = celestialRotation;
-        combinedTransform.Append(skyViewMatrix);
-
-        // Transform all strip vertices on CPU side
-        TransformVertexArray3D(stripVertices, combinedTransform);
-
-        // [STEP 4] Upload IDENTITY modelMatrix (transformation already done on CPU)
-        enigma::graphic::PerObjectUniforms perObjData;
-        perObjData.modelMatrix        = Mat44::IDENTITY;
-        perObjData.modelMatrixInverse = Mat44::IDENTITY;
-        perObjData.modelColor[0]      = 1.0f;
-        perObjData.modelColor[1]      = 1.0f;
-        perObjData.modelColor[2]      = 1.0f;
-        perObjData.modelColor[3]      = 1.0f;
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer<enigma::graphic::PerObjectUniforms>(perObjData);
-
-        // [STEP 5] Render strip (vertices already transformed, GPU only does Projection)
-        g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
-        g_theRendererSubsystem->DrawVertexArray(stripVertices);
-    }
-
+#pragma region RENDER_SUN
     // ==================== [Component 2] Draw Sky Textured (Sun/Moon) ====================
+    // [IMPORTANT] Sun/Moon rendered BEFORE Strip to avoid Z-fighting
+    // Minecraft order: SKY → SUN → SUNSET → MOON (see MixinLevelRenderer.java:184-196)
+    // But we render Strip AFTER Sun/Moon with different blend mode for better visuals
+
     // [FIX] Enable Alpha Blending for sun/moon soft edges
     g_theRendererSubsystem->SetBlendMode(BlendMode::Additive);
     g_theRendererSubsystem->UseProgram(m_skyTexturedShader, rtOutputs, depthTexIndex);
@@ -209,7 +179,8 @@ void SkyRenderPass::Execute()
         // Draw sun billboard (2 triangles = 6 vertices)
         g_theRendererSubsystem->DrawVertexArray(sunVertices);
     }
-
+#pragma endregion
+#pragma region RENDER_MOON
     // [Component 2] Draw Moon Billboard
     {
         // [FIX] Calculate moon phase using dayCount (changes daily, not per-tick)
@@ -231,7 +202,73 @@ void SkyRenderPass::Execute()
         // Draw moon billboard (2 triangles = 6 vertices)
         g_theRendererSubsystem->DrawVertexArray(moonVertices);
     }
+#pragma endregion
+#pragma region RENDER_STRIP
+    // ==================== [Component 3] Draw Sunrise/Sunset Strip ====================
+    // [MOVED] Now rendered AFTER Sun/Moon (following Minecraft: SUNSET phase after SUN phase)
+    // Reference: MixinLevelRenderer.java:189-192 - getSunriseColor called after SUN_LOCATION
+    Vec4 sunriseColor = CalculateSunriseColor(celestialData.celestialAngle);
+    if (sunriseColor.w > 0.0f) // alpha > 0 means we should render
+    {
+        // Switch back to sky basic shader for strip
+        g_theRendererSubsystem->UseProgram(m_skyBasicShader, rtOutputs, depthTexIndex);
 
+        // [STEP 1] Generate strip geometry (already in ENGINE SPACE)
+        // See SkyGeometryHelper::GenerateSunriseStrip for details
+        std::vector<Vertex> stripVertices = SkyGeometryHelper::GenerateSunriseStrip(sunriseColor);
+
+        // [STEP 2] Build transformation matrix
+        // ==========================================================================
+        // [SIMPLIFIED] Geometry is now generated directly in ENGINE SPACE
+        //
+        // The strip geometry is positioned:
+        //   - Center at (~26.7, 0, 0) - forward toward +X (horizon)
+        //   - Arc spans left-right in Y direction (+-32 units)
+        //   - Bowl curve in Z direction (+-32 units vertical)
+        //
+        // We only need to apply:
+        //   1. Flip (0 or 180 degrees around Z) based on sun position
+        //   2. Camera view rotation (skyViewMatrix)
+        // ==========================================================================
+
+        // [STEP 2a] Z-rotation flip (0 or 180 based on sun position)
+        // When sin(celestialAngle * 2PI) < 0, flip the strip 180 degrees
+        // This ensures the strip always faces toward the sun
+        float sunAngle  = celestialData.celestialAngle * 6.28318530718f; // 2*PI
+        float flipAngle = (sinf(sunAngle) < 0.0f) ? 3.14159265359f : 0.0f; // PI or 0
+        float cosFlip   = cosf(flipAngle);
+        float sinFlip   = sinf(flipAngle);
+
+        Mat44 flipTransform;
+        flipTransform.SetIJK3D(
+            Vec3(cosFlip, sinFlip, 0.0f), // I: X rotates around Z
+            Vec3(-sinFlip, cosFlip, 0.0f), // J: Y rotates around Z
+            Vec3(0.0f, 0.0f, 1.0f) // K: Z stays Z
+        );
+
+        // [STEP 3] Build combined transform: flip -> camera view
+        Mat44 combinedTransform = flipTransform;
+        combinedTransform.Append(skyViewMatrix);
+
+        // Transform all strip vertices on CPU side
+        TransformVertexArray3D(stripVertices, combinedTransform);
+
+        // [STEP 4] Upload IDENTITY modelMatrix (transformation already done on CPU)
+        enigma::graphic::PerObjectUniforms perObjData;
+        perObjData.modelMatrix        = Mat44::IDENTITY;
+        perObjData.modelMatrixInverse = Mat44::IDENTITY;
+        perObjData.modelColor[0]      = 1.0f;
+        perObjData.modelColor[1]      = 1.0f;
+        perObjData.modelColor[2]      = 1.0f;
+        perObjData.modelColor[3]      = 1.0f;
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer<enigma::graphic::PerObjectUniforms>(perObjData);
+
+        // [STEP 5] Render strip with Alpha blending
+        // Strip overlays on sun/moon with transparency
+        g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
+        g_theRendererSubsystem->DrawVertexArray(stripVertices);
+    }
+#pragma endregion
     EndPass();
 }
 
