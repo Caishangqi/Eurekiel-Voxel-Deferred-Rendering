@@ -208,7 +208,7 @@ void SkyRenderPass::Execute()
     // [MOVED] Now rendered AFTER Sun/Moon (following Minecraft: SUNSET phase after SUN phase)
     // Reference: MixinLevelRenderer.java:189-192 - getSunriseColor called after SUN_LOCATION
     Vec4 sunriseColor = CalculateSunriseColor(celestialData.celestialAngle);
-    if (sunriseColor.w > 0.0f) // alpha > 0 means we should render
+    if (sunriseColor.w > 0.0f && m_enableSunStrip) // alpha > 0 means we should render
     {
         // Switch back to sky basic shader for strip
         g_theRendererSubsystem->UseProgram(m_skyBasicShader, rtOutputs, depthTexIndex);
