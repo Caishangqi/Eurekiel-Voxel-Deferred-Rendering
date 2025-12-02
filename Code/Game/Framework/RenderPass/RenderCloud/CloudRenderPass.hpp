@@ -1,20 +1,31 @@
-﻿/**
+/**
  * @file CloudRenderPass.hpp
- * @brief Cloud Rendering Pass (Minecraft Vanilla Style)
- * @date 2025-11-26
+ * @brief [REWRITE] Cloud Rendering Pass (Sodium-style Vanilla Clouds)
+ * @date 2025-12-02
+ *
+ * Architecture:
+ * - Sodium CloudRenderer.java architecture (Line 70-528)
+ * - CPU-side texture sampling (CloudTextureData)
+ * - CPU-side geometry generation (CloudGeometryHelper)
+ * - Intelligent face culling (no Z-Fighting)
+ * - Fast/Fancy dual modes
+ * - Spiral traversal algorithm (center-to-outer expansion)
  *
  * Features:
- * - Renders 32x32 cell cloud mesh grid
- * - Fast Mode: 6144 vertices (2 triangles per cell)
- * - Fancy Mode: 24576 vertices (8 triangles per cell)
- * - Cloud height: Z=192-196 (Engine coordinate system)
+ * - Cloud height: Z=192-196 (4-block thickness)
+ * - Fast Mode: Single horizontal face per cell
+ * - Fancy Mode: Full 6-face volumetric cells + interior faces
  * - Alpha blending for semi-transparent clouds
- * - Cloud animation driven by cloudTime from CelestialConstantBuffer
+ * - Rebuild only on parameter changes (camera move, mode switch)
  *
- * Render Flow:
- * 1. BeginPass: Bind colortex0/6/3, set depth test (LESS_EQUAL, no write), enable alpha blending
- * 2. Execute: Upload CelestialConstantBuffer, draw cloud mesh with gbuffers_clouds shader
- * 3. EndPass: Clean up depth/stencil/blend states
+ * Coordinate System Mapping (Minecraft -> Engine):
+ * - Minecraft +X (East) -> Engine +Y (Left)
+ * - Minecraft +Y (Up) -> Engine +Z (Up)
+ * - Minecraft +Z (South) -> Engine +X (Forward)
+ *
+ * Reference:
+ * - Sodium CloudRenderer.java: F:\p4\Personal\SD\Thesis\ReferenceProject\Sodium\...
+ * - Design Doc: .spec-workflow\specs\deferred-rendering-production-cloud-vanilla\design.md
  */
 
 #pragma once
@@ -22,15 +33,162 @@
 #include <vector>
 
 #include "Engine/Graphic/Core/EnigmaGraphicCommon.hpp"
+#include "Engine/Math/Vec3.hpp"
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
 
+// Forward declarations
 namespace enigma::graphic
 {
-    class D12Texture;
-    class D12VertexBuffer;
     class ShaderProgram;
 }
 
+class CloudTextureData;
+struct CloudGeometry;
+struct CloudGeometryParameters;
+enum class CloudStatus;
+enum class ViewOrientation;
+
+// ========================================
+// Supporting Data Structures
+// ========================================
+
+/**
+ * @enum CloudStatus
+ * @brief Cloud rendering quality mode
+ */
+enum class CloudStatus
+{
+    FAST, // [NEW] Single flat face per cell (~32K vertices)
+    FANCY // [NEW] Full volumetric cells (~98K vertices)
+};
+
+/**
+ * @enum ViewOrientation
+ * @brief Camera position relative to cloud layer
+ *
+ * Reference: Sodium CloudRenderer.java Line 696-714
+ */
+enum class ViewOrientation
+{
+    BELOW_CLOUDS, // [NEW] Camera below cloud layer (Z < 192)
+    INSIDE_CLOUDS, // [NEW] Camera inside cloud layer (192 <= Z <= 196)
+    ABOVE_CLOUDS // [NEW] Camera above cloud layer (Z > 196)
+};
+
+/**
+ * @struct CloudGeometryParameters
+ * @brief Parameters that determine geometry generation
+ *
+ * Geometry is rebuilt only when these parameters change.
+ */
+struct CloudGeometryParameters
+{
+    int             originY; // [NEW] Minecraft cellX -> Our cellY
+    int             originX; // [NEW] Minecraft cellZ -> Our cellX
+    int             radius; // [NEW] Render distance in cells
+    ViewOrientation orientation; // [NEW] Camera direction
+    CloudStatus     renderMode; // [NEW] Fast/Fancy mode
+
+    // [NEW] Default constructor
+    CloudGeometryParameters()
+        : originY(0), originX(0), radius(0)
+          , orientation(ViewOrientation::BELOW_CLOUDS)
+          , renderMode(CloudStatus::FAST)
+    {
+    }
+
+    // [NEW] Parameterized constructor
+    CloudGeometryParameters(int y, int x, int r, ViewOrientation o, CloudStatus m)
+        : originY(y), originX(x), radius(r), orientation(o), renderMode(m)
+    {
+    }
+
+    // [NEW] Equality operator for change detection
+    bool operator==(const CloudGeometryParameters& other) const
+    {
+        return originY == other.originY &&
+            originX == other.originX &&
+            radius == other.radius &&
+            orientation == other.orientation &&
+            renderMode == other.renderMode;
+    }
+
+    bool operator!=(const CloudGeometryParameters& other) const
+    {
+        return !(*this == other);
+    }
+};
+
+/**
+ * @struct CloudGeometry
+ * @brief Cached cloud geometry data
+ *
+ * Stores generated vertices and the parameters used to generate them.
+ * [FIX 5] Lightweight data structure (no inheritance from Geometry)
+ */
+struct CloudGeometry
+{
+    std::vector<Vertex>     vertices; // [NEW] CPU-side vertex buffer
+    CloudGeometryParameters params; // [NEW] Generation parameters
+
+    CloudGeometry()  = default;
+    ~CloudGeometry() = default;
+};
+
+/**
+ * @namespace ViewOrientationHelper
+ * @brief Helper functions for ViewOrientation calculations
+ */
+namespace ViewOrientationHelper
+{
+    /**
+     * @brief Calculate ViewOrientation based on camera position
+     * @param cameraPos Camera position in world space
+     * @param cloudMinZ Cloud layer minimum Z (192.0f)
+     * @param cloudMaxZ Cloud layer maximum Z (196.0f)
+     * @return ViewOrientation enum value
+     *
+     * Reference: Sodium CloudRenderer.java Line 696-714
+     * [IMPORTANT] Coordinate system mapped: Minecraft Y -> Engine Z
+     */
+    inline ViewOrientation GetOrientation(
+        const Vec3& cameraPos,
+        float       cloudMinZ,
+        float       cloudMaxZ
+    )
+    {
+        if (cameraPos.z <= cloudMinZ + 0.125f)
+        {
+            return ViewOrientation::BELOW_CLOUDS;
+        }
+        else if (cameraPos.z >= cloudMaxZ - 0.125f)
+        {
+            return ViewOrientation::ABOVE_CLOUDS;
+        }
+        else
+        {
+            return ViewOrientation::INSIDE_CLOUDS;
+        }
+    }
+}
+
+
+/**
+ * @class CloudRenderPass
+ * @brief [REWRITE] Manages cloud rendering lifecycle and owns cloud resources
+ *
+ * Responsibilities:
+ * 1. Owns CloudTextureData (loaded from clouds.png)
+ * 2. Owns CloudGeometry (cached vertex buffer)
+ * 3. Coordinates CloudGeometryHelper for geometry generation
+ * 4. Manages rendering states and shader binding
+ * 5. Detects parameter changes and triggers rebuild
+ *
+ * Render Flow:
+ * 1. Execute(): Calculate parameters -> Rebuild if needed -> Render
+ * 2. BeginPass(): Set depth/blend/cull states
+ * 3. EndPass(): Restore default states
+ */
 class CloudRenderPass : public SceneRenderPass
 {
 public:
@@ -38,43 +196,72 @@ public:
     ~CloudRenderPass() override;
 
 public:
+    // [REQUIRED] SceneRenderPass interface implementation
     void Execute() override;
 
 protected:
+    // [REQUIRED] Resource management hooks
     void BeginPass() override;
     void EndPass() override;
 
 public:
-    // [Component 6.5] Parameter Access for ImGui
-    float GetCloudSpeed() const { return m_cloudSpeed; }
-    void  SetCloudSpeed(float speed) { m_cloudSpeed = speed; }
+    // [NEW] Public API for external control
+    /**
+     * @brief Load clouds.png texture and create CloudTextureData
+     *
+     * Called automatically in constructor.
+     * Can be called manually to reload texture (e.g., resource pack change).
+     */
+    void LoadCloudTexture();
 
-    float GetCloudOpacity() const { return m_cloudOpacity; }
-    void  SetCloudOpacity(float opacity) { m_cloudOpacity = opacity; }
+    /**
+     * @brief Force rebuild cloud geometry on next frame
+     *
+     * Use case: User manually changes render distance or mode.
+     */
+    void RequestRebuild() { m_needsRebuild = true; }
 
-    bool IsFancyMode() const { return m_fancyMode; }
-    void SetFancyMode(bool fancy);
+    /**
+     * @brief Get/Set Fast/Fancy rendering mode
+     */
+    CloudStatus GetRenderMode() const { return m_renderMode; }
+    void        SetRenderMode(CloudStatus mode);
 
 private:
-    // [Component 5.2] Cloud Mesh Rebuilding
-    void RebuildCloudMesh();
-    // [Component 3] Shader
+    // [NEW] Core rendering logic
+    /**
+     * @brief Calculate cloud parameters and rebuild geometry if needed
+     *
+     * Parameters:
+     * - Cell origin (cellY, cellX) from camera position
+     * - ViewOrientation (BELOW/INSIDE/ABOVE clouds)
+     * - Render distance (from game settings)
+     *
+     * Rebuilds geometry only if parameters changed.
+     */
+    void RebuildIfNeeded();
+
+private:
+    // ========================================
+    // Data Members
+    // ========================================
+
+    // [NEW] Cloud texture data (face masks + colors)
+    std::unique_ptr<CloudTextureData> m_textureData;
+
+    // [NEW] Cloud geometry (cached vertices + parameters)
+    std::unique_ptr<CloudGeometry> m_geometry;
+
+    // [REWRITE] Shader program (gbuffers_clouds)
+    // [FIX 2] Use raw pointer, matching SkyRenderPass.hpp pattern
     std::shared_ptr<enigma::graphic::ShaderProgram> m_cloudsShader = nullptr;
 
-    // [Component 5.2] Cloud mesh VertexBuffer (cached)
-    std::shared_ptr<enigma::graphic::D12VertexBuffer> m_cloudMeshVB = nullptr;
-    std::vector<Vertex>                               m_cloudVertices;
-    std::vector<unsigned int>                         m_cloudIndices;
-    size_t                                            m_cloudVertexCount = 0; // 4096 (Fast) or 24576 (Fancy)
+    // [NEW] Cached geometry parameters (for rebuild detection)
+    CloudGeometryParameters m_cachedParams;
 
-    // Cloud texture
-    std::shared_ptr<enigma::graphic::D12Texture> m_cloudTexture = nullptr;
+    // [NEW] Rebuild flag (set by texture load or parameter change)
+    bool m_needsRebuild = true;
 
-    // [Component 6.5] Cloud Rendering Parameters
-    float m_cloudSpeed   = 1.0f; // Cloud animation speed multiplier
-    float m_cloudOpacity = 0.8f; // Cloud transparency (0.0 = transparent, 1.0 = opaque)
-    bool  m_fancyMode    = false; // false = Fast (6144 verts), true = Fancy (24576 verts)
-
-    // [Component 5.2] Player Position Tracking (for cloud following)
-    Vec3 m_lastPlayerChunkPos = Vec3::ZERO; // Last recorded player chunk position (integer coords)
+    // [NEW] Rendering mode (FAST / FANCY)
+    CloudStatus m_renderMode;
 };

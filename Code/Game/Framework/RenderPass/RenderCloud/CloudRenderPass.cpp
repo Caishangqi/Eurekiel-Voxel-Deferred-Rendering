@@ -1,31 +1,64 @@
-﻿/**
+/**
  * @file CloudRenderPass.cpp
- * @brief Cloud Rendering Pass Implementation (Minecraft Vanilla Style)
- * @date 2025-11-26
+ * @brief [REWRITE] Cloud Rendering Pass Implementation (Sodium-style)
+ * @date 2025-12-02
+ *
+ * Implementation Notes:
+ * - Follows Sodium CloudRenderer.java architecture
+ * - Uses CloudTextureData for CPU-side texture sampling
+ * - Uses CloudGeometryHelper for geometry generation
+ * - Coordinate system mapping: Minecraft(X,Y,Z) -> Engine(Y,Z,X)
+ * - Cloud height range: Z=192.0f to Z=196.0f (4-block thickness)
  */
 
 #include "CloudRenderPass.hpp"
-#include "Engine/Graphic/Resource/Buffer/D12VertexBuffer.hpp"
-#include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
-#include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
-#include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
+#include "CloudTextureData.hpp"
+#include "CloudGeometryHelper.hpp"
+#include "Engine/Core/Image.hpp"
+#include "Engine/Math/Mat44.hpp"
 #include "Engine/Math/MathUtils.hpp"
 #include "Game/GameCommon.hpp"
-#include "Game/Framework/RenderPass/ConstantBuffer/CelestialConstantBuffer.hpp"
-#include "Game/Framework/GameObject/PlayerCharacter.hpp"
 #include "Game/Gameplay/Game.hpp"
+#include "Game/Framework/GameObject/PlayerCharacter.hpp"
+#include <cmath>
+
+#include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
+#include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
+
+// ========================================
+// Constants
+// ========================================
+
+// [NEW] Cloud height constants (Engine Z-axis)
+constexpr float CLOUD_HEIGHT    = 192.33f; // [NEW] Base cloud height (Minecraft 192)
+constexpr float CLOUD_THICKNESS = 4.0f; // [NEW] Cloud layer thickness
+constexpr float CLOUD_MIN_Z     = CLOUD_HEIGHT; // [NEW] 192.0f
+constexpr float CLOUD_MAX_Z     = CLOUD_HEIGHT + CLOUD_THICKNESS; // [NEW] 196.0f
+
+// [NEW] Cloud animation constants
+// [REMOVED] CLOUD_SCROLL_SPEED - now using TimeOfDayManager::GetCloudTime()
+constexpr float CLOUD_OFFSET = 0.33f; // [NEW] Static offset for X-axis
+
+// [NEW] Default render distance (in cells)
+constexpr int DEFAULT_RENDER_DISTANCE = 16; // [NEW] 16 cells = 192 blocks
 
 /**
  * @brief CloudRenderPass Constructor
- * 
+ *
  * Initialization:
  * 1. Load gbuffers_clouds shader
- * 2. Generate cloud mesh using CloudGeometryBuilder (Fast mode by default)
- * 3. Create and cache VertexBuffer (6144 vertices)
+ * 2. Load clouds.png texture and create CloudTextureData
+ * 3. Initialize CloudGeometry (empty, will be built on first Execute)
+ * 4. Set default render mode (FAST)
+ *
+ * Reference: Sodium CloudRenderer.java Line 70-145 (constructor equivalent)
  */
 CloudRenderPass::CloudRenderPass()
+    : m_renderMode(CloudStatus::FANCY)
+      , m_needsRebuild(true)
 {
-    // [Component 3] Load gbuffers_clouds Shader
+    // [STEP 1] Load gbuffers_clouds Shader
+    // [FIX 2] Use CreateShaderProgramFromFiles, matching SkyRenderPass.cpp:23-35
     enigma::graphic::ShaderCompileOptions shaderCompileOptions;
     shaderCompileOptions.enableDebugInfo = true;
 
@@ -37,154 +70,232 @@ CloudRenderPass::CloudRenderPass()
     );
 
 
-    // [Component 3] Create and cache cloud mesh VertexBuffer
-    //size_t vertexDataSize = m_cloudVertices.size() * sizeof(Vertex);
-    //m_cloudMeshVB.reset(g_theRendererSubsystem->CreateVertexBuffer(vertexDataSize, sizeof(Vertex)));
+    // [STEP 2] Load clouds.png and create CloudTextureData
+    LoadCloudTexture();
 
-    m_cloudTexture = g_theRendererSubsystem->CreateTexture2D(
-        ".enigma/assets/engine/textures/environment/clouds.png",
-        TextureUsage::ShaderResource,
-        "Sun Texture"
-    );
+    // [STEP 3] Initialize empty CloudGeometry
+    m_geometry = std::make_unique<CloudGeometry>();
 }
 
 CloudRenderPass::~CloudRenderPass()
 {
+    // Smart pointers auto-cleanup
 }
 
 /**
  * @brief Execute cloud rendering
- * 
- * Render Flow:
- * 1. BeginPass: Bind RTs, set depth/blend states
- * 2. Upload CelestialConstantBuffer (cloudTime for animation)
- * 3. Draw cloud mesh with gbuffers_clouds shader
- * 4. EndPass: Clean up states
+ *
+ * Main Rendering Loop:
+ * 1. Calculate cloud layer parameters (cell origin, orientation)
+ * 2. Check if geometry needs rebuild (parameters changed)
+ * 3. Rebuild geometry if needed (CloudGeometryHelper::RebuildGeometry)
+ * 4. Render cloud mesh with gbuffers_clouds shader
+ *
+ * Reference: Sodium CloudRenderer.java Line 70-145
  */
 void CloudRenderPass::Execute()
 {
     BeginPass();
 
-    // ==================== [Component 5.2] Player Position Tracking ====================
-    // Get current player position (Engine coordinate system: +X forward, +Y left, +Z up)
-    Vec3 playerPos = g_theGame->m_player->m_position;
+    // [STEP 1] Calculate cloud layer parameters
+    // Reference: Sodium CloudRenderer.java Line 74-87
 
-    // [SIMPLIFIED] Cloud grid is centered at origin (-192 to +192)
-    // We simply translate it to player's XY position (Z stays at cloud height 192)
-    // No need for complex chunk tracking - the grid follows player smoothly
+    // Get camera position (Engine coordinate system: +X forward, +Y left, +Z up)
+    Vec3 cameraPos = g_theGame->m_player->m_position;
 
-    // ==================== [Component 3] Upload CelestialConstantBuffer ====================
-    // Cloud animation uses cloudTime from CelestialConstantBuffer
-    CelestialConstantBuffer celestialData;
-    celestialData.celestialAngle            = g_theGame->m_timeOfDayManager->GetCelestialAngle();
-    celestialData.compensatedCelestialAngle = g_theGame->m_timeOfDayManager->GetCompensatedCelestialAngle();
-    celestialData.cloudTime                 = g_theGame->m_timeOfDayManager->GetCloudTime();
-    celestialData.sunPosition               = Vec3::ZERO; // Not used in cloud shader
-    celestialData.moonPosition              = Vec3::ZERO; // Not used in cloud shader
-    celestialData.skyBrightness             = 1.0f; // Not used in cloud shader
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
+    // Calculate cloud time (tick-based animation)
+    // Reference: Sodium CloudRenderer.java Line 77
+    // [FIX] Use TimeOfDayManager::GetCloudTime() - already includes tickDelta and CLOUD_TIME_SCALE
+    float cloudTime = g_theGame->m_timeOfDayManager->GetCloudTime();
 
-    // ==================== [Component 3] Upload PerObjectUniforms (Cloud Transform) ====================
-    // Cloud mesh follows player position (fractional offset for smooth movement)
-    enigma::graphic::PerObjectUniforms cloudPerObj;
+    // [IMPORTANT] Coordinate system mapping: Minecraft(X,Z) -> Engine(Y,X)
+    // Minecraft: +X East, +Z South
+    // Engine: +Y Left, +X Forward
 
-    // Build translation matrix - move cloud grid center to player XY position
-    // Cloud grid is centered at origin, so translate to player position
-    Mat44 cloudTransform;
-    cloudTransform.SetTranslation3D(Vec3(playerPos.x, playerPos.y, 0.0f));
+    // World coordinates (with cloud scrolling offset)
+    // Reference: Sodium CloudRenderer.java Line 79-80
+    float worldY = cameraPos.y + cloudTime; // [NEW] Minecraft X -> Our Y
+    float worldX = cameraPos.x + CLOUD_OFFSET; // [NEW] Minecraft Z -> Our X
 
-    cloudPerObj.modelMatrix        = cloudTransform;
-    cloudPerObj.modelMatrixInverse = cloudTransform.GetOrthonormalInverse();
-    cloudPerObj.modelColor[0]      = 1.0f;
-    cloudPerObj.modelColor[1]      = 1.0f;
-    cloudPerObj.modelColor[2]      = 1.0f;
-    cloudPerObj.modelColor[3]      = m_cloudOpacity; // Use configurable opacity
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer<enigma::graphic::PerObjectUniforms>(cloudPerObj);
+    // Cell coordinates (12x12 cell size)
+    // Reference: Sodium CloudRenderer.java Line 82-83
+    int cellY = static_cast<int>(std::floor(worldY / 12.0f)); // [NEW] Minecraft cellX -> Our cellY
+    int cellX = static_cast<int>(std::floor(worldX / 12.0f)); // [NEW] Minecraft cellZ -> Our cellX
 
-    // ==================== [Component 3] Draw Cloud Mesh ====================
-    std::vector<uint32_t> rtOutputs     = {0, 6, 3}; // colortex0, colortex6, colortex3
-    int                   depthTexIndex = 0; // depthtex0
-    g_theRendererSubsystem->UseProgram(m_cloudsShader, rtOutputs, depthTexIndex);
-    g_theRendererSubsystem->SetCustomImage(0, m_cloudTexture.get());
-    // [Component 5.2] Draw cloud mesh with indexed vertices
-    g_theRendererSubsystem->DrawVertexArray(m_cloudVertices, m_cloudIndices);
+    // [STEP 2] Calculate ViewOrientation
+    // Reference: Sodium CloudRenderer.java Line 696-714
+    ViewOrientation orientation;
+    if (m_renderMode == CloudStatus::FANCY)
+    {
+        orientation = ViewOrientationHelper::GetOrientation(
+            cameraPos, CLOUD_MIN_Z, CLOUD_MAX_Z
+        );
+    }
+    else
+    {
+        // Fast mode always uses BELOW_CLOUDS (single face rendering)
+        orientation = ViewOrientation::BELOW_CLOUDS;
+    }
+
+    // [STEP 3] Construct CloudGeometryParameters
+    CloudGeometryParameters params(
+        cellY, cellX, DEFAULT_RENDER_DISTANCE,
+        orientation, m_renderMode
+    );
+
+    // [STEP 4] Rebuild geometry if parameters changed
+    if (m_needsRebuild || params != m_cachedParams)
+    {
+        // Reference: Sodium CloudRenderer.java Line 147-216
+        CloudGeometryHelper::RebuildGeometry(
+            m_geometry.get(), params, m_textureData.get()
+        );
+        m_cachedParams = params;
+        m_needsRebuild = false;
+    }
+
+    // [STEP 5] Render cloud mesh (if has vertices)
+    if (m_geometry && !m_geometry->vertices.empty())
+    {
+        // Calculate view position offset (for smooth scrolling)
+        // Reference: Sodium CloudRenderer.java Line 97-99
+        float viewPosY = worldY - cellY * 12.0f;
+        float viewPosX = worldX - cellX * 12.0f;
+        float viewPosZ = cameraPos.z - CLOUD_HEIGHT;
+
+        // Build model matrix (Translation only)
+        // Translate cloud mesh to camera-relative position
+        Mat44 modelMatrix = Mat44::MakeTranslation3D(Vec3(-viewPosY, -viewPosX, -viewPosZ));
+
+        // Upload model matrix to PerObjectUniforms
+        PerObjectUniforms perObjectUniform;
+        perObjectUniform.modelMatrix        = modelMatrix;
+        perObjectUniform.modelMatrixInverse = modelMatrix.GetInverse();
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniform);
+
+        // [FIX 3] Set blend mode (Alpha blending for clouds)
+        // Reference: design.md Line 196-200
+        g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
+
+        // [FIX 2] Use shader program
+        // Reference: SkyRenderPass.cpp Line 106, design.md Line 202-204
+        std::vector<uint32_t> rtOutputs     = {0}; // colortex0
+        int                   depthTexIndex = 0; // depthtex0
+        g_theRendererSubsystem->UseProgram(m_cloudsShader, rtOutputs, depthTexIndex);
+
+        // [FIX 1] Draw vertex array
+        // Reference: SkyRenderPass.cpp Line 110, design.md Line 206-208
+        g_theRendererSubsystem->DrawVertexArray(m_geometry->vertices);
+    }
 
     EndPass();
 }
 
 /**
  * @brief Begin cloud rendering pass
- * 
- * Setup:
- * 1. Bind colortex0/6/3 as RenderTargets
- * 2. Set depth test: LESS_EQUAL (test enabled, write disabled)
- * 3. Enable alpha blending for semi-transparent clouds
+ *
+ * Setup Render States:
+ * 1. Set depth mode: ReadOnly + LessEqual (test enabled, write disabled)
+ * 2. Set blend mode: Alpha blending for semi-transparent clouds
+ * 3. Set cull mode: None (Fast mode) or Default (Fancy mode)
+ *
+ * Reference: design.md Line 1030-1039
  */
 void CloudRenderPass::BeginPass()
 {
-    // ==================== [Component 3] Set Depth State (LESS_EQUAL, no write) ====================
+    // [FIX 3] Set depth state (ReadOnly + LessEqual)
     // Clouds render after sky, depth test enabled but no depth write
-    g_theRendererSubsystem->SetDepthMode(DepthMode::ReadOnly);
+    // Reference: SkyRenderPass.cpp Line 165, design.md Line 1037-1038
+    g_theRendererSubsystem->SetDepthMode(DepthMode::LessEqual);
 
-    // ==================== [Component 3] Enable Alpha Blending ====================
-    // Clouds are semi-transparent, use standard alpha blending
-    g_theRendererSubsystem->SetBlendMode(BlendMode::Additive);
+    // [FIX 3] Enable alpha blending
+    // Reference: design.md Line 196
+    g_theRendererSubsystem->SetBlendMode(BlendMode::Multiply);
 
-    // ==================== [Component 3] Set Rasterization Config (NoCull) ====================
-    // Clouds need double-sided rendering (visible from above and below)
+    // [FIX 3] Set cull mode based on render mode
+    // Fast mode: Disable backface culling (single face rendering)
+    // Fancy mode: Disable backface culling too (we generate both exterior and interior faces)
+    // Reference: design.md Line 197-200
+    // [FIX] Both modes now use NoCull - Fancy mode has interior faces for viewing from inside
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
 }
 
 /**
  * @brief End cloud rendering pass
- * 
- * Cleanup:
- * 1. Reset depth state to default
- * 2. Disable alpha blending
- * 3. Reset stencil state
+ *
+ * Restore Default States:
+ * 1. Reset depth mode to Enabled (ReadWrite + LessEqual)
+ * 2. Reset blend mode to Opaque
+ * 3. Reset stencil test to Disabled
+ *
+ * Reference: SkyRenderPass.cpp Line 174-181, design.md Line 1041-1046
  */
 void CloudRenderPass::EndPass()
 {
-    // ==================== [Component 3] Reset Depth State ====================
+    // [FIX 3] Reset depth state
     g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled);
 
-    // ==================== [Component 3] Disable Alpha Blending ====================
+    // [FIX 3] Reset stencil state
+    g_theRendererSubsystem->SetStencilTest(StencilTestDetail::Disabled());
+
+    // [FIX 3] Reset blend mode
     g_theRendererSubsystem->SetBlendMode(BlendMode::Opaque);
-
-    // ==================== [Component 3] Reset Rasterization Config ====================
-    g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::Default());
 }
 
 /**
- * @brief Rebuild cloud mesh (only updates UV offsets, vertex positions unchanged)
- * 
- * Called when player crosses chunk boundary (integer jump detection)
- * Updates UV coordinates based on current player chunk position
- * Vertex positions remain fixed at cloudHeight (192.0f)
+ * @brief Load clouds.png texture and create CloudTextureData
+ *
+ * Steps:
+ * 1. Load clouds.png using Image class (256x256 RGBA)
+ * 2. Create CloudTextureData from Image (CPU-side processing)
+ * 3. Set rebuild flag to regenerate geometry
+ *
+ * Reference: Sodium CloudRenderer.java Line 498-528, design.md Line 213-232
  */
-void CloudRenderPass::RebuildCloudMesh()
+void CloudRenderPass::LoadCloudTexture()
 {
-    // [Component 5.2] Regenerate cloud mesh with current fancy mode
-    // NOTE: This only updates UV offsets based on player chunk position
-    // Vertex positions stay fixed (clouds are always at height 192)
-    m_cloudVertexCount = m_cloudVertices.size();
+    // [STEP 1] Load clouds.png using Engine Image class
+    // [FIX 7] Use Image constructor instead of NativeImage
+    // Reference: design-api-corrections.md Line 11-27
+    Image image(".enigma/assets/engine/textures/environment/clouds.png");
+
+    // Check if image loaded successfully
+    if (image.GetDimensions() == IntVec2(0, 0))
+    {
+        // TODO: Log error using Logger system
+        // LOGGER.Error("Failed to load clouds.png");
+        return;
+    }
+
+    // [STEP 2] Create CloudTextureData from Image
+    // This performs CPU-side texture analysis:
+    // - Extract face visibility masks (6-bit per pixel)
+    // - Extract colors (ARGB format)
+    // Reference: Sodium CloudRenderer.java Line 498-528
+    m_textureData = CloudTextureData::Load(image);
+
+    if (!m_textureData)
+    {
+        // TODO: Log error using Logger system
+        // LOGGER.Error("Failed to parse clouds.png");
+        return;
+    }
+
+    // [STEP 3] Mark geometry for rebuild
+    m_needsRebuild = true;
 }
 
 /**
- * @brief Switch between Fast/Fancy cloud rendering modes
- * 
- * Fast Mode: 6144 vertices (2 triangles per cell)
- * Fancy Mode: 24576 vertices (8 triangles per cell)
- * 
- * Note: Triggers complete mesh rebuild with new vertex count
+ * @brief Set Fast/Fancy rendering mode
+ * @param mode New render mode (FAST or FANCY)
+ *
+ * Triggers geometry rebuild if mode changed.
  */
-void CloudRenderPass::SetFancyMode(bool fancy)
+void CloudRenderPass::SetRenderMode(CloudStatus mode)
 {
-    if (m_fancyMode == fancy)
-        return; // No change
-
-    m_fancyMode = fancy;
-
-    // [Component 5.2] Trigger complete mesh rebuild
-    RebuildCloudMesh();
+    if (m_renderMode != mode)
+    {
+        m_renderMode   = mode;
+        m_needsRebuild = true;
+    }
 }
