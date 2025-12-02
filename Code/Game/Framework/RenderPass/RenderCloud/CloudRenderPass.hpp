@@ -26,6 +26,7 @@
 
 namespace enigma::graphic
 {
+    class D12Texture;
     class D12VertexBuffer;
     class ShaderProgram;
 }
@@ -55,16 +56,25 @@ public:
     void SetFancyMode(bool fancy);
 
 private:
+    // [Component 5.2] Cloud Mesh Rebuilding
+    void RebuildCloudMesh();
     // [Component 3] Shader
     std::shared_ptr<enigma::graphic::ShaderProgram> m_cloudsShader = nullptr;
 
     // [Component 5.2] Cloud mesh VertexBuffer (cached)
     std::shared_ptr<enigma::graphic::D12VertexBuffer> m_cloudMeshVB = nullptr;
     std::vector<Vertex>                               m_cloudVertices;
-    size_t                                            m_cloudVertexCount = 0; // 6144 (Fast) or 24576 (Fancy)
+    std::vector<unsigned int>                         m_cloudIndices;
+    size_t                                            m_cloudVertexCount = 0; // 4096 (Fast) or 24576 (Fancy)
+
+    // Cloud texture
+    std::shared_ptr<enigma::graphic::D12Texture> m_cloudTexture = nullptr;
 
     // [Component 6.5] Cloud Rendering Parameters
     float m_cloudSpeed   = 1.0f; // Cloud animation speed multiplier
     float m_cloudOpacity = 0.8f; // Cloud transparency (0.0 = transparent, 1.0 = opaque)
     bool  m_fancyMode    = false; // false = Fast (6144 verts), true = Fancy (24576 verts)
+
+    // [Component 5.2] Player Position Tracking (for cloud following)
+    Vec3 m_lastPlayerChunkPos = Vec3::ZERO; // Last recorded player chunk position (integer coords)
 };

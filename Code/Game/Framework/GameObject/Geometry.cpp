@@ -5,6 +5,8 @@
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp" // [NEW] PerObjectUniforms结构体
+#include "Game/GameCommon.hpp"
+#include "Game/Gameplay/Game.hpp"
 
 Geometry::Geometry(Game* parent) : GameObject(parent)
 {
@@ -41,7 +43,6 @@ void Geometry::Render() const
     // 物体变换矩阵（每个物体独立）
     perObjData.modelMatrix        = modelMatrix;
     perObjData.modelMatrixInverse = modelMatrixInverse;
-
     // 物体颜色（从Geometry成员变量获取）
     m_color.GetAsFloats(perObjData.modelColor); // Geometry.hpp中的m_color成员
 

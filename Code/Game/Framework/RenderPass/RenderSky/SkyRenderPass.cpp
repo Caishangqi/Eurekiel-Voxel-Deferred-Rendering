@@ -13,7 +13,6 @@
 #include "Engine/Math/MathUtils.hpp"
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
 #include "Engine/Graphic/Camera/EnigmaCamera.hpp"
-#include "Engine/Core/VertexUtils.hpp"
 
 SkyRenderPass::SkyRenderPass()
 {
@@ -85,31 +84,6 @@ void SkyRenderPass::Execute()
 {
     BeginPass();
 
-    // ==================== [CPU-Side Vertex Transform] Complete Transform Matrix ====================
-    // Following Minecraft/Iris approach: vertices are transformed on CPU, GPU only does Projection
-    // 
-    // Minecraft data flow (from GameRenderer.java:1156):
-    //   Quaternionf quaternionf = camera.rotation().conjugate(new Quaternionf());
-    //   Matrix4f matrix4f2 = (new Matrix4f()).rotation(quaternionf);  // Pure rotation, NO translation!
-    //
-    // Our approach:
-    //   1. Get camera orientation (EulerAngles: yaw, pitch, roll) - in ENGINE coordinate system
-    //   2. Build rotation-only matrix using GetAsMatrix_IFwd_JLeft_KUp()
-    //   3. Apply cameraToRenderTransform to convert to RENDER coordinate system
-    //   4. Combined transform: skyViewMatrix * cameraToRenderTransform
-    //
-    // Engine coordinate system: +X forward, +Y left, +Z up
-    // Render coordinate system: +Z forward, +X right, +Y up (DirectX)
-    // =========================================================================================
-    EulerAngles cameraOrientation = g_theGame->m_player->GetCamera()->GetOrientation();
-    Mat44       skyViewMatrix     = cameraOrientation.GetAsMatrix_IFwd_JLeft_KUp();
-
-    // [CRITICAL] Apply coordinate system transformation (Engine → Render/DirectX)
-    // Without this, the sky geometry stays in engine coordinate system while
-    // gbufferProjection expects render coordinate system
-    Mat44 cameraToRenderTransform = g_theGame->m_player->GetCamera()->GetCameraToRenderTransform();
-    skyViewMatrix.Append(cameraToRenderTransform);
-
     // ==================== [Component 2] Upload CelestialConstantBuffer ====================
     // [FIX] Get gbufferModelView (World->Camera transform) from player camera
     // This is needed to calculate VIEW SPACE sun/moon positions (following Iris CelestialUniforms.java)
@@ -131,36 +105,14 @@ void SkyRenderPass::Execute()
     int                   depthTexIndex = 0; // depthtex0
     g_theRendererSubsystem->UseProgram(m_skyBasicShader, rtOutputs, depthTexIndex);
 
-    // [STEP 0] Upload IDENTITY modelMatrix (transformation done on CPU side)
-    enigma::graphic::PerObjectUniforms skyDomePerObj;
-    skyDomePerObj.modelMatrix        = Mat44::IDENTITY;
-    skyDomePerObj.modelMatrixInverse = Mat44::IDENTITY;
-    skyDomePerObj.modelColor[0]      = 1.0f;
-    skyDomePerObj.modelColor[1]      = 1.0f;
-    skyDomePerObj.modelColor[2]      = 1.0f;
-    skyDomePerObj.modelColor[3]      = 1.0f;
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer<enigma::graphic::PerObjectUniforms>(skyDomePerObj);
-
-    // [CPU-SIDE VERTEX TRANSFORM] Transform Sky Dome vertices with skyViewMatrix
-    // Following Minecraft/Iris approach: vertices transformed on CPU, GPU only does Projection
-    // Sky Dome has no celestial rotation, only camera rotation (skyViewMatrix)
-
+    // [FIX] Draw both hemispheres to form complete sky sphere
     // Upper hemisphere: Sky dome (player looks up to see sky)
-    std::vector<Vertex> transformedSkyDome = m_skyDomeVertices;
-    TransformVertexArray3D(transformedSkyDome, skyViewMatrix);
-    g_theRendererSubsystem->DrawVertexArray(transformedSkyDome);
+    g_theRendererSubsystem->DrawVertexArray(m_skyDomeVertices);
 
     // Lower hemisphere: Void dome (player looks down to see void gradient)
-    std::vector<Vertex> transformedVoidDome = m_voidDomeVertices;
-    TransformVertexArray3D(transformedVoidDome, skyViewMatrix);
-    g_theRendererSubsystem->DrawVertexArray(transformedVoidDome);
+    g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
 
-#pragma region RENDER_SUN
     // ==================== [Component 2] Draw Sky Textured (Sun/Moon) ====================
-    // [IMPORTANT] Sun/Moon rendered BEFORE Strip to avoid Z-fighting
-    // Minecraft order: SKY → SUN → SUNSET → MOON (see MixinLevelRenderer.java:184-196)
-    // But we render Strip AFTER Sun/Moon with different blend mode for better visuals
-
     // [FIX] Enable Alpha Blending for sun/moon soft edges
     g_theRendererSubsystem->SetBlendMode(BlendMode::Additive);
     g_theRendererSubsystem->UseProgram(m_skyTexturedShader, rtOutputs, depthTexIndex);
@@ -179,8 +131,7 @@ void SkyRenderPass::Execute()
         // Draw sun billboard (2 triangles = 6 vertices)
         g_theRendererSubsystem->DrawVertexArray(sunVertices);
     }
-#pragma endregion
-#pragma region RENDER_MOON
+
     // [Component 2] Draw Moon Billboard
     {
         // [FIX] Calculate moon phase using dayCount (changes daily, not per-tick)
@@ -202,73 +153,7 @@ void SkyRenderPass::Execute()
         // Draw moon billboard (2 triangles = 6 vertices)
         g_theRendererSubsystem->DrawVertexArray(moonVertices);
     }
-#pragma endregion
-#pragma region RENDER_STRIP
-    // ==================== [Component 3] Draw Sunrise/Sunset Strip ====================
-    // [MOVED] Now rendered AFTER Sun/Moon (following Minecraft: SUNSET phase after SUN phase)
-    // Reference: MixinLevelRenderer.java:189-192 - getSunriseColor called after SUN_LOCATION
-    Vec4 sunriseColor = CalculateSunriseColor(celestialData.celestialAngle);
-    if (sunriseColor.w > 0.0f) // alpha > 0 means we should render
-    {
-        // Switch back to sky basic shader for strip
-        g_theRendererSubsystem->UseProgram(m_skyBasicShader, rtOutputs, depthTexIndex);
 
-        // [STEP 1] Generate strip geometry (already in ENGINE SPACE)
-        // See SkyGeometryHelper::GenerateSunriseStrip for details
-        std::vector<Vertex> stripVertices = SkyGeometryHelper::GenerateSunriseStrip(sunriseColor);
-
-        // [STEP 2] Build transformation matrix
-        // ==========================================================================
-        // [SIMPLIFIED] Geometry is now generated directly in ENGINE SPACE
-        //
-        // The strip geometry is positioned:
-        //   - Center at (~26.7, 0, 0) - forward toward +X (horizon)
-        //   - Arc spans left-right in Y direction (+-32 units)
-        //   - Bowl curve in Z direction (+-32 units vertical)
-        //
-        // We only need to apply:
-        //   1. Flip (0 or 180 degrees around Z) based on sun position
-        //   2. Camera view rotation (skyViewMatrix)
-        // ==========================================================================
-
-        // [STEP 2a] Z-rotation flip (0 or 180 based on sun position)
-        // When sin(celestialAngle * 2PI) < 0, flip the strip 180 degrees
-        // This ensures the strip always faces toward the sun
-        float sunAngle  = celestialData.celestialAngle * 6.28318530718f; // 2*PI
-        float flipAngle = (sinf(sunAngle) < 0.0f) ? 3.14159265359f : 0.0f; // PI or 0
-        float cosFlip   = cosf(flipAngle);
-        float sinFlip   = sinf(flipAngle);
-
-        Mat44 flipTransform;
-        flipTransform.SetIJK3D(
-            Vec3(cosFlip, sinFlip, 0.0f), // I: X rotates around Z
-            Vec3(-sinFlip, cosFlip, 0.0f), // J: Y rotates around Z
-            Vec3(0.0f, 0.0f, 1.0f) // K: Z stays Z
-        );
-
-        // [STEP 3] Build combined transform: flip -> camera view
-        Mat44 combinedTransform = flipTransform;
-        combinedTransform.Append(skyViewMatrix);
-
-        // Transform all strip vertices on CPU side
-        TransformVertexArray3D(stripVertices, combinedTransform);
-
-        // [STEP 4] Upload IDENTITY modelMatrix (transformation already done on CPU)
-        enigma::graphic::PerObjectUniforms perObjData;
-        perObjData.modelMatrix        = Mat44::IDENTITY;
-        perObjData.modelMatrixInverse = Mat44::IDENTITY;
-        perObjData.modelColor[0]      = 1.0f;
-        perObjData.modelColor[1]      = 1.0f;
-        perObjData.modelColor[2]      = 1.0f;
-        perObjData.modelColor[3]      = 1.0f;
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer<enigma::graphic::PerObjectUniforms>(perObjData);
-
-        // [STEP 5] Render strip with Alpha blending
-        // Strip overlays on sun/moon with transparency
-        g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
-        g_theRendererSubsystem->DrawVertexArray(stripVertices);
-    }
-#pragma endregion
     EndPass();
 }
 
@@ -277,7 +162,7 @@ void SkyRenderPass::BeginPass()
     // ==================== [Component 2] Set Depth State to ALWAYS (depth value 1.0) ====================
     // WHY: Sky is rendered at maximum depth (1.0) to ensure it's always behind all geometry
     // Depth test ALWAYS ensures all sky pixels pass depth test regardless of depth buffer content
-    g_theRendererSubsystem->SetDepthMode(DepthMode::LessEqual);
+    g_theRendererSubsystem->SetDepthMode(DepthMode::Always);
     g_theRendererSubsystem->SetCustomImage(0, nullptr);
 }
 
@@ -294,61 +179,4 @@ void SkyRenderPass::EndPass()
 
     // [CLEANUP] Reset blend mode to opaque
     g_theRendererSubsystem->SetBlendMode(BlendMode::Opaque);
-}
-
-//-----------------------------------------------------------------------------------------------
-Vec4 SkyRenderPass::CalculateSunriseColor(float celestialAngle) const
-{
-    // ==========================================================================
-    // [Sunrise/Sunset Color Calculation] - FIXED VERSION
-    // ==========================================================================
-    // Render when celestialAngle is near 0.0 (sunrise) or 0.5 (sunset)
-    // 
-    // celestialAngle mapping:
-    //   0.0 (or 1.0) = Sunrise (tick 0 or 24000)
-    //   0.25         = Noon (tick 6000)
-    //   0.5          = Sunset (tick 12000)
-    //   0.75         = Midnight (tick 18000)
-    //
-    // [OLD BUG] Previous formula used cos(celestialAngle * 2PI) which:
-    //   - At sunrise (0.0): heightFactor = 1.0 (NOT in [-0.4, 0.4], no render)
-    //   - At sunset (0.5):  heightFactor = -1.0 (NOT in [-0.4, 0.4], no render)
-    //   - At noon (0.25):   heightFactor = 0.0 (IN range, wrong render)
-    //
-    // [NEW FIX] Calculate distance to nearest horizon event (sunrise/sunset)
-    // ==========================================================================
-
-    // Calculate distance to sunrise (celestialAngle = 0.0 or 1.0)
-    float distanceToSunrise = (celestialAngle < 0.5f) ? celestialAngle : (1.0f - celestialAngle);
-
-    // Calculate distance to sunset (celestialAngle = 0.5)
-    float distanceToSunset = fabsf(celestialAngle - 0.5f);
-
-    // Get distance to nearest horizon event
-    float distanceToHorizon = (distanceToSunrise < distanceToSunset) ? distanceToSunrise : distanceToSunset;
-
-    // Render window: within 0.1 of horizon event (about 2400 ticks = 2 minutes game time)
-    constexpr float HORIZON_WINDOW = 0.1f;
-
-    if (distanceToHorizon < HORIZON_WINDOW)
-    {
-        // intensity: 1.0 at horizon event center, 0.0 at window edge
-        float intensity = 1.0f - (distanceToHorizon / HORIZON_WINDOW);
-
-        // Apply smoothstep for smoother transition (Hermite interpolation)
-        intensity = intensity * intensity * (3.0f - 2.0f * intensity);
-
-        // Alpha with smooth falloff (max 0.8 for subtle effect)
-        float alpha = intensity * 0.8f;
-
-        // Orange-to-red gradient color
-        float red   = 1.0f; // Full red
-        float green = 0.4f + intensity * 0.3f; // 0.4 to 0.7 (orange tint)
-        float blue  = 0.1f * intensity; // 0.0 to 0.1 (slight warmth)
-
-        return Vec4(red, green, blue, alpha);
-    }
-
-    // Return zero vector when not in sunrise/sunset period
-    return Vec4(0.0f, 0.0f, 0.0f, 0.0f);
 }

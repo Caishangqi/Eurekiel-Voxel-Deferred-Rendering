@@ -30,6 +30,12 @@ SceneUnitTest_CustomConstantBuffer::SceneUnitTest_CustomConstantBuffer()
         "TestCaizii"
     );
 
+    tex_testUV = g_theRendererSubsystem->CreateTexture2D(
+        ".enigma/assets/engine/textures/test/TestUV.png",
+        TextureUsage::ShaderResource,
+        "TestUV"
+    );
+
     sa_testMoon = std::make_shared<SpriteAtlas>("testMoonPhase");
     sa_testMoon->BuildFromGrid(".enigma/assets/engine/textures/environment/moon_phases.png", IntVec2(4, 2));
 

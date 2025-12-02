@@ -50,7 +50,7 @@ void ImguiSettingCloud::Show(CloudRenderPass* cloudPass)
         // ==================== Cloud Speed Adjustment ====================
 
         float cloudSpeed = cloudPass->GetCloudSpeed();
-        if (ImGui::SliderFloat("Cloud Speed", &cloudSpeed, 0.0f, 5.0f, "%.2f"))
+        if (ImGui::SliderFloat("Cloud Speed", &cloudSpeed, 0.0f, 2.0f, "%.2f"))
         {
             cloudPass->SetCloudSpeed(cloudSpeed);
         }

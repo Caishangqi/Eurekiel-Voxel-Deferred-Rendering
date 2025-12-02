@@ -41,7 +41,7 @@ Game::Game()
 
     /// Scene (Test Only)
     //m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
-    m_scene = std::make_unique<SceneUnitTest_CustomConstantBuffer>();
+    m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
 
     /// Render Passes (Production)
     m_skyRenderPass       = std::make_unique<SkyRenderPass>();

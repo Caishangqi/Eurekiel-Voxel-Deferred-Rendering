@@ -5,7 +5,11 @@
  */
 
 #include "ImguiSceneRendering.hpp"
-// #include "Code/Game/Framework/RenderPass/RenderCloud/ImguiSettingCloud.hpp" // [TODO] Task 14
+
+#include "Game/GameCommon.hpp"
+#include "Game/Framework/RenderPass/RenderCloud/ImguiSettingCloud.hpp"
+#include "Game/Framework/RenderPass/RenderCloud/CloudRenderPass.hpp"
+#include "Game/Gameplay/Game.hpp"
 #include "ThirdParty/imgui/imgui.h"
 
 /**
@@ -19,8 +23,10 @@ void ImguiSceneRendering::Show()
     // For now, we create the UI structure
 
     // [MODULE 2] Cloud Rendering
-    // [TODO] Task 14: Uncomment when ImguiSettingCloud is implemented
-    // ImguiSettingCloud::Show(cloudPass);
+    // Note: ImguiSettingCloud::Show() requires CloudRenderPass* parameter
+    // This will be integrated in Task 18 when connecting to Game::RenderImGui()
+    // For now, we pass nullptr to show the UI structure
+    ImguiSettingCloud::Show(dynamic_cast<CloudRenderPass*>(g_theGame->m_cloudRenderPass.get()));
 
     // [MODULE 3] Sun & Moon Parameters
     ShowSunMoonParameters(); /// WRONG should be ImguiSettingSunMoon::Show()
