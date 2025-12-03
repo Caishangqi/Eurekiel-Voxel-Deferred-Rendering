@@ -244,7 +244,7 @@ void CloudRenderPass::BeginPass()
     // Fast mode: Disable backface culling (single face rendering)
     // Fancy mode: Disable backface culling too (interior faces have reversed winding)
     // Reference: Sodium Line 107-109: if (fastClouds) RenderSystem.disableCull()
-    g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
+    g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::CullBack());
 }
 
 /**

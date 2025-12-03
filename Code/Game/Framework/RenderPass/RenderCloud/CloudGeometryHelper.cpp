@@ -154,7 +154,7 @@ void CloudGeometryHelper::AddCellGeometry(
         // The GetVisibleFaces() culling handles which exterior faces to render
         if (TaxicabDistance(x, z) <= 1)
         {
-            EmitCellGeometryInterior(vertices, color, x, z);
+            //EmitCellGeometryInterior(vertices, color, x, z);
         }
     }
 }
@@ -337,10 +337,11 @@ void CloudGeometryHelper::EmitCellGeometryExterior(
         uint32_t colorVal = MultiplyColorBrightness(cellColor, BRIGHTNESS_Y_AXIS);
         Rgba8    rgba     = UnpackARGB32(colorVal);
         AddVertsForQuad3D(vertices,
-                          Vec3(y0, x0, z0), // bottomLeft
                           Vec3(y0, x1, z0), // bottomRight
-                          Vec3(y0, x1, z1), // topRight
+                          Vec3(y0, x0, z0), // bottomLeft
                           Vec3(y0, x0, z1), // topLeft
+                          Vec3(y0, x1, z1), // topRight
+
                           rgba
         );
     }
@@ -352,10 +353,11 @@ void CloudGeometryHelper::EmitCellGeometryExterior(
         uint32_t colorVal = MultiplyColorBrightness(cellColor, BRIGHTNESS_Y_AXIS);
         Rgba8    rgba     = UnpackARGB32(colorVal);
         AddVertsForQuad3D(vertices,
-                          Vec3(y1, x1, z0), // bottomLeft
                           Vec3(y1, x0, z0), // bottomRight
-                          Vec3(y1, x0, z1), // topRight
+                          Vec3(y1, x1, z0), // bottomLeft
                           Vec3(y1, x1, z1), // topLeft
+                          Vec3(y1, x0, z1), // topRight
+
                           rgba
         );
     }
@@ -367,10 +369,11 @@ void CloudGeometryHelper::EmitCellGeometryExterior(
         uint32_t colorVal = MultiplyColorBrightness(cellColor, BRIGHTNESS_X_AXIS);
         Rgba8    rgba     = UnpackARGB32(colorVal);
         AddVertsForQuad3D(vertices,
-                          Vec3(y1, x0, z0), // bottomLeft
                           Vec3(y0, x0, z0), // bottomRight
-                          Vec3(y0, x0, z1), // topRight
+                          Vec3(y1, x0, z0), // bottomLeft
                           Vec3(y1, x0, z1), // topLeft
+                          Vec3(y0, x0, z1), // topRight
+
                           rgba
         );
     }
@@ -382,10 +385,11 @@ void CloudGeometryHelper::EmitCellGeometryExterior(
         uint32_t colorVal = MultiplyColorBrightness(cellColor, BRIGHTNESS_X_AXIS);
         Rgba8    rgba     = UnpackARGB32(colorVal);
         AddVertsForQuad3D(vertices,
-                          Vec3(y0, x1, z0), // bottomLeft
                           Vec3(y1, x1, z0), // bottomRight
-                          Vec3(y1, x1, z1), // topRight
+                          Vec3(y0, x1, z0), // bottomLeft
                           Vec3(y0, x1, z1), // topLeft
+                          Vec3(y1, x1, z1), // topRight
+
                           rgba
         );
     }
