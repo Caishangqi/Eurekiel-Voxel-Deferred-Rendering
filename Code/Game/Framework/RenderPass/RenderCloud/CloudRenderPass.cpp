@@ -24,6 +24,7 @@
 
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
+// [REMOVED] VertexUtils.hpp - No longer needed, ModelMatrix handles Z translation
 
 // ========================================
 // Constants
@@ -152,9 +153,12 @@ void CloudRenderPass::Execute()
     if (m_needsRebuild || params != m_cachedParams)
     {
         // Reference: Sodium CloudRenderer.java Line 147-216
+        // [FIX] Geometry stays in local space (Z = 0 to 4)
+        // ModelMatrix will handle the Z translation to world space
         CloudGeometryHelper::RebuildGeometry(
             m_geometry.get(), params, m_textureData.get()
         );
+
         m_cachedParams = params;
         m_needsRebuild = false;
     }
@@ -165,26 +169,15 @@ void CloudRenderPass::Execute()
         // Calculate view position offset (for smooth scrolling)
         // Reference: Sodium CloudRenderer.java Line 97-99
         //
-        // Cloud geometry is generated in local space (Z = 0 to 4)
-        // We need to translate it so:
-        // - Horizontal: Center on camera cell with smooth offset
-        // - Vertical: Place at CLOUD_HEIGHT in world space
-        //
-        // Sodium uses camera-relative rendering:
-        //   viewPosX/Z = worldX/Z - cellX/Z * 12 (fractional cell offset)
-        //   viewPosY = cameraPos.y - cloudHeight (camera height relative to clouds)
-        //   translate(-viewPosX, -viewPosY, -viewPosZ)
-        //
-        // This makes clouds appear at cloudHeight relative to camera
+        // [FIX] Sodium-style: ModelMatrix handles ALL translation including Z height
+        // Vertices stay in local space (Z = 0 to 4), ModelMatrix transforms to world space
+        // This matches Sodium's approach where ModelViewMatrix does the unified transformation
         float viewPosY = worldY - cellY * 12.0f; // Horizontal offset (our Y = MC X)
         float viewPosX = worldX - cellX * 12.0f; // Horizontal offset (our X = MC Z)
-        float viewPosZ = cameraPos.z - CLOUD_HEIGHT; // Camera height above cloud layer
 
-        // Build model matrix (Translation only)
-        // [FIX] Correct camera-relative positioning:
-        // - (-viewPosY, -viewPosX): Cancel out camera's horizontal position within cell
-        // - (-viewPosZ): Place clouds at CLOUD_HEIGHT relative to camera
-        Mat44 modelMatrix = Mat44::MakeTranslation3D(Vec3(-viewPosY, -viewPosX, -viewPosZ));
+        // Build model matrix (includes Z translation to world height)
+        // Reference: Sodium CloudRenderer.java Line 97-99 viewPosY = y - CLOUD_HEIGHT
+        Mat44 modelMatrix = Mat44::MakeTranslation3D(Vec3(-viewPosY, -viewPosX, CLOUD_HEIGHT));
 
         // [NEW] Calculate cloud color based on time of day
         // Reference: Minecraft ClientLevel.java:673-704 getCloudColor()
