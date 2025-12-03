@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file CloudGeometryHelper.cpp
  * @brief [NEW] Implementation of Sodium-style cloud geometry generation
  * @date 2025-12-02
@@ -147,7 +147,11 @@ void CloudGeometryHelper::AddCellGeometry(
         // Fancy mode: Exterior faces
         EmitCellGeometryExterior(vertices, cellFaces, color, x, z);
 
-        // Fancy mode: Interior faces (only for nearby cells)
+        // [RESTORED] Fancy mode: Interior faces for nearby cells
+        // Reference: Sodium CloudRenderer.java Line 231-234
+        // Interior faces are generated unconditionally (no ViewOrientation check)
+        // They provide the "inside view" when camera enters the cloud
+        // The GetVisibleFaces() culling handles which exterior faces to render
         if (TaxicabDistance(x, z) <= 1)
         {
             EmitCellGeometryInterior(vertices, color, x, z);
@@ -156,29 +160,84 @@ void CloudGeometryHelper::AddCellGeometry(
 }
 
 /**
- * @brief [SIMPLIFIED] Calculate visible faces mask
+ * @brief [RESTORED] Calculate visible faces mask based on camera position
  *
- * [FIX] 简化逻辑：不做基于相机位置的面剔除
- * 只依赖 GetOpenFaces 的邻居检测来剔除云体内部的面
- * 类似于 Minecraft 方块渲染：相邻方块之间的面不渲染，暴露面总是渲染
+ * Reference: Sodium CloudRenderer.java Line 237-264
  *
- * 参数 x, z, orientation 保留但不使用，保持接口兼容
+ * [IMPORTANT] This is NOT just for performance optimization!
+ * It's critical for correct transparent rendering:
+ * - Only renders faces that FACE the camera
+ * - Prevents back faces from showing through semi-transparent front faces
+ * - Without this, you see interior geometry through exterior faces
+ *
+ * Coordinate System Mapping (Minecraft -> Engine):
+ * - Minecraft X (cellX) -> Engine Y (cellY)
+ * - Minecraft Z (cellZ) -> Engine X (cellX)
+ * - Minecraft Y (height) -> Engine Z (height)
+ *
+ * Parameter x, z are relative to camera cell position:
+ * - x < 0: Cell is behind camera (in our Engine Y direction)
+ * - x > 0: Cell is in front of camera
+ * - z < 0: Cell is to the right of camera (in our Engine X direction)
+ * - z > 0: Cell is to the left of camera
  */
 int CloudGeometryHelper::GetVisibleFaces(
     int             x, int z,
     ViewOrientation orientation
 )
 {
-    // [SIMPLIFIED] 返回所有6个面的掩码
-    // 实际的面剔除由 GetOpenFaces 根据邻居是否透明来决定
-    // 这样无论相机在云的上方还是下方，所有暴露的面都会渲染
-    (void)x; // Unused
-    (void)z; // Unused
-    (void)orientation; // Unused
+    int faces = 0;
 
-    return FACE_MASK_NEG_Z | FACE_MASK_POS_Z | // 底面 + 顶面
-        FACE_MASK_NEG_Y | FACE_MASK_POS_Y | // 左面 + 右面
-        FACE_MASK_NEG_X | FACE_MASK_POS_X; // 后面 + 前面
+    // [STEP 1] Horizontal face culling based on camera position relative to cell
+    // Reference: Sodium CloudRenderer.java Line 238-252
+    //
+    // Sodium logic (Minecraft coords):
+    //   if (x <= 0) faces |= FACE_MASK_POS_X;  // Camera left of cell -> render right face
+    //   if (x >= 0) faces |= FACE_MASK_NEG_X;  // Camera right of cell -> render left face
+    //   if (z <= 0) faces |= FACE_MASK_POS_Z;  // Camera behind cell -> render front face
+    //   if (z >= 0) faces |= FACE_MASK_NEG_Z;  // Camera in front of cell -> render back face
+    //
+    // Our coordinate mapping: Minecraft X -> Engine Y, Minecraft Z -> Engine X
+    // So our x parameter maps to Minecraft's x, our z maps to Minecraft's z
+    // But our FACE_MASK constants are already mapped!
+
+    // Cell X relative position (maps to Minecraft X direction -> Engine Y faces)
+    if (x <= 0)
+    {
+        faces |= FACE_MASK_POS_Y; // Camera on negative side -> render positive face
+    }
+    if (x >= 0)
+    {
+        faces |= FACE_MASK_NEG_Y; // Camera on positive side -> render negative face
+    }
+
+    // Cell Z relative position (maps to Minecraft Z direction -> Engine X faces)
+    if (z <= 0)
+    {
+        faces |= FACE_MASK_POS_X; // Camera on negative side -> render positive face
+    }
+    if (z >= 0)
+    {
+        faces |= FACE_MASK_NEG_X; // Camera on positive side -> render negative face
+    }
+
+    // [STEP 2] Vertical face culling based on ViewOrientation
+    // Reference: Sodium CloudRenderer.java Line 255-260
+    //
+    // orientation != BELOW_CLOUDS -> render top face (camera can see it)
+    // orientation != ABOVE_CLOUDS -> render bottom face (camera can see it)
+
+    if (orientation != ViewOrientation::BELOW_CLOUDS)
+    {
+        faces |= FACE_MASK_POS_Z; // Render top face (camera is not below clouds)
+    }
+
+    if (orientation != ViewOrientation::ABOVE_CLOUDS)
+    {
+        faces |= FACE_MASK_NEG_Z; // Render bottom face (camera is not above clouds)
+    }
+
+    return faces;
 }
 
 // ========================================

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file CloudGeometryHelper.hpp
  * @brief [NEW] Static helper for Sodium-style cloud geometry generation
  * @date 2025-12-02

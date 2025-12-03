@@ -30,10 +30,15 @@
 // ========================================
 
 // [NEW] Cloud height constants (Engine Z-axis)
-constexpr float CLOUD_HEIGHT    = 192.33f; // [NEW] Base cloud height (Minecraft 192)
-constexpr float CLOUD_THICKNESS = 4.0f; // [NEW] Cloud layer thickness
-constexpr float CLOUD_MIN_Z     = CLOUD_HEIGHT; // [NEW] 192.0f
-constexpr float CLOUD_MAX_Z     = CLOUD_HEIGHT + CLOUD_THICKNESS; // [NEW] 196.0f
+// [FIX] Set cloud height so player can test from above and below
+// Cloud layer: Z = 20 to Z = 24
+// Player at Z < 20: BELOW_CLOUDS (see bottom face)
+// Player at Z > 24: ABOVE_CLOUDS (see top face)
+// Player at 20 <= Z <= 24: INSIDE_CLOUDS (see both faces)
+constexpr float CLOUD_HEIGHT    = 20.0f; // Cloud layer base height
+constexpr float CLOUD_THICKNESS = 4.0f; // Cloud layer thickness (20-24)
+constexpr float CLOUD_MIN_Z     = CLOUD_HEIGHT; // 20.0f
+constexpr float CLOUD_MAX_Z     = CLOUD_HEIGHT + CLOUD_THICKNESS; // 24.0f
 
 // [NEW] Cloud animation constants
 // [REMOVED] CLOUD_SCROLL_SPEED - now using TimeOfDayManager::GetCloudTime()
@@ -159,18 +164,42 @@ void CloudRenderPass::Execute()
     {
         // Calculate view position offset (for smooth scrolling)
         // Reference: Sodium CloudRenderer.java Line 97-99
-        float viewPosY = worldY - cellY * 12.0f;
-        float viewPosX = worldX - cellX * 12.0f;
-        float viewPosZ = cameraPos.z - CLOUD_HEIGHT;
+        //
+        // Cloud geometry is generated in local space (Z = 0 to 4)
+        // We need to translate it so:
+        // - Horizontal: Center on camera cell with smooth offset
+        // - Vertical: Place at CLOUD_HEIGHT in world space
+        //
+        // Sodium uses camera-relative rendering:
+        //   viewPosX/Z = worldX/Z - cellX/Z * 12 (fractional cell offset)
+        //   viewPosY = cameraPos.y - cloudHeight (camera height relative to clouds)
+        //   translate(-viewPosX, -viewPosY, -viewPosZ)
+        //
+        // This makes clouds appear at cloudHeight relative to camera
+        float viewPosY = worldY - cellY * 12.0f; // Horizontal offset (our Y = MC X)
+        float viewPosX = worldX - cellX * 12.0f; // Horizontal offset (our X = MC Z)
+        float viewPosZ = cameraPos.z - CLOUD_HEIGHT; // Camera height above cloud layer
 
         // Build model matrix (Translation only)
-        // Translate cloud mesh to camera-relative position
+        // [FIX] Correct camera-relative positioning:
+        // - (-viewPosY, -viewPosX): Cancel out camera's horizontal position within cell
+        // - (-viewPosZ): Place clouds at CLOUD_HEIGHT relative to camera
         Mat44 modelMatrix = Mat44::MakeTranslation3D(Vec3(-viewPosY, -viewPosX, -viewPosZ));
 
-        // Upload model matrix to PerObjectUniforms
+        // [NEW] Calculate cloud color based on time of day
+        // Reference: Minecraft ClientLevel.java:673-704 getCloudColor()
+        // Reference: Sodium CloudRenderer.java Line 118: RenderSystem.setShaderColor(r, g, b, 0.8F)
+        Vec3 cloudColor = g_theGame->m_timeOfDayManager->CalculateCloudColor(0.0f, 0.0f);
+
+        // Upload model matrix and cloud color to PerObjectUniforms
         PerObjectUniforms perObjectUniform;
         perObjectUniform.modelMatrix        = modelMatrix;
         perObjectUniform.modelMatrixInverse = modelMatrix.GetInverse();
+        // [NEW] Set modelColor for cloud tinting (RGB from algorithm, Alpha = 0.8 like Sodium)
+        perObjectUniform.modelColor[0] = cloudColor.x;
+        perObjectUniform.modelColor[1] = cloudColor.y;
+        perObjectUniform.modelColor[2] = cloudColor.z;
+        perObjectUniform.modelColor[3] = 0.8f; // Sodium uses 0.8 alpha for clouds
         g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniform);
 
         // [FIX 3] Set blend mode (Alpha blending for clouds)
@@ -195,28 +224,33 @@ void CloudRenderPass::Execute()
  * @brief Begin cloud rendering pass
  *
  * Setup Render States:
- * 1. Set depth mode: ReadOnly + LessEqual (test enabled, write disabled)
- * 2. Set blend mode: Alpha blending for semi-transparent clouds
- * 3. Set cull mode: None (Fast mode) or Default (Fancy mode)
+ * Reference: Sodium CloudRenderer.java Line 119-126
  *
- * Reference: design.md Line 1030-1039
+ * Sodium's rendering setup:
+ * - RenderSystem.enableBlend()
+ * - RenderSystem.enableDepthTest()
+ * - RenderSystem.blendFuncSeparate(SRC_ALPHA, ONE_MINUS_SRC_ALPHA, ONE, ONE_MINUS_SRC_ALPHA)
+ * - RenderSystem.depthFunc(513) = GL_LESS (not LEQUAL!)
+ *
+ * Key insight: Sodium uses GL_LESS (not GL_LEQUAL) for cloud depth testing
+ * This prevents Z-fighting between overlapping semi-transparent faces
  */
 void CloudRenderPass::BeginPass()
 {
-    // [FIX 3] Set depth state (ReadOnly + LessEqual)
-    // Clouds render after sky, depth test enabled but no depth write
-    // Reference: SkyRenderPass.cpp Line 165, design.md Line 1037-1038
-    g_theRendererSubsystem->SetDepthMode(DepthMode::LessEqual);
+    // [RESTORED] Set depth state with depth write enabled
+    // Reference: Sodium uses enableDepthTest() + depthFunc(GL_LESS)
+    // The GetVisibleFaces() culling ensures we only render camera-facing faces
+    // so depth write is safe and prevents transparency sorting issues
+    g_theRendererSubsystem->SetDepthMode(DepthMode::Less);
 
     // [FIX 3] Enable alpha blending
-    // Reference: design.md Line 196
-    g_theRendererSubsystem->SetBlendMode(BlendMode::Multiply);
+    // Reference: Sodium Line 121-122: blendFuncSeparate(SRC_ALPHA, ONE_MINUS_SRC_ALPHA, ONE, ONE_MINUS_SRC_ALPHA)
+    g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
 
     // [FIX 3] Set cull mode based on render mode
     // Fast mode: Disable backface culling (single face rendering)
-    // Fancy mode: Disable backface culling too (we generate both exterior and interior faces)
-    // Reference: design.md Line 197-200
-    // [FIX] Both modes now use NoCull - Fancy mode has interior faces for viewing from inside
+    // Fancy mode: Disable backface culling too (interior faces have reversed winding)
+    // Reference: Sodium Line 107-109: if (fastClouds) RenderSystem.disableCull()
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
 }
 
