@@ -1,3 +1,16 @@
+/**
+ * @file CloudTextureData.hpp
+ * @brief Sodium-style cloud texture data management
+ * @date 2025-12-02
+ *
+ * Responsibilities:
+ * - Load and parse clouds.png (256x256) texture
+ * - Pre-calculate face visibility masks for each cloud cell
+ * - Support wrap-around texture sampling via Slice class
+ *
+ * Reference: Sodium CloudRenderer.java Line 557-665
+ */
+
 #pragma once
 #include <vector>
 #include <memory>
@@ -5,26 +18,34 @@
 
 class Image;
 
-// [NEW] 云纹理数据类
-// 职责：存储从clouds.png加载的纹理数据和预计算的面可见性掩码
-// 参考：Sodium CloudRenderer.java Line 557-665
+/**
+ * @class CloudTextureData
+ * @brief Stores cloud texture data with pre-calculated face visibility masks
+ *
+ * Data stored per pixel:
+ * - m_faces[]: 6-bit face visibility mask (which faces are exposed)
+ * - m_colors[]: ARGB color value (always white 0xFFFFFFFF for clouds)
+ */
 class CloudTextureData
 {
 public:
-    // [NEW] 嵌套类：纹理切片（支持环绕采样）
-    // 参考：Sodium CloudRenderer.java Line 667-693
+    /**
+     * @class Slice
+     * @brief Texture slice with wrap-around sampling support
+     * Reference: Sodium CloudRenderer.java Line 667-693
+     */
     class Slice
     {
     public:
         Slice(int width, int height, int radius);
 
-        // [NEW] 获取格子索引（2D坐标转1D索引）
+        /// Convert 2D coordinates to 1D array index
         int GetCellIndex(int x, int z) const;
 
-        // [NEW] 获取格子的可见面掩码（6位）
+        /// Get 6-bit face visibility mask for cell
         int GetCellFaces(int index) const;
 
-        // [NEW] 获取格子颜色（ARGB格式）
+        /// Get ARGB color for cell
         uint32_t GetCellColor(int index) const;
 
     private:
@@ -33,52 +54,52 @@ public:
         int                   m_width;
         int                   m_height;
         int                   m_radius;
-        std::vector<uint8_t>  m_faces; // [NEW] 面掩码数组
-        std::vector<uint32_t> m_colors; // [NEW] 颜色数组（ARGB）
+        std::vector<uint8_t>  m_faces; ///< Face visibility masks
+        std::vector<uint32_t> m_colors; ///< ARGB colors
     };
 
-    // [NEW] 静态工厂方法：从Image加载256x256纹理
-    // 参考：Sodium CloudRenderer.java Line 498-528
+    /// Factory method: Load 256x256 texture from Image
     static std::unique_ptr<CloudTextureData> Load(const Image& image);
 
-    // [NEW] 创建切片（环绕采样）
-    // 参考：Sodium CloudRenderer.java Line 570-590
+    /// Create texture slice with wrap-around sampling
     Slice CreateSlice(int originX, int originZ, int radius) const;
 
-    // [NEW] 获取纹理尺寸
     int GetWidth() const { return m_width; }
     int GetHeight() const { return m_height; }
 
 private:
     CloudTextureData(int width, int height);
 
-    // [NEW] 加载纹理数据并预计算面掩码
+    /// Load texture data and pre-calculate face masks
     bool LoadTextureData(const Image& texture);
 
-    // [NEW] 预计算4邻居面可见性
-    // 参考：Sodium CloudRenderer.java Line 620-643
+    /// Calculate visible faces based on 4 horizontal neighbors
     static int GetOpenFaces(const Image& image, uint32_t color, int x, int z);
 
-    // [NEW] 获取邻居像素颜色（环绕采样）
+    /// Get neighbor texel color with wrap-around
     static uint32_t GetNeighborTexel(const Image& image, int x, int z);
 
-    // [NEW] 检查像素是否透明（alpha < 10）
+    /// Check if color is transparent (alpha < 10)
     static bool IsTransparent(uint32_t argb);
 
-    // [NEW] 计算1D索引
+    /// Convert 2D coordinates to 1D array index
     static int GetCellIndex(int x, int z, int width);
 
     int                   m_width;
     int                   m_height;
-    std::vector<uint8_t>  m_faces; // [NEW] 每像素可见面掩码（6位）
-    std::vector<uint32_t> m_colors; // [NEW] 每像素颜色（ARGB）
+    std::vector<uint8_t>  m_faces; ///< Per-pixel face visibility masks (6 bits)
+    std::vector<uint32_t> m_colors; ///< Per-pixel ARGB colors
 };
 
-// [NEW] 面掩码常量定义
-// 参考：Sodium CloudRenderer.java Line 47-58（已映射坐标系）
-constexpr int FACE_MASK_NEG_Z = 1; // [NEW] 底面（Minecraft NEG_Y）
-constexpr int FACE_MASK_POS_Z = 2; // [NEW] 顶面（Minecraft POS_Y）
-constexpr int FACE_MASK_NEG_Y = 4; // [NEW] 左面（Minecraft NEG_X）
-constexpr int FACE_MASK_POS_Y = 8; // [NEW] 右面（Minecraft POS_X）
-constexpr int FACE_MASK_NEG_X = 16; // [NEW] 后面（Minecraft NEG_Z）
-constexpr int FACE_MASK_POS_X = 32; // [NEW] 前面（Minecraft POS_Z）
+// ========================================
+// Face Mask Constants
+// ========================================
+// Reference: Sodium CloudRenderer.java Line 47-58
+// Coordinate mapping: Minecraft (X,Y,Z) -> Engine (Y,Z,X)
+
+constexpr int FACE_MASK_NEG_Z = 1; ///< Bottom face (Minecraft NEG_Y -> Engine NEG_Z)
+constexpr int FACE_MASK_POS_Z = 2; ///< Top face (Minecraft POS_Y -> Engine POS_Z)
+constexpr int FACE_MASK_NEG_Y = 4; ///< Left face (Minecraft NEG_X -> Engine NEG_Y)
+constexpr int FACE_MASK_POS_Y = 8; ///< Right face (Minecraft POS_X -> Engine POS_Y)
+constexpr int FACE_MASK_NEG_X = 16; ///< Back face (Minecraft NEG_Z -> Engine NEG_X)
+constexpr int FACE_MASK_POS_X = 32; ///< Front face (Minecraft POS_Z -> Engine POS_X)
