@@ -94,12 +94,20 @@ private:
 // ========================================
 // Face Mask Constants
 // ========================================
-// Reference: Sodium CloudRenderer.java Line 47-58
-// Coordinate mapping: Minecraft (X,Y,Z) -> Engine (Y,Z,X)
+// Reference: Sodium CloudRenderer.java Line 47-54
+// [FIX] Match Sodium's bit values exactly, then map to our coordinate system
+//
+// Sodium (Minecraft coords, Y=height):
+//   NEG_Y=1 (bottom), POS_Y=2 (top), NEG_X=4, POS_X=8, NEG_Z=16, POS_Z=32
+//
+// Our engine (Z=height):
+//   Minecraft Y -> Our Z (height)
+//   Minecraft X -> Our X (horizontal)
+//   Minecraft Z -> Our Y (horizontal)
 
-constexpr int FACE_MASK_NEG_Z = 1; ///< Bottom face (Minecraft NEG_Y -> Engine NEG_Z)
-constexpr int FACE_MASK_POS_Z = 2; ///< Top face (Minecraft POS_Y -> Engine POS_Z)
-constexpr int FACE_MASK_NEG_Y = 4; ///< Left face (Minecraft NEG_X -> Engine NEG_Y)
-constexpr int FACE_MASK_POS_Y = 8; ///< Right face (Minecraft POS_X -> Engine POS_Y)
-constexpr int FACE_MASK_NEG_X = 16; ///< Back face (Minecraft NEG_Z -> Engine NEG_X)
-constexpr int FACE_MASK_POS_X = 32; ///< Front face (Minecraft POS_Z -> Engine POS_X)
+constexpr int FACE_MASK_NEG_Z = 1; ///< Bottom face (Sodium NEG_Y=1)
+constexpr int FACE_MASK_POS_Z = 2; ///< Top face (Sodium POS_Y=2)
+constexpr int FACE_MASK_NEG_X = 4; ///< -X face (Sodium NEG_X=4)
+constexpr int FACE_MASK_POS_X = 8; ///< +X face (Sodium POS_X=8)
+constexpr int FACE_MASK_NEG_Y = 16; ///< -Y face (Sodium NEG_Z=16)
+constexpr int FACE_MASK_POS_Y = 32; ///< +Y face (Sodium POS_Z=32)

@@ -176,45 +176,45 @@ CloudTextureData::Slice CloudTextureData::CreateSlice(int originX, int originZ, 
  * Reference: Sodium CloudRenderer.java Line 620-643
  *
  * Logic: Render a face when neighbor color differs from self (including transparent neighbors)
- * Top and bottom faces are always visible (single-layer cloud)
+ * Top and bottom faces always visible (single-layer cloud)
  *
- * Coordinate mapping (Minecraft -> Engine):
- * - West (-X) -> -Y, East (+X) -> +Y
- * - North (-Z) -> -X, South (+Z) -> +X
+ * Coordinate mapping:
+ * - Texture X axis -> Geometry X axis (FACE_MASK_NEG_X=4, FACE_MASK_POS_X=8)
+ * - Texture Z axis -> Geometry Y axis (FACE_MASK_NEG_Y=16, FACE_MASK_POS_Y=32)
  */
 int CloudTextureData::GetOpenFaces(const Image& image, uint32_t color, int x, int z)
 {
-    // Top and bottom faces always visible
-    int faces = FACE_MASK_NEG_Z | FACE_MASK_POS_Z;
+    // Top and bottom faces always visible (bits 1 and 2)
+    int faces = FACE_MASK_NEG_Z | FACE_MASK_POS_Z; // = 1 | 2 = 3
 
     uint32_t neighbor;
 
-    // Left neighbor (Minecraft West -> Engine -Y)
+    // -X neighbor (texture x-1) -> FACE_MASK_NEG_X (bit 4)
     neighbor = GetNeighborTexel(image, x - 1, z);
-    if (color != neighbor)
-    {
-        faces |= FACE_MASK_NEG_Y;
-    }
-
-    // Right neighbor (Minecraft East -> Engine +Y)
-    neighbor = GetNeighborTexel(image, x + 1, z);
-    if (color != neighbor)
-    {
-        faces |= FACE_MASK_POS_Y;
-    }
-
-    // Back neighbor (Minecraft North -> Engine -X)
-    neighbor = GetNeighborTexel(image, x, z - 1);
     if (color != neighbor)
     {
         faces |= FACE_MASK_NEG_X;
     }
 
-    // Front neighbor (Minecraft South -> Engine +X)
-    neighbor = GetNeighborTexel(image, x, z + 1);
+    // +X neighbor (texture x+1) -> FACE_MASK_POS_X (bit 8)
+    neighbor = GetNeighborTexel(image, x + 1, z);
     if (color != neighbor)
     {
         faces |= FACE_MASK_POS_X;
+    }
+
+    // -Z neighbor (texture z-1) -> FACE_MASK_NEG_Y (bit 16)
+    neighbor = GetNeighborTexel(image, x, z - 1);
+    if (color != neighbor)
+    {
+        faces |= FACE_MASK_NEG_Y;
+    }
+
+    // +Z neighbor (texture z+1) -> FACE_MASK_POS_Y (bit 32)
+    neighbor = GetNeighborTexel(image, x, z + 1);
+    if (color != neighbor)
+    {
+        faces |= FACE_MASK_POS_Y;
     }
 
     return faces;
@@ -278,12 +278,12 @@ CloudTextureData::Slice::Slice(int width, int height, int radius)
     m_colors.resize(totalPixels, 0);
 }
 
-int CloudTextureData::Slice::GetCellIndex(int x, int z) const
+int CloudTextureData::Slice::GetCellIndex(int x, int y) const
 {
     // Convert relative coordinates (-radius to +radius) to array indices (0 to 2*radius)
     int arrayX = x + m_radius;
-    int arrayZ = z + m_radius;
-    return CloudTextureData::GetCellIndex(arrayX, arrayZ, m_width);
+    int arrayY = y + m_radius;
+    return CloudTextureData::GetCellIndex(arrayX, arrayY, m_width);
 }
 
 int CloudTextureData::Slice::GetCellFaces(int index) const

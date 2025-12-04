@@ -40,9 +40,10 @@ void CloudGeometryHelper::RebuildGeometry(
     bool            flat        = (params.renderMode == CloudStatus::FAST);
 
     // [STEP 2] Get texture slice (wrap sampling)
-    // Coordinate mapping: Minecraft (originX, originZ) -> Engine (originY, originX)
+    // [FIX] Use correct parameter order: originX, originY (matching Sodium)
+    // Reference: Sodium CloudRenderer.java Line 154
     CloudTextureData::Slice slice = textureData->CreateSlice(
-        params.originY, params.originX, radius
+        params.originX, params.originY, radius
     );
 
     // [STEP 3] Spiral traversal algorithm
@@ -114,14 +115,15 @@ void CloudGeometryHelper::RebuildGeometry(
 void CloudGeometryHelper::AddCellGeometry(
     std::vector<Vertex>&           vertices,
     const CloudTextureData::Slice& slice,
-    int                            x, int z,
+    int                            x, int y,
     ViewOrientation                orientation,
     bool                           flat
 )
 {
     // [STEP 1] Get cell index and visible faces
-    int index     = slice.GetCellIndex(x, z);
-    int cellFaces = slice.GetCellFaces(index) & GetVisibleFaces(x, z, orientation);
+    // [FIX] Use (x, y) consistently - spiral traversal uses (x, z) but we map z -> y
+    int index     = slice.GetCellIndex(x, y);
+    int cellFaces = slice.GetCellFaces(index) & GetVisibleFaces(x, y, orientation);
 
     // [STEP 2] Skip if no visible faces
     if (cellFaces == 0)
@@ -140,21 +142,21 @@ void CloudGeometryHelper::AddCellGeometry(
     if (flat)
     {
         // Fast mode: Single flat face
-        EmitCellGeometryFlat(vertices, color, x, z);
+        EmitCellGeometryFlat(vertices, color, x, y);
     }
     else
     {
         // Fancy mode: Exterior faces
-        EmitCellGeometryExterior(vertices, cellFaces, color, x, z);
+        EmitCellGeometryExterior(vertices, cellFaces, color, x, y);
 
         // [RESTORED] Fancy mode: Interior faces for nearby cells
         // Reference: Sodium CloudRenderer.java Line 231-234
         // Interior faces are generated unconditionally (no ViewOrientation check)
         // They provide the "inside view" when camera enters the cloud
         // The GetVisibleFaces() culling handles which exterior faces to render
-        if (TaxicabDistance(x, z) <= 1)
+        if (TaxicabDistance(x, y) <= 1)
         {
-            //EmitCellGeometryInterior(vertices, color, x, z);
+            //EmitCellGeometryInterior(vertices, color, x, y);
         }
     }
 }
@@ -170,19 +172,17 @@ void CloudGeometryHelper::AddCellGeometry(
  * - Prevents back faces from showing through semi-transparent front faces
  * - Without this, you see interior geometry through exterior faces
  *
- * Coordinate System Mapping (Minecraft -> Engine):
- * - Minecraft X (cellX) -> Engine Y (cellY)
- * - Minecraft Z (cellZ) -> Engine X (cellX)
- * - Minecraft Y (height) -> Engine Z (height)
+ * Parameters (relative cell position from camera):
+ * - x: Cell X position (spiral traversal first param)
+ * - y: Cell Y position (spiral traversal second param, was 'z' in Sodium)
  *
- * Parameter x, z are relative to camera cell position:
- * - x < 0: Cell is behind camera (in our Engine Y direction)
- * - x > 0: Cell is in front of camera
- * - z < 0: Cell is to the right of camera (in our Engine X direction)
- * - z > 0: Cell is to the left of camera
+ * Face mask bits (matching Sodium):
+ * - NEG_Z=1, POS_Z=2 (vertical faces)
+ * - NEG_X=4, POS_X=8 (X-axis faces)
+ * - NEG_Y=16, POS_Y=32 (Y-axis faces, was Z in Sodium)
  */
 int CloudGeometryHelper::GetVisibleFaces(
-    int             x, int z,
+    int             x, int y,
     ViewOrientation orientation
 )
 {
@@ -191,34 +191,27 @@ int CloudGeometryHelper::GetVisibleFaces(
     // [STEP 1] Horizontal face culling based on camera position relative to cell
     // Reference: Sodium CloudRenderer.java Line 238-252
     //
-    // Sodium logic (Minecraft coords):
-    //   if (x <= 0) faces |= FACE_MASK_POS_X;  // Camera left of cell -> render right face
-    //   if (x >= 0) faces |= FACE_MASK_NEG_X;  // Camera right of cell -> render left face
-    //   if (z <= 0) faces |= FACE_MASK_POS_Z;  // Camera behind cell -> render front face
-    //   if (z >= 0) faces |= FACE_MASK_NEG_Z;  // Camera in front of cell -> render back face
-    //
-    // Our coordinate mapping: Minecraft X -> Engine Y, Minecraft Z -> Engine X
-    // So our x parameter maps to Minecraft's x, our z maps to Minecraft's z
-    // But our FACE_MASK constants are already mapped!
+    // Logic: If camera is on negative side of cell, render positive face (facing camera)
+    //        If camera is on positive side of cell, render negative face (facing camera)
 
-    // Cell X relative position (maps to Minecraft X direction -> Engine Y faces)
+    // X-axis faces (bits 4 and 8)
     if (x <= 0)
     {
-        faces |= FACE_MASK_POS_Y; // Camera on negative side -> render positive face
+        faces |= FACE_MASK_POS_X; // Camera on -X side -> render +X face (bit 8)
     }
     if (x >= 0)
     {
-        faces |= FACE_MASK_NEG_Y; // Camera on positive side -> render negative face
+        faces |= FACE_MASK_NEG_X; // Camera on +X side -> render -X face (bit 4)
     }
 
-    // Cell Z relative position (maps to Minecraft Z direction -> Engine X faces)
-    if (z <= 0)
+    // Y-axis faces (bits 16 and 32) - was Z in Sodium
+    if (y <= 0)
     {
-        faces |= FACE_MASK_POS_X; // Camera on negative side -> render positive face
+        faces |= FACE_MASK_POS_Y; // Camera on -Y side -> render +Y face (bit 32)
     }
-    if (z >= 0)
+    if (y >= 0)
     {
-        faces |= FACE_MASK_NEG_X; // Camera on positive side -> render negative face
+        faces |= FACE_MASK_NEG_Y; // Camera on +Y side -> render -Y face (bit 16)
     }
 
     // [STEP 2] Vertical face culling based on ViewOrientation
@@ -229,12 +222,12 @@ int CloudGeometryHelper::GetVisibleFaces(
 
     if (orientation != ViewOrientation::BELOW_CLOUDS)
     {
-        faces |= FACE_MASK_POS_Z; // Render top face (camera is not below clouds)
+        faces |= FACE_MASK_POS_Z; // Render top face (bit 2)
     }
 
     if (orientation != ViewOrientation::ABOVE_CLOUDS)
     {
-        faces |= FACE_MASK_NEG_Z; // Render bottom face (camera is not above clouds)
+        faces |= FACE_MASK_NEG_Z; // Render bottom face (bit 1)
     }
 
     return faces;
@@ -252,16 +245,17 @@ int CloudGeometryHelper::GetVisibleFaces(
 void CloudGeometryHelper::EmitCellGeometryFlat(
     std::vector<Vertex>& vertices,
     uint32_t             color,
-    int                  x, int z
+    int                  cellX, int cellY
 )
 {
     // [STEP 1] Calculate cell position (12x12 horizontal plane)
-    // [IMPORTANT] Coordinate system mapping: Minecraft(X,Y,Z) -> Ours(Y,Z,X)
-    float y0 = x * 12.0f; // Minecraft x0 -> Our y0
-    float y1 = y0 + 12.0f;
-    float x0 = z * 12.0f; // Minecraft z0 -> Our x0
+    // [FIX] Direct mapping: spiral (x,y) -> geometry (x,y)
+    // Reference: Sodium CloudRenderer.java Line 271-274
+    float x0 = cellX * 12.0f;
     float x1 = x0 + 12.0f;
-    float z0 = 0.0f; // Minecraft y -> Our z (height fixed at 0)
+    float y0 = cellY * 12.0f;
+    float y1 = y0 + 12.0f;
+    float z0 = 0.0f; // Height fixed at 0 (ModelMatrix handles world Z)
 
     // [STEP 2] Calculate color (top face brightness 1.0)
     uint32_t vertexColor = MultiplyColorBrightness(color, BRIGHTNESS_POS_Z);
@@ -271,125 +265,116 @@ void CloudGeometryHelper::EmitCellGeometryFlat(
     // [FIX] Engine only supports TriangleList, not QuadList
     // AddVertsForQuad3D params: bottomLeft, bottomRight, topRight, topLeft
     AddVertsForQuad3D(vertices,
-                      Vec3(y0, x0, z0), // bottomLeft
-                      Vec3(y1, x0, z0), // bottomRight
-                      Vec3(y1, x1, z0), // topRight
-                      Vec3(y0, x1, z0), // topLeft
+                      Vec3(x0, y0, z0), // bottomLeft
+                      Vec3(x1, y0, z0), // bottomRight
+                      Vec3(x1, y1, z0), // topRight
+                      Vec3(x0, y1, z0), // topLeft
                       rgba
     );
 }
 
 /**
  * @brief [NEW] Generate Fancy mode exterior faces
- * Reference: Sodium CloudRenderer.java Line 299-386 (coordinate system mapped)
+ * Reference: Sodium CloudRenderer.java Line 299-386
  * [FIX] Use AddVertsForQuad3D to generate 6 vertices (2 triangles) per face instead of 4 vertices
  */
 void CloudGeometryHelper::EmitCellGeometryExterior(
     std::vector<Vertex>& vertices,
     int                  cellFaces,
     uint32_t             cellColor,
-    int                  cellX, int cellZ
+    int                  cellX, int cellY
 )
 {
-    // [IMPORTANT] Coordinate system mapping: Minecraft(X,Y,Z) -> Ours(Y,Z,X)
+    // [FIX] Direct coordinate mapping: spiral (x,y) -> geometry (x,y)
     // Cell dimensions: 12x12 (horizontal) x 4 (height)
-    float y0 = cellX * 12.0f; // Minecraft x0 -> Our y0
-    float y1 = y0 + 12.0f;
-    float x0 = cellZ * 12.0f; // Minecraft z0 -> Our x0
+    // Reference: Sodium CloudRenderer.java Line 306-311
+    float x0 = cellX * 12.0f;
     float x1 = x0 + 12.0f;
-    float z0 = 0.0f; // Minecraft y0 -> Our z0
-    float z1 = 4.0f; // Minecraft y1 -> Our z1
+    float y0 = cellY * 12.0f;
+    float y1 = y0 + 12.0f;
+    float z0 = 0.0f; // Bottom of cloud
+    float z1 = 4.0f; // Top of cloud (4-block thickness)
 
-    // [FACE 1] Bottom face (Minecraft NEG_Y -> Our NEG_Z)
-    // Looking from below, CCW winding
+    // [FACE 1] Bottom face (NEG_Z) - Looking from below
     if (cellFaces & FACE_MASK_NEG_Z)
     {
         uint32_t colorVal = MultiplyColorBrightness(cellColor, BRIGHTNESS_NEG_Z);
         Rgba8    rgba     = UnpackARGB32(colorVal);
         AddVertsForQuad3D(vertices,
-                          Vec3(y0, x0, z0), // bottomLeft
-                          Vec3(y0, x1, z0), // bottomRight
-                          Vec3(y1, x1, z0), // topRight
-                          Vec3(y1, x0, z0), // topLeft
+                          Vec3(x0, y0, z0),
+                          Vec3(x0, y1, z0),
+                          Vec3(x1, y1, z0),
+                          Vec3(x1, y0, z0),
                           rgba
         );
     }
 
-    // [FACE 2] Top face (Minecraft POS_Y -> Our POS_Z)
-    // Looking from above, CCW winding
+    // [FACE 2] Top face (POS_Z) - Looking from above
     if (cellFaces & FACE_MASK_POS_Z)
     {
         uint32_t colorVal = MultiplyColorBrightness(cellColor, BRIGHTNESS_POS_Z);
         Rgba8    rgba     = UnpackARGB32(colorVal);
         AddVertsForQuad3D(vertices,
-                          Vec3(y0, x0, z1), // bottomLeft
-                          Vec3(y1, x0, z1), // bottomRight
-                          Vec3(y1, x1, z1), // topRight
-                          Vec3(y0, x1, z1), // topLeft
+                          Vec3(x0, y0, z1),
+                          Vec3(x1, y0, z1),
+                          Vec3(x1, y1, z1),
+                          Vec3(x0, y1, z1),
                           rgba
         );
     }
 
-    // [FACE 3] Left face (Minecraft NEG_X -> Our NEG_Y)
-    // Looking from -Y direction
-    if (cellFaces & FACE_MASK_NEG_Y)
-    {
-        uint32_t colorVal = MultiplyColorBrightness(cellColor, BRIGHTNESS_Y_AXIS);
-        Rgba8    rgba     = UnpackARGB32(colorVal);
-        AddVertsForQuad3D(vertices,
-                          Vec3(y0, x1, z0), // bottomRight
-                          Vec3(y0, x0, z0), // bottomLeft
-                          Vec3(y0, x0, z1), // topLeft
-                          Vec3(y0, x1, z1), // topRight
-
-                          rgba
-        );
-    }
-
-    // [FACE 4] Right face (Minecraft POS_X -> Our POS_Y)
-    // Looking from +Y direction
-    if (cellFaces & FACE_MASK_POS_Y)
-    {
-        uint32_t colorVal = MultiplyColorBrightness(cellColor, BRIGHTNESS_Y_AXIS);
-        Rgba8    rgba     = UnpackARGB32(colorVal);
-        AddVertsForQuad3D(vertices,
-                          Vec3(y1, x0, z0), // bottomRight
-                          Vec3(y1, x1, z0), // bottomLeft
-                          Vec3(y1, x1, z1), // topLeft
-                          Vec3(y1, x0, z1), // topRight
-
-                          rgba
-        );
-    }
-
-    // [FACE 5] Back face (Minecraft NEG_Z -> Our NEG_X)
-    // Looking from -X direction
+    // [FACE 3] NEG_X face - Looking from -X direction
     if (cellFaces & FACE_MASK_NEG_X)
     {
         uint32_t colorVal = MultiplyColorBrightness(cellColor, BRIGHTNESS_X_AXIS);
         Rgba8    rgba     = UnpackARGB32(colorVal);
         AddVertsForQuad3D(vertices,
-                          Vec3(y0, x0, z0), // bottomRight
-                          Vec3(y1, x0, z0), // bottomLeft
-                          Vec3(y1, x0, z1), // topLeft
-                          Vec3(y0, x0, z1), // topRight
-
+                          Vec3(x0, y0, z0),
+                          Vec3(x0, y0, z1),
+                          Vec3(x0, y1, z1),
+                          Vec3(x0, y1, z0),
                           rgba
         );
     }
 
-    // [FACE 6] Front face (Minecraft POS_Z -> Our POS_X)
-    // Looking from +X direction
+    // [FACE 4] POS_X face - Looking from +X direction
     if (cellFaces & FACE_MASK_POS_X)
     {
         uint32_t colorVal = MultiplyColorBrightness(cellColor, BRIGHTNESS_X_AXIS);
         Rgba8    rgba     = UnpackARGB32(colorVal);
         AddVertsForQuad3D(vertices,
-                          Vec3(y1, x1, z0), // bottomRight
-                          Vec3(y0, x1, z0), // bottomLeft
-                          Vec3(y0, x1, z1), // topLeft
-                          Vec3(y1, x1, z1), // topRight
+                          Vec3(x1, y1, z0),
+                          Vec3(x1, y1, z1),
+                          Vec3(x1, y0, z1),
+                          Vec3(x1, y0, z0),
+                          rgba
+        );
+    }
 
+    // [FACE 5] NEG_Y face - Looking from -Y direction
+    if (cellFaces & FACE_MASK_NEG_Y)
+    {
+        uint32_t colorVal = MultiplyColorBrightness(cellColor, BRIGHTNESS_Y_AXIS);
+        Rgba8    rgba     = UnpackARGB32(colorVal);
+        AddVertsForQuad3D(vertices,
+                          Vec3(x1, y0, z0),
+                          Vec3(x1, y0, z1),
+                          Vec3(x0, y0, z1),
+                          Vec3(x0, y0, z0),
+                          rgba
+        );
+    }
+
+    // [FACE 6] POS_Y face - Looking from +Y direction
+    if (cellFaces & FACE_MASK_POS_Y)
+    {
+        uint32_t colorVal = MultiplyColorBrightness(cellColor, BRIGHTNESS_Y_AXIS);
+        Rgba8    rgba     = UnpackARGB32(colorVal);
+        AddVertsForQuad3D(vertices,
+                          Vec3(x0, y1, z0),
+                          Vec3(x0, y1, z1),
+                          Vec3(x1, y1, z1),
+                          Vec3(x1, y1, z0),
                           rgba
         );
     }
@@ -404,17 +389,17 @@ void CloudGeometryHelper::EmitCellGeometryExterior(
 void CloudGeometryHelper::EmitCellGeometryInterior(
     std::vector<Vertex>& vertices,
     uint32_t             baseColor,
-    int                  cellX, int cellZ
+    int                  cellX, int cellY
 )
 {
     // [IMPORTANT] Interior faces = Exterior faces with reversed vertex winding
     // Fixed generation of 6 faces × 6 vertices = 36 vertices (2 triangles per face)
 
-    // Calculate cell position (coordinate system mapping)
-    float y0 = cellX * 12.0f;
-    float y1 = y0 + 12.0f;
-    float x0 = cellZ * 12.0f;
+    // [FIX] Direct coordinate mapping: spiral (x,y) -> geometry (x,y)
+    float x0 = cellX * 12.0f;
     float x1 = x0 + 12.0f;
+    float y0 = cellY * 12.0f;
+    float y1 = y0 + 12.0f;
     float z0 = 0.0f;
     float z1 = 4.0f;
 
@@ -423,10 +408,10 @@ void CloudGeometryHelper::EmitCellGeometryInterior(
         uint32_t colorVal = MultiplyColorBrightness(baseColor, BRIGHTNESS_NEG_Z);
         Rgba8    rgba     = UnpackARGB32(colorVal);
         AddVertsForQuad3D(vertices,
-                          Vec3(y1, x0, z0), // bottomLeft (reversed)
-                          Vec3(y1, x1, z0), // bottomRight
-                          Vec3(y0, x1, z0), // topRight
-                          Vec3(y0, x0, z0), // topLeft
+                          Vec3(x1, y0, z0),
+                          Vec3(x1, y1, z0),
+                          Vec3(x0, y1, z0),
+                          Vec3(x0, y0, z0),
                           rgba
         );
     }
@@ -436,62 +421,62 @@ void CloudGeometryHelper::EmitCellGeometryInterior(
         uint32_t colorVal = MultiplyColorBrightness(baseColor, BRIGHTNESS_POS_Z);
         Rgba8    rgba     = UnpackARGB32(colorVal);
         AddVertsForQuad3D(vertices,
-                          Vec3(y1, x0, z1), // bottomLeft (reversed)
-                          Vec3(y0, x0, z1), // bottomRight
-                          Vec3(y0, x1, z1), // topRight
-                          Vec3(y1, x1, z1), // topLeft
+                          Vec3(x1, y0, z1),
+                          Vec3(x0, y0, z1),
+                          Vec3(x0, y1, z1),
+                          Vec3(x1, y1, z1),
                           rgba
         );
     }
 
-    // [FACE 3] Left face (reversed winding)
-    {
-        uint32_t colorVal = MultiplyColorBrightness(baseColor, BRIGHTNESS_Y_AXIS);
-        Rgba8    rgba     = UnpackARGB32(colorVal);
-        AddVertsForQuad3D(vertices,
-                          Vec3(y0, x1, z0), // bottomLeft (reversed)
-                          Vec3(y0, x0, z0), // bottomRight
-                          Vec3(y0, x0, z1), // topRight
-                          Vec3(y0, x1, z1), // topLeft
-                          rgba
-        );
-    }
-
-    // [FACE 4] Right face (reversed winding)
-    {
-        uint32_t colorVal = MultiplyColorBrightness(baseColor, BRIGHTNESS_Y_AXIS);
-        Rgba8    rgba     = UnpackARGB32(colorVal);
-        AddVertsForQuad3D(vertices,
-                          Vec3(y1, x0, z0), // bottomLeft (reversed)
-                          Vec3(y1, x1, z0), // bottomRight
-                          Vec3(y1, x1, z1), // topRight
-                          Vec3(y1, x0, z1), // topLeft
-                          rgba
-        );
-    }
-
-    // [FACE 5] Back face (reversed winding)
+    // [FACE 3] NEG_X face (reversed winding)
     {
         uint32_t colorVal = MultiplyColorBrightness(baseColor, BRIGHTNESS_X_AXIS);
         Rgba8    rgba     = UnpackARGB32(colorVal);
         AddVertsForQuad3D(vertices,
-                          Vec3(y0, x0, z0), // bottomLeft (reversed)
-                          Vec3(y1, x0, z0), // bottomRight
-                          Vec3(y1, x0, z1), // topRight
-                          Vec3(y0, x0, z1), // topLeft
+                          Vec3(x0, y1, z0),
+                          Vec3(x0, y1, z1),
+                          Vec3(x0, y0, z1),
+                          Vec3(x0, y0, z0),
                           rgba
         );
     }
 
-    // [FACE 6] Front face (reversed winding)
+    // [FACE 4] POS_X face (reversed winding)
     {
         uint32_t colorVal = MultiplyColorBrightness(baseColor, BRIGHTNESS_X_AXIS);
         Rgba8    rgba     = UnpackARGB32(colorVal);
         AddVertsForQuad3D(vertices,
-                          Vec3(y1, x1, z0), // bottomLeft (reversed)
-                          Vec3(y0, x1, z0), // bottomRight
-                          Vec3(y0, x1, z1), // topRight
-                          Vec3(y1, x1, z1), // topLeft
+                          Vec3(x1, y0, z0),
+                          Vec3(x1, y0, z1),
+                          Vec3(x1, y1, z1),
+                          Vec3(x1, y1, z0),
+                          rgba
+        );
+    }
+
+    // [FACE 5] NEG_Y face (reversed winding)
+    {
+        uint32_t colorVal = MultiplyColorBrightness(baseColor, BRIGHTNESS_Y_AXIS);
+        Rgba8    rgba     = UnpackARGB32(colorVal);
+        AddVertsForQuad3D(vertices,
+                          Vec3(x0, y0, z0),
+                          Vec3(x0, y0, z1),
+                          Vec3(x1, y0, z1),
+                          Vec3(x1, y0, z0),
+                          rgba
+        );
+    }
+
+    // [FACE 6] POS_Y face (reversed winding)
+    {
+        uint32_t colorVal = MultiplyColorBrightness(baseColor, BRIGHTNESS_Y_AXIS);
+        Rgba8    rgba     = UnpackARGB32(colorVal);
+        AddVertsForQuad3D(vertices,
+                          Vec3(x1, y1, z0),
+                          Vec3(x1, y1, z1),
+                          Vec3(x0, y1, z1),
+                          Vec3(x0, y1, z0),
                           rgba
         );
     }

@@ -80,34 +80,40 @@ enum class ViewOrientation
  * @brief Parameters that determine geometry generation
  *
  * Geometry is rebuilt only when these parameters change.
+ * 
+ * Coordinate System (matching Sodium):
+ * - originX: Player's cell X coordinate (Engine X axis, with cloud drift)
+ * - originY: Player's cell Y coordinate (Engine Y axis)
+ * Reference: Sodium CloudRenderer.java Line 716-723
  */
 struct CloudGeometryParameters
 {
-    int             originY; // [NEW] Minecraft cellX -> Our cellY
-    int             originX; // [NEW] Minecraft cellZ -> Our cellX
+    int             originX; // [FIX] Player cell X (Engine X axis)
+    int             originY; // [FIX] Player cell Y (Engine Y axis)
     int             radius; // [NEW] Render distance in cells
     ViewOrientation orientation; // [NEW] Camera direction
     CloudStatus     renderMode; // [NEW] Fast/Fancy mode
 
     // [NEW] Default constructor
     CloudGeometryParameters()
-        : originY(0), originX(0), radius(0)
+        : originX(0), originY(0), radius(0)
           , orientation(ViewOrientation::BELOW_CLOUDS)
           , renderMode(CloudStatus::FAST)
     {
     }
 
     // [NEW] Parameterized constructor
-    CloudGeometryParameters(int y, int x, int r, ViewOrientation o, CloudStatus m)
-        : originY(y), originX(x), radius(r), orientation(o), renderMode(m)
+    // [FIX] Parameter order: (x, y, radius, orientation, mode) - matching Sodium
+    CloudGeometryParameters(int x, int y, int r, ViewOrientation o, CloudStatus m)
+        : originX(x), originY(y), radius(r), orientation(o), renderMode(m)
     {
     }
 
     // [NEW] Equality operator for change detection
     bool operator==(const CloudGeometryParameters& other) const
     {
-        return originY == other.originY &&
-            originX == other.originX &&
+        return originX == other.originX &&
+            originY == other.originY &&
             radius == other.radius &&
             orientation == other.orientation &&
             renderMode == other.renderMode;
