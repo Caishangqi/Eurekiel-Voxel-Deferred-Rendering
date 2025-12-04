@@ -1,11 +1,17 @@
 /**
  * @file ImguiSettingCloud.hpp
- * @brief Static ImGui interface for CloudRenderPass debugging
- * @date 2025-11-26
+ * @brief [FIX] Static ImGui interface for CloudRenderPass debugging
+ * @date 2025-12-02
+ *
+ * [FIX] Updated to match new CloudRenderPass architecture:
+ * - Use GetRenderMode()/SetRenderMode() API
+ * - CloudStatus enum: FAST/FANCY modes
+ * - Added debug info display (ViewOrientation, geometry stats)
  *
  * Purpose:
- * - Display cloud rendering parameters (speed, opacity, mode)
- * - Provide runtime adjustment controls for debugging
+ * - Display cloud rendering mode (FAST/FANCY)
+ * - Provide runtime mode switching controls
+ * - Display debug info (camera orientation, geometry stats)
  * - CollapsingHeader format for clean UI organization
  *
  * Design Pattern:
@@ -23,9 +29,9 @@
  * @endcode
  *
  * Reference:
- * - F:/p4/Personal/SD/Engine/Code/ThirdParty/imgui/imgui_demo.cpp (Official API examples)
- * - ImGui::SliderFloat, ImGui::Checkbox, ImGui::Text, ImGui::CollapsingHeader
- * - Code/Game/Framework/RenderPass/RenderSky/ImguiSettingSky.hpp (Similar pattern)
+ * - CloudRenderPass.hpp (CloudStatus, ViewOrientation enums)
+ * - ImguiSettingSky.hpp (Similar pattern)
+ * - imgui_demo.cpp (Official API examples)
  */
 
 #pragma once
@@ -35,15 +41,16 @@ class CloudRenderPass;
 
 /**
  * @class ImguiSettingCloud
- * @brief Static ImGui interface for CloudRenderPass debugging
+ * @brief [FIX] Static ImGui interface for CloudRenderPass debugging
  *
- * UI Layout:
+ * [FIX] Updated UI Layout:
  * - CollapsingHeader: "Cloud Rendering"
- *   - SliderFloat: Cloud Speed (0.0 - 5.0)
- *   - SliderFloat: Cloud Opacity (0.0 - 1.0)
- *   - Checkbox: Fancy Mode (Fast: 6144 verts, Fancy: 24576 verts)
- *   - Text: Current Vertex Count (read-only)
- *   - Button: Reset to Defaults
+ *   - RadioButton: FAST/FANCY mode selection
+ *   - CollapsingHeader: "Debug Info"
+ *     - Current rendering mode status
+ *     - ViewOrientation display (BELOW/INSIDE/ABOVE clouds)
+ *     - Geometry statistics (vertex count, cell count, rebuild count)
+ *   - Cloud layer info (height, render distance, coordinate system)
  */
 class ImguiSettingCloud
 {
@@ -57,12 +64,10 @@ public:
      * @brief Show - Render cloud rendering debug UI in a CollapsingHeader
      * @param cloudPass CloudRenderPass instance to display/modify
      *
-     * UI Controls:
-     * - Cloud Speed: Controls animation speed multiplier (default: 1.0)
-     * - Cloud Opacity: Controls transparency (0.0 = transparent, 1.0 = opaque, default: 0.8)
-     * - Fancy Mode: Toggle between Fast (6144 verts) and Fancy (24576 verts) modes
-     * - Vertex Count: Display current vertex count (read-only)
-     * - Reset Button: Reset all parameters to defaults
+     * [FIX] Updated UI Controls:
+     * - Rendering Mode: RadioButton for FAST (~32K vertices) / FANCY (~98K vertices)
+     * - Debug Info: ViewOrientation, vertex count, rebuild count (TODO: needs API)
+     * - Cloud Layer Info: Height range, render distance, coordinate system mapping
      */
     static void Show(CloudRenderPass* cloudPass);
 };

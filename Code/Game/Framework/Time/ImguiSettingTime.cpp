@@ -1,4 +1,4 @@
-#include "ImguiSettingTime.hpp"
+﻿#include "ImguiSettingTime.hpp"
 #include "TimeOfDayManager.hpp"
 #include "Engine/Core/StringUtils.hpp"
 #include "ThirdParty/imgui/imgui.h"
@@ -117,7 +117,7 @@ void ImguiSettingTime::Show(TimeOfDayManager* timeManager)
         if (ImGui::Button("Reset"))
         {
             timeScale = 1.0f;
-            tickValue = 0.f;
+            tickValue = (int)0.f;
             timeManager->SetTimeScale(timeScale);
         }
 

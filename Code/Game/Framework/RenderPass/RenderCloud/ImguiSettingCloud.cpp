@@ -1,18 +1,23 @@
 /**
  * @file ImguiSettingCloud.cpp
- * @brief Static ImGui interface for CloudRenderPass debugging - Implementation
- * @date 2025-11-26
+ * @brief [FIX] Static ImGui interface for CloudRenderPass debugging - Implementation
+ * @date 2025-12-02
+ *
+ * [FIX] Updated to match new CloudRenderPass architecture:
+ * - Use GetRenderMode()/SetRenderMode() instead of Get/SetFancyMode()
+ * - CloudStatus enum: FAST/FANCY modes
+ * - Removed non-existent GetCloudSpeed/Opacity methods
+ * - Added debug info display (ViewOrientation, geometry stats)
  *
  * Implementation Notes:
  * - Uses ImGui::CollapsingHeader for collapsible section
- * - ImGui::SliderFloat for float parameter adjustment (cloud speed, opacity)
- * - ImGui::Checkbox for boolean toggle (Fancy/Fast mode)
- * - ImGui::Text for read-only parameter display (vertex count)
+ * - ImGui::RadioButton for FAST/FANCY mode selection
+ * - ImGui::Text for read-only debug info display
  *
  * Reference:
- * - imgui_demo.cpp:434 (CollapsingHeader example)
- * - imgui_demo.cpp:1089 (Checkbox example)
- * - imgui_demo.cpp:1156 (SliderFloat example)
+ * - CloudRenderPass.hpp (CloudStatus, ViewOrientation enums)
+ * - ImguiSettingSky.hpp (Similar pattern)
+ * - imgui_demo.cpp (Official API examples)
  */
 
 #include "ImguiSettingCloud.hpp"
@@ -22,14 +27,12 @@
 /**
  * @brief Show - Render cloud rendering debug UI
  *
- * UI Flow:
+ * [FIX] Updated UI Flow:
  * 1. Check cloudPass validity
  * 2. Render CollapsingHeader "Cloud Rendering"
- * 3. Display cloud speed slider (0.0 - 5.0)
- * 4. Display cloud opacity slider (0.0 - 1.0)
- * 5. Display Fancy/Fast mode checkbox
- * 6. Display current vertex count (read-only)
- * 7. Provide reset button to restore defaults
+ * 3. Display FAST/FANCY mode radio buttons
+ * 4. Display debug info (ViewOrientation, geometry stats)
+ * 5. Display cloud layer info (height, render distance)
  */
 void ImguiSettingCloud::Show(CloudRenderPass* cloudPass)
 {
@@ -47,112 +50,98 @@ void ImguiSettingCloud::Show(CloudRenderPass* cloudPass)
         // Indent content for better visual hierarchy
         ImGui::Indent();
 
-        // ==================== Cloud Speed Adjustment ====================
-
-        float cloudSpeed = cloudPass->GetCloudSpeed();
-        if (ImGui::SliderFloat("Cloud Speed", &cloudSpeed, 0.0f, 2.0f, "%.2f"))
-        {
-            cloudPass->SetCloudSpeed(cloudSpeed);
-        }
-
-        // Help text for cloud speed
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetTooltip("Controls cloud animation speed (default: 1.0)");
-        }
-
-        // ==================== Cloud Opacity Adjustment ====================
-
-        float cloudOpacity = cloudPass->GetCloudOpacity();
-        if (ImGui::SliderFloat("Cloud Opacity", &cloudOpacity, 0.0f, 1.0f, "%.2f"))
-        {
-            cloudPass->SetCloudOpacity(cloudOpacity);
-        }
-
-        // Help text for cloud opacity
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetTooltip("Controls cloud transparency (0.0 = transparent, 1.0 = opaque, default: 0.8)");
-        }
-
-        ImGui::Separator();
-
-        // ==================== Fancy/Fast Mode Toggle ====================
+        // ==================== [FIX] Rendering Mode Selection ====================
 
         ImGui::Text("Rendering Mode:");
         ImGui::Spacing();
 
-        bool fancyMode = cloudPass->IsFancyMode();
-        if (ImGui::Checkbox("Fancy Mode", &fancyMode))
+        // [FIX] Get current mode from CloudRenderPass
+        CloudStatus currentMode = cloudPass->GetRenderMode();
+        bool        isFast      = (currentMode == CloudStatus::FAST);
+        bool        isFancy     = (currentMode == CloudStatus::FANCY);
+
+        // [FIX] Use RadioButton for mutually exclusive selection
+        if (ImGui::RadioButton("FAST Mode", isFast))
         {
-            cloudPass->SetFancyMode(fancyMode);
+            cloudPass->SetRenderMode(CloudStatus::FAST);
+        }
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Single flat face per cell (~32K vertices)");
         }
 
-        // Help text for fancy mode
+        ImGui::SameLine();
+
+        if (ImGui::RadioButton("FANCY Mode", isFancy))
+        {
+            cloudPass->SetRenderMode(CloudStatus::FANCY);
+        }
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Full volumetric cells (~98K vertices)");
+        }
+
+        ImGui::Separator();
+
+        // ==================== [NEW] Debug Info Display ====================
+
+        if (ImGui::CollapsingHeader("Debug Info"))
+        {
+            ImGui::Indent();
+
+            // [NEW] Display current rendering mode status
+            ImGui::Text("Current Mode:");
+            ImGui::SameLine();
+            if (currentMode == CloudStatus::FAST)
+            {
+                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "FAST (Flat)");
+            }
+            else
+            {
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "FANCY (Volumetric)");
+            }
+
+            ImGui::Spacing();
+
+            // [NEW] ViewOrientation display (placeholder - needs CloudRenderPass API)
+            ImGui::Text("View Orientation: [TODO: Add GetViewOrientation() API]");
+            ImGui::BulletText("BELOW_CLOUDS: Camera below Z=192");
+            ImGui::BulletText("INSIDE_CLOUDS: Camera at Z=192-196");
+            ImGui::BulletText("ABOVE_CLOUDS: Camera above Z=196");
+
+            ImGui::Spacing();
+
+            // [NEW] Geometry statistics display (placeholder - needs CloudRenderPass API)
+            ImGui::Text("Geometry Statistics:");
+            ImGui::BulletText("Vertex Count: [TODO: Add GetVertexCount() API]");
+            ImGui::BulletText("Cell Count: 32x32 grid");
+            ImGui::BulletText("Rebuild Count: [TODO: Add GetRebuildCount() API]");
+
+            ImGui::Unindent();
+        }
+
+        ImGui::Separator();
+
+        // ==================== Read-Only Cloud Layer Info ====================
+
+        ImGui::Text("Cloud Layer Info:");
+        ImGui::Spacing();
+
+        // Cloud height range
+        ImGui::BulletText("Height: Z=192-196 (4 blocks thick)");
+
+        // Render distance info (placeholder - needs game settings API)
+        ImGui::BulletText("Render Distance: [TODO: Read from game settings]");
+
+        // Coordinate system reminder
         if (ImGui::IsItemHovered())
         {
             ImGui::SetTooltip(
-                "Fast Mode: 6144 vertices (2 triangles per cell, flat clouds)\n"
-                "Fancy Mode: 24576 vertices (8 triangles per cell, volumetric clouds)"
+                "Coordinate System Mapping:\n"
+                "Minecraft +X (East) -> Engine +Y (Left)\n"
+                "Minecraft +Y (Up) -> Engine +Z (Up)\n"
+                "Minecraft +Z (South) -> Engine +X (Forward)"
             );
-        }
-
-        // Display current mode info
-        ImGui::SameLine();
-        if (fancyMode)
-        {
-            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "(Volumetric)");
-        }
-        else
-        {
-            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "(Flat)");
-        }
-
-        ImGui::Separator();
-
-        // ==================== Read-Only Info Display ====================
-
-        ImGui::Text("Cloud Mesh Info:");
-        ImGui::Spacing();
-
-        // Vertex count (read-only)
-        int vertexCount = fancyMode ? 24576 : 6144;
-        ImGui::BulletText("Vertex Count: %d", vertexCount);
-
-        // Cell count (read-only)
-        ImGui::BulletText("Grid Size: 32x32 cells");
-
-        // Cloud height (read-only)
-        if (fancyMode)
-        {
-            ImGui::BulletText("Cloud Height: Z=192-196 (4 blocks thick)");
-        }
-        else
-        {
-            ImGui::BulletText("Cloud Height: Z=192 (single layer)");
-        }
-
-        // Help text
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetTooltip("Cloud mesh is generated by CloudGeometryBuilder");
-        }
-
-        // ==================== Reset to Defaults ====================
-
-        ImGui::Separator();
-
-        if (ImGui::Button("Reset to Defaults"))
-        {
-            cloudPass->SetCloudSpeed(1.0f); // Default speed
-            cloudPass->SetCloudOpacity(0.8f); // Default opacity
-            cloudPass->SetFancyMode(false); // Default to Fast mode
-        }
-
-        // Help text for reset button
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetTooltip("Reset all cloud parameters to Minecraft vanilla defaults");
         }
 
         ImGui::Unindent();

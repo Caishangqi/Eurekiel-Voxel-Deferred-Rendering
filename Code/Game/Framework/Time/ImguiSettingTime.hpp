@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // Forward declaration
 class TimeOfDayManager;
