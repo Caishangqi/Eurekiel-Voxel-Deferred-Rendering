@@ -23,10 +23,11 @@ void ImguiSceneRendering::Show()
     // For now, we create the UI structure
 
     // [MODULE 2] Cloud Rendering
-    // Note: ImguiSettingCloud::Show() requires CloudRenderPass* parameter
-    // This will be integrated in Task 18 when connecting to Game::RenderImGui()
-    // For now, we pass nullptr to show the UI structure
-    ImguiSettingCloud::Show(dynamic_cast<CloudRenderPass*>(g_theGame->m_cloudRenderPass.get()));
+    CloudRenderPass* cloudPass = dynamic_cast<CloudRenderPass*>(g_theGame->m_cloudRenderPass.get());
+    if (cloudPass)
+    {
+        ImguiSettingCloud::Show(cloudPass);
+    }
 
     // [MODULE 3] Sun & Moon Parameters
     ShowSunMoonParameters(); /// WRONG should be ImguiSettingSunMoon::Show()

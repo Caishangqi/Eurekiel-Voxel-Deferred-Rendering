@@ -236,6 +236,7 @@
         <ClCompile Include="Framework\Imgui\ImguiGameSettings.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiLeftDebugOverlay.cpp" />
         <ClCompile Include="Framework\Imgui\ImguiSceneRendering.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderCloud\CloudConfigParser.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudGeometryHelper.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudTextureData.cpp"/>
@@ -249,6 +250,7 @@
         <ClCompile Include="Framework\RenderPass\SceneRenderPass.cpp"/>
         <ClCompile Include="Framework\Time\ImguiSettingTime.cpp"/>
         <ClCompile Include="Framework\Time\TimeOfDayManager.cpp"/>
+        <ClCompile Include="Gameplay\Config\GraphicConfigParser.cpp"/>
         <ClCompile Include="SceneTest\SceneUnitTest.cpp"/>
         <ClCompile Include="SceneTest\SceneUnitTest_CustomConstantBuffer.cpp"/>
         <ClCompile Include="SceneTest\SceneUnitTest_SpriteAtlas.cpp"/>
@@ -259,6 +261,7 @@
         <ClInclude Include="Framework\Imgui\ImguiLeftDebugOverlay.hpp" />
         <ClInclude Include="Framework\Imgui\ImguiSceneRendering.hpp"/>
         <ClInclude Include="Framework\RenderPass\ConstantBuffer\CelestialConstantBuffer.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderCloud\CloudConfigParser.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderCloud\CloudGeometryHelper.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderCloud\CloudRenderPass.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderCloud\CloudTextureData.hpp"/>
@@ -272,6 +275,7 @@
         <ClInclude Include="Framework\RenderPass\SceneRenderPass.hpp" />
         <ClInclude Include="Framework\Time\ImguiSettingTime.hpp" />
         <ClInclude Include="Framework\Time\TimeOfDayManager.hpp" />
+        <ClInclude Include="Gameplay\Config\GraphicConfigParser.hpp"/>
         <ClInclude Include="SceneTest\SceneRenderContextProvider.hpp" />
         <ClInclude Include="SceneTest\SceneUnitTest.hpp" />
         <ClInclude Include="SceneTest\SceneUnitTest_CustomConstantBuffer.hpp" />

@@ -1,66 +1,41 @@
 /**
  * @file ImguiSettingCloud.cpp
- * @brief [FIX] Static ImGui interface for CloudRenderPass debugging - Implementation
- * @date 2025-12-02
- *
- * [FIX] Updated to match new CloudRenderPass architecture:
- * - Use GetRenderMode()/SetRenderMode() instead of Get/SetFancyMode()
- * - CloudStatus enum: FAST/FANCY modes
- * - Removed non-existent GetCloudSpeed/Opacity methods
- * - Added debug info display (ViewOrientation, geometry stats)
- *
- * Implementation Notes:
- * - Uses ImGui::CollapsingHeader for collapsible section
- * - ImGui::RadioButton for FAST/FANCY mode selection
- * - ImGui::Text for read-only debug info display
- *
- * Reference:
- * - CloudRenderPass.hpp (CloudStatus, ViewOrientation enums)
- * - ImguiSettingSky.hpp (Similar pattern)
- * - imgui_demo.cpp (Official API examples)
+ * @brief Static ImGui interface for CloudRenderPass configuration
+ * @date 2025-12-04
  */
 
 #include "ImguiSettingCloud.hpp"
+#include "CloudConfigParser.hpp"
 #include "CloudRenderPass.hpp"
 #include "ThirdParty/imgui/imgui.h"
 
-/**
- * @brief Show - Render cloud rendering debug UI
- *
- * [FIX] Updated UI Flow:
- * 1. Check cloudPass validity
- * 2. Render CollapsingHeader "Cloud Rendering"
- * 3. Display FAST/FANCY mode radio buttons
- * 4. Display debug info (ViewOrientation, geometry stats)
- * 5. Display cloud layer info (height, render distance)
- */
 void ImguiSettingCloud::Show(CloudRenderPass* cloudPass)
 {
-    // [STEP 1] Validate CloudRenderPass pointer
     if (!cloudPass)
     {
         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "[ERROR] CloudRenderPass is null");
         return;
     }
 
-    // [STEP 2] CollapsingHeader: Collapsible section for cloud rendering parameters
-    // Returns true if expanded, false if collapsed
+    // Get config reference from CloudRenderPass
+    CloudConfig& config = cloudPass->GetConfig();
+
     if (ImGui::CollapsingHeader("Cloud Rendering"))
     {
-        // Indent content for better visual hierarchy
         ImGui::Indent();
 
-        // ==================== [FIX] Rendering Mode Selection ====================
+        // ==================== Enable/Disable ====================
+        ImGui::Checkbox("Enable Clouds", &config.enabled);
+        ImGui::Separator();
 
+        // ==================== Rendering Mode ====================
         ImGui::Text("Rendering Mode:");
         ImGui::Spacing();
 
-        // [FIX] Get current mode from CloudRenderPass
         CloudStatus currentMode = cloudPass->GetRenderMode();
         bool        isFast      = (currentMode == CloudStatus::FAST);
         bool        isFancy     = (currentMode == CloudStatus::FANCY);
 
-        // [FIX] Use RadioButton for mutually exclusive selection
         if (ImGui::RadioButton("FAST Mode", isFast))
         {
             cloudPass->SetRenderMode(CloudStatus::FAST);
@@ -83,13 +58,62 @@ void ImguiSettingCloud::Show(CloudRenderPass* cloudPass)
 
         ImGui::Separator();
 
-        // ==================== [NEW] Debug Info Display ====================
+        // ==================== Geometry Parameters ====================
+        ImGui::Text("Geometry Parameters:");
+        ImGui::Spacing();
 
+        if (ImGui::SliderFloat("Height", &config.height, 0.0f, 256.0f, "%.1f"))
+        {
+            cloudPass->RequestRebuild();
+        }
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Cloud layer base height (Z-axis)");
+        }
+
+        if (ImGui::SliderFloat("Thickness", &config.thickness, 1.0f, 16.0f, "%.1f"))
+        {
+            cloudPass->RequestRebuild();
+        }
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Cloud layer thickness in blocks");
+        }
+
+        if (ImGui::SliderInt("Render Distance", &config.renderDistance, 4, 32))
+        {
+            cloudPass->RequestRebuild();
+        }
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Render distance in cells (1 cell = 12 blocks)");
+        }
+
+        ImGui::Separator();
+
+        // ==================== Visual Parameters ====================
+        ImGui::Text("Visual Parameters:");
+        ImGui::Spacing();
+
+        ImGui::SliderFloat("Speed", &config.speed, 0.0f, 5.0f, "%.2f");
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Cloud scroll speed multiplier");
+        }
+
+        ImGui::SliderFloat("Opacity", &config.opacity, 0.0f, 1.0f, "%.2f");
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Cloud transparency (0.0 = invisible, 1.0 = opaque)");
+        }
+
+        ImGui::Separator();
+
+        // ==================== Debug Info ====================
         if (ImGui::CollapsingHeader("Debug Info"))
         {
             ImGui::Indent();
 
-            // [NEW] Display current rendering mode status
             ImGui::Text("Current Mode:");
             ImGui::SameLine();
             if (currentMode == CloudStatus::FAST)
@@ -102,46 +126,12 @@ void ImguiSettingCloud::Show(CloudRenderPass* cloudPass)
             }
 
             ImGui::Spacing();
-
-            // [NEW] ViewOrientation display (placeholder - needs CloudRenderPass API)
-            ImGui::Text("View Orientation: [TODO: Add GetViewOrientation() API]");
-            ImGui::BulletText("BELOW_CLOUDS: Camera below Z=192");
-            ImGui::BulletText("INSIDE_CLOUDS: Camera at Z=192-196");
-            ImGui::BulletText("ABOVE_CLOUDS: Camera above Z=196");
-
-            ImGui::Spacing();
-
-            // [NEW] Geometry statistics display (placeholder - needs CloudRenderPass API)
-            ImGui::Text("Geometry Statistics:");
-            ImGui::BulletText("Vertex Count: [TODO: Add GetVertexCount() API]");
-            ImGui::BulletText("Cell Count: 32x32 grid");
-            ImGui::BulletText("Rebuild Count: [TODO: Add GetRebuildCount() API]");
+            ImGui::Text("Cloud Layer:");
+            ImGui::BulletText("Min Z: %.1f", config.GetMinZ());
+            ImGui::BulletText("Max Z: %.1f", config.GetMaxZ());
+            ImGui::BulletText("Radius: %d cells (%d blocks)", config.renderDistance, config.renderDistance * 12);
 
             ImGui::Unindent();
-        }
-
-        ImGui::Separator();
-
-        // ==================== Read-Only Cloud Layer Info ====================
-
-        ImGui::Text("Cloud Layer Info:");
-        ImGui::Spacing();
-
-        // Cloud height range
-        ImGui::BulletText("Height: Z=192-196 (4 blocks thick)");
-
-        // Render distance info (placeholder - needs game settings API)
-        ImGui::BulletText("Render Distance: [TODO: Read from game settings]");
-
-        // Coordinate system reminder
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetTooltip(
-                "Coordinate System Mapping:\n"
-                "Minecraft +X (East) -> Engine +Y (Left)\n"
-                "Minecraft +Y (Up) -> Engine +Z (Up)\n"
-                "Minecraft +Z (South) -> Engine +X (Forward)"
-            );
         }
 
         ImGui::Unindent();

@@ -32,6 +32,7 @@
 #include <memory>
 #include <vector>
 
+#include "CloudConfigParser.hpp"
 #include "Engine/Graphic/Core/EnigmaGraphicCommon.hpp"
 #include "Engine/Math/Vec3.hpp"
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
@@ -233,6 +234,11 @@ public:
     CloudStatus GetRenderMode() const { return m_renderMode; }
     void        SetRenderMode(CloudStatus mode);
 
+    /**
+     * @brief Get CloudConfig for ImGui modification
+     */
+    CloudConfig& GetConfig() { return m_configParser->GetParsedConfig(); }
+
 private:
     // [NEW] Core rendering logic
     /**
@@ -270,4 +276,6 @@ private:
 
     // [NEW] Rendering mode (FAST / FANCY)
     CloudStatus m_renderMode;
+
+    std::unique_ptr<CloudConfigParser> m_configParser;
 };

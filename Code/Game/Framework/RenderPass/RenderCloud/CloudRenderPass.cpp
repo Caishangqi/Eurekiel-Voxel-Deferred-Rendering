@@ -35,25 +35,19 @@
 #include <cmath>
 
 // ========================================
-// Constants
+// Constants (Defaults, overridden by CloudConfig)
 // ========================================
 
-/// Cloud layer height range (Engine Z-axis)
-constexpr float CLOUD_HEIGHT    = 20.0f; // Base height
-constexpr float CLOUD_THICKNESS = 4.0f; // Layer thickness
-constexpr float CLOUD_MIN_Z     = CLOUD_HEIGHT;
-constexpr float CLOUD_MAX_Z     = CLOUD_HEIGHT + CLOUD_THICKNESS;
-
-/// Cloud animation offset (Sodium uses 0.33 for Z-axis offset)
+/// Cloud animation offset (Sodium uses 0.33 for Y-axis offset)
 constexpr float CLOUD_OFFSET = 0.33f;
 
-/// Render distance: 16 cells = 192 blocks radius
-constexpr int DEFAULT_RENDER_DISTANCE = 16;
-
 CloudRenderPass::CloudRenderPass()
-    : m_renderMode(CloudStatus::FANCY)
-      , m_needsRebuild(true)
+    : m_needsRebuild(true)
 {
+    // Load config first (needed for render mode initialization)
+    m_configParser = std::make_unique<CloudConfigParser>(".enigma/settings.yml");
+    m_renderMode   = m_configParser->GetParsedConfig().renderMode;
+
     // Load gbuffers_clouds shader
     enigma::graphic::ShaderCompileOptions shaderCompileOptions;
     shaderCompileOptions.enableDebugInfo = true;
@@ -79,13 +73,23 @@ CloudRenderPass::~CloudRenderPass()
 
 void CloudRenderPass::Execute()
 {
+    // Get config reference
+    const CloudConfig& config = m_configParser->GetParsedConfig();
+
+    // Skip rendering if disabled
+    if (!config.enabled)
+    {
+        return;
+    }
+
     BeginPass();
 
     // Get camera position
     Vec3 cameraPos = g_theGame->m_player->m_position;
 
     // Get cloud animation time (includes tickDelta and CLOUD_TIME_SCALE)
-    float cloudTime = g_theGame->m_timeOfDayManager->GetCloudTime();
+    // Apply speed multiplier from config
+    float cloudTime = g_theGame->m_timeOfDayManager->GetCloudTime() * config.speed;
 
     // World coordinates with cloud scrolling offset
     float worldX = cameraPos.x + cloudTime;
@@ -95,22 +99,24 @@ void CloudRenderPass::Execute()
     int cellX = static_cast<int>(std::floor(worldX / 12.0f));
     int cellY = static_cast<int>(std::floor(worldY / 12.0f));
 
+    // Calculate cloud layer bounds from config
+    float cloudMinZ = config.GetMinZ();
+    float cloudMaxZ = config.GetMaxZ();
+
     // Calculate ViewOrientation based on camera height relative to cloud layer
     ViewOrientation orientation;
     if (m_renderMode == CloudStatus::FANCY)
     {
-        orientation = ViewOrientationHelper::GetOrientation(
-            cameraPos, CLOUD_MIN_Z, CLOUD_MAX_Z
-        );
+        orientation = ViewOrientationHelper::GetOrientation(cameraPos, cloudMinZ, cloudMaxZ);
     }
     else
     {
         orientation = ViewOrientation::BELOW_CLOUDS;
     }
 
-    // Construct geometry parameters
+    // Construct geometry parameters (use renderDistance from config)
     CloudGeometryParameters params(
-        cellX, cellY, DEFAULT_RENDER_DISTANCE,
+        cellX, cellY, config.renderDistance,
         orientation, m_renderMode
     );
 
@@ -129,7 +135,7 @@ void CloudRenderPass::Execute()
     if (m_geometry && !m_geometry->vertices.empty())
     {
         // [IMPORTANT] ModelMatrix Calculation
-        // Geometry is in LOCAL space [-192, +192], must translate to WORLD space.
+        // Geometry is in LOCAL space [-radius*12, +radius*12], must translate to WORLD space.
         // ModelMatrix positions geometry center at camera XY (with sub-cell offset) at cloud height.
         // After gbufferModelView transform: Final = (cameraPos - subCell) - cameraPos = -subCell
         // This matches Sodium's translate(-viewPosX, -viewPosY, -viewPosZ) approach.
@@ -138,7 +144,7 @@ void CloudRenderPass::Execute()
 
         float translateX = cameraPos.x - subCellX;
         float translateY = cameraPos.y - subCellY;
-        float translateZ = CLOUD_HEIGHT;
+        float translateZ = config.height; // Use height from config
 
         Mat44 modelMatrix = Mat44::MakeTranslation3D(Vec3(translateX, translateY, translateZ));
 
@@ -152,7 +158,7 @@ void CloudRenderPass::Execute()
         perObjectUniform.modelColor[0]      = cloudColor.x;
         perObjectUniform.modelColor[1]      = cloudColor.y;
         perObjectUniform.modelColor[2]      = cloudColor.z;
-        perObjectUniform.modelColor[3]      = 0.8f; // Sodium uses 0.8 alpha
+        perObjectUniform.modelColor[3]      = config.opacity; // Use opacity from config
         g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniform);
 
         // Render
