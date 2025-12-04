@@ -236,7 +236,9 @@
         <ClCompile Include="Framework\Imgui\ImguiGameSettings.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiLeftDebugOverlay.cpp" />
         <ClCompile Include="Framework\Imgui\ImguiSceneRendering.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderCloud\CloudGeometryHelper.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudRenderPass.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderCloud\CloudTextureData.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\ImguiSettingCloud.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderComposite\CompositeRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderDebug\DebugRenderPass.cpp" />
@@ -257,7 +259,9 @@
         <ClInclude Include="Framework\Imgui\ImguiLeftDebugOverlay.hpp" />
         <ClInclude Include="Framework\Imgui\ImguiSceneRendering.hpp"/>
         <ClInclude Include="Framework\RenderPass\ConstantBuffer\CelestialConstantBuffer.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderCloud\CloudGeometryHelper.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderCloud\CloudRenderPass.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderCloud\CloudTextureData.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderCloud\ImguiSettingCloud.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderComposite\CompositeRenderPass.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderDebug\DebugRenderPass.hpp" />

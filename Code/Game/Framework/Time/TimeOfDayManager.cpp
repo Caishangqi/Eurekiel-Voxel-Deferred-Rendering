@@ -1,4 +1,4 @@
-#include "Game/Framework/Time/TimeOfDayManager.hpp"
+﻿#include "Game/Framework/Time/TimeOfDayManager.hpp"
 
 #include "Engine/Core/Clock.hpp"
 #include "Engine/Core/EngineCommon.hpp"
@@ -28,6 +28,10 @@ void TimeOfDayManager::Update()
 
     float deltaSeconds = m_clock->GetDeltaSeconds();
     m_accumulatedTime  += deltaSeconds * m_timeScale;
+
+    // [NEW] 累积总tick数用于云动画（连续递增，不循环）
+    // 这样云动画就不会因为日夜循环而瞬移
+    m_totalTicks += (deltaSeconds * m_timeScale) / SECONDS_PER_TICK;
 
     int deltaTicks = static_cast<int>(m_accumulatedTime / SECONDS_PER_TICK);
 
@@ -76,8 +80,13 @@ float TimeOfDayManager::GetCompensatedCelestialAngle() const
 
 float TimeOfDayManager::GetCloudTime() const
 {
-    float tickDelta = m_accumulatedTime / SECONDS_PER_TICK;
-    return (static_cast<float>(m_currentTick) + tickDelta) * CLOUD_TIME_SCALE;
+    // [FIX] 使用连续累积的总tick数（m_totalTicks）而非日内循环tick（m_currentTick）
+    // 参考：Sodium CloudRenderer.java Line 77
+    //   double cloudTime = (double)((ticks + tickDelta) * 0.03F);
+    // 其中 ticks 是游戏总tick数，不是日内循环tick
+    //
+    // 这样云就会平滑连续移动，不会因为日夜循环（tick从23999回到0）而瞬移
+    return static_cast<float>(m_totalTicks * CLOUD_TIME_SCALE);
 }
 
 // =============================================================================
@@ -177,4 +186,75 @@ void TimeOfDayManager::SetCurrentTick(int tick)
     }
     // Reset accumulated time to prevent immediate tick advancement
     m_accumulatedTime = 0.0f;
+}
+
+// =============================================================================
+// [NEW] Cloud Color Calculation - Minecraft Algorithm
+// =============================================================================
+// Reference: Minecraft ClientLevel.java:673-704 getCloudColor()
+//
+// Algorithm:
+// 1. Get celestialAngle (0.0 - 1.0, where 0.25 = noon, 0.75 = midnight)
+// 2. Calculate daylight factor: h = cos(celestialAngle * 2PI) * 2 + 0.5, clamped to [0,1]
+// 3. Base color is white (1, 1, 1)
+// 4. Apply rain effect: mix toward grayscale
+// 5. Apply daylight factor:
+//    - R *= h * 0.9 + 0.1  (darkens at night, min 0.1)
+//    - G *= h * 0.9 + 0.1
+//    - B *= h * 0.85 + 0.15  (blue slightly brighter at night)
+// 6. Apply thunder effect: further darkening
+// =============================================================================
+
+Vec3 TimeOfDayManager::CalculateCloudColor(float rainLevel, float thunderLevel) const
+{
+    // [Step 1] Get celestial angle (0.0 - 1.0)
+    float celestialAngle = GetCelestialAngle();
+
+    // [Step 2] Calculate daylight factor
+    // Reference: ClientLevel.java Line 681
+    // float h = Mth.cos(g * ((float)Math.PI * 2)) * 2.0F + 0.5F;
+    // h = Mth.clamp(h, 0.0F, 1.0F);
+    constexpr float TWO_PI = 6.2831853f;
+    float           h      = std::cos(celestialAngle * TWO_PI) * 2.0f + 0.5f;
+    h                      = (h < 0.0f) ? 0.0f : ((h > 1.0f) ? 1.0f : h); // clamp(0, 1)
+
+    // [Step 3] Base color (white)
+    float r = 1.0f;
+    float g = 1.0f;
+    float b = 1.0f;
+
+    // [Step 4] Apply rain effect (mix toward grayscale)
+    // Reference: ClientLevel.java Line 686-691
+    if (rainLevel > 0.0f)
+    {
+        // Calculate grayscale value
+        float grayscale = (r * 0.3f + g * 0.59f + b * 0.11f) * 0.6f;
+        // Mix toward grayscale based on rain intensity
+        float rainFactor = rainLevel * 0.95f;
+        r                = r * (1.0f - rainFactor) + grayscale * rainFactor;
+        g                = g * (1.0f - rainFactor) + grayscale * rainFactor;
+        b                = b * (1.0f - rainFactor) + grayscale * rainFactor;
+    }
+
+    // [Step 5] Apply daylight factor
+    // Reference: ClientLevel.java Line 693-695
+    // Note: Blue channel has slightly different coefficient for atmospheric effect
+    r *= h * 0.9f + 0.1f; // Range: [0.1, 1.0]
+    g *= h * 0.9f + 0.1f; // Range: [0.1, 1.0]
+    b *= h * 0.85f + 0.15f; // Range: [0.15, 1.0] - blue slightly brighter at night
+
+    // [Step 6] Apply thunder effect (further darkening)
+    // Reference: ClientLevel.java Line 697-702
+    if (thunderLevel > 0.0f)
+    {
+        // Calculate dimmed value
+        float dimFactor = (r * 0.3f + g * 0.59f + b * 0.11f) * 0.2f;
+        // Mix toward darker based on thunder intensity
+        float thunderFactor = thunderLevel * 0.75f;
+        r                   = r * (1.0f - thunderFactor) + dimFactor * thunderFactor;
+        g                   = g * (1.0f - thunderFactor) + dimFactor * thunderFactor;
+        b                   = b * (1.0f - thunderFactor) + dimFactor * thunderFactor;
+    }
+
+    return Vec3(r, g, b);
 }

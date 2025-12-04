@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // Forward declaration
 class Clock;
@@ -43,6 +43,13 @@ public:
     void  SetTimeScale(float timeScale);
     float GetTimeScale() const;
 
+    // [NEW] Calculate cloud color based on time of day
+    // Reference: Minecraft ClientLevel.java:673-704 getCloudColor()
+    // Returns RGB color (0-1 range), caller should set alpha (typically 0.8)
+    // @param rainLevel Rain intensity (0.0 = clear, 1.0 = full rain)
+    // @param thunderLevel Thunder intensity (0.0 = none, 1.0 = full thunder)
+    Vec3 CalculateCloudColor(float rainLevel = 0.0f, float thunderLevel = 0.0f) const;
+
     // [NEW] Direct tick manipulation for debugging
     // Sets the current tick value (0-23999), automatically wraps if out of range
     // This will immediately update celestial positions on next frame
@@ -64,10 +71,16 @@ private:
     // Member variables
     Clock* m_clock           = nullptr;
     float  m_accumulatedTime = 0.0f;
-    int    m_currentTick     = 0;
+    int    m_currentTick     = 0; ///< Current day tick (0-23999, cycles daily)
     int    m_dayCount        = 0;
     float  m_timeScale       = 1.0f;
 
-    /// Imgui Debugger
+    /// Continuous total tick counter for smooth cloud animation
+    /// Unlike m_currentTick which cycles 0-23999, this accumulates forever
+    /// Used by GetCloudTime() to prevent cloud teleportation at day boundary
+    /// Reference: Sodium CloudRenderer.java uses continuous ticks for cloudTime
+    double m_totalTicks = 0.0;
+
+    /// ImGui Debugger
     bool showDemoWindow = true;
 };
