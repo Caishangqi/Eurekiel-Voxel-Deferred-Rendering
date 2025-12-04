@@ -22,6 +22,7 @@
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
 #include <cmath>
 
+#include "Engine/Core/VertexUtils.hpp"
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 // [REMOVED] VertexUtils.hpp - No longer needed, ModelMatrix handles Z translation
@@ -119,14 +120,18 @@ void CloudRenderPass::Execute()
     // Engine: +Y Left, +X Forward
 
     // World coordinates (with cloud scrolling offset)
-    // Reference: Sodium CloudRenderer.java Line 79-80
-    float worldY = cameraPos.y + cloudTime; // [NEW] Minecraft X -> Our Y
-    float worldX = cameraPos.x + CLOUD_OFFSET; // [NEW] Minecraft Z -> Our X
+    // Reference: Sodium CloudRenderer.java Line 78-81
+    // [FIX] 不在这里做模运算！让CloudTextureData::CreateSlice()处理wrap
+    // Sodium的做法：cellX/cellZ可以是任意整数，只在纹理采样时做floorMod
+    float worldY = cameraPos.y + cloudTime; // Minecraft X -> Our Y (with cloud drift)
+    float worldX = cameraPos.x + CLOUD_OFFSET; // Minecraft Z -> Our X
 
     // Cell coordinates (12x12 cell size)
-    // Reference: Sodium CloudRenderer.java Line 82-83
-    int cellY = static_cast<int>(std::floor(worldY / 12.0f)); // [NEW] Minecraft cellX -> Our cellY
-    int cellX = static_cast<int>(std::floor(worldX / 12.0f)); // [NEW] Minecraft cellZ -> Our cellX
+    // Reference: Sodium CloudRenderer.java Line 80-81
+    // [IMPORTANT] cellX/cellY可以是任意整数（正负无限）
+    // CloudTextureData::CreateSlice()会用FloorMod确保纹理采样在0-255范围
+    int cellY = static_cast<int>(std::floor(worldY / 12.0f)); // Can be any integer
+    int cellX = static_cast<int>(std::floor(worldX / 12.0f)); // Can be any integer
 
     // [STEP 2] Calculate ViewOrientation
     // Reference: Sodium CloudRenderer.java Line 696-714
@@ -172,6 +177,8 @@ void CloudRenderPass::Execute()
         // [FIX] Sodium-style: ModelMatrix handles ALL translation including Z height
         // Vertices stay in local space (Z = 0 to 4), ModelMatrix transforms to world space
         // This matches Sodium's approach where ModelViewMatrix does the unified transformation
+        // Calculate sub-cell offset (0-12 range)
+        // Reference: Sodium CloudRenderer.java Line 97-99
         float viewPosY = worldY - cellY * 12.0f; // Horizontal offset (our Y = MC X)
         float viewPosX = worldX - cellX * 12.0f; // Horizontal offset (our X = MC Z)
 
