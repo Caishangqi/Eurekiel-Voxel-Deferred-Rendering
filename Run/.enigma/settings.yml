@@ -13,12 +13,12 @@ video:
   simulationDistance: 24 # unit chunk
   cloud:
     enabled: true
-    renderMode: "fancy"  # fast, fancy
-    height: 20.0         # Cloud layer base height (Z-axis)
-    thickness: 4.0       # Cloud layer thickness (4 blocks)
-    renderDistance: 16   # Render distance in cells (16 cells = 192 blocks)
-    speed: 1.0           # Cloud scroll speed multiplier
-    opacity: 0.8         # Cloud opacity (0.0-1.0)
+    renderMode: "fancy"   # fast, fancy
+    height: 192.0         # Cloud layer base height (Z-axis)
+    thickness: 4.0        # Cloud layer thickness (4 blocks)
+    renderDistance: 32    # Render distance in cells (16 cells = 192 blocks)
+    speed: 1.0            # Cloud scroll speed multiplier
+    opacity: 0.8          # Cloud opacity (0.0-1.0)
 performance:
   chunkUpdateThreads: 6 # default to max 32
   alwaysDeferChunkUpdate: true
