@@ -37,7 +37,7 @@ Game::Game()
 
     /// Prepare player
     m_player             = std::make_unique<PlayerCharacter>(this);
-    m_player->m_position = Vec3(0, 0, 0);
+    m_player->m_position = Vec3(0, 0, 64);
 
     /// Scene (Test Only)
     //m_scene = std::make_unique<SceneUnitTest_StencilXRay>();

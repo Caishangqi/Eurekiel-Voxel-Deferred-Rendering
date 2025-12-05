@@ -80,7 +80,7 @@ void ImguiSettingCloud::Show(CloudRenderPass* cloudPass)
             ImGui::SetTooltip("Cloud layer thickness in blocks");
         }
 
-        if (ImGui::SliderInt("Render Distance", &config.renderDistance, 4, 32))
+        if (ImGui::SliderInt("Render Distance", &config.renderDistance, 4, 256))
         {
             cloudPass->RequestRebuild();
         }

@@ -245,6 +245,7 @@
         <ClCompile Include="Framework\RenderPass\RenderDebug\DebugRenderPass.cpp" />
         <ClCompile Include="Framework\RenderPass\RenderFinal\FinalRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderSky\ImguiSettingSky.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderSky\SkyColorHelper.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderSky\SkyGeometryHelper.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderSky\SkyRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\SceneRenderPass.cpp"/>
@@ -270,6 +271,7 @@
         <ClInclude Include="Framework\RenderPass\RenderDebug\DebugRenderPass.hpp" />
         <ClInclude Include="Framework\RenderPass\RenderFinal\FinalRenderPass.hpp" />
         <ClInclude Include="Framework\RenderPass\RenderSky\ImguiSettingSky.hpp" />
+        <ClInclude Include="Framework\RenderPass\RenderSky\SkyColorHelper.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderSky\SkyGeometryHelper.hpp" />
         <ClInclude Include="Framework\RenderPass\RenderSky\SkyRenderPass.hpp" />
         <ClInclude Include="Framework\RenderPass\SceneRenderPass.hpp" />
