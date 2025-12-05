@@ -78,6 +78,25 @@ float TimeOfDayManager::GetCompensatedCelestialAngle() const
     return angle;
 }
 
+float TimeOfDayManager::GetSunAngle() const
+{
+    // [FIX] Reference: Iris CelestialUniforms.java:24-32
+    // sunAngle is used for sunrise/sunset calculations
+    // It's offset by +0.25 from celestialAngle so that:
+    // - sunAngle=0.0 corresponds to sunrise (celestialAngle=0.75 or tick=18000)
+    // - sunAngle=0.5 corresponds to sunset (celestialAngle=0.25 or tick=6000)
+    float skyAngle = GetCelestialAngle();
+
+    if (skyAngle < 0.75f)
+    {
+        return skyAngle + 0.25f;
+    }
+    else
+    {
+        return skyAngle - 0.75f;
+    }
+}
+
 float TimeOfDayManager::GetCloudTime() const
 {
     // [FIX] 使用连续累积的总tick数（m_totalTicks）而非日内循环tick（m_currentTick）

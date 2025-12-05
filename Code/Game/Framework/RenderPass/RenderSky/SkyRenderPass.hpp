@@ -38,8 +38,14 @@ public:
     void SetSkyHorizonColor(const Vec3& color) { m_skyHorizonColor = color; }
 
 private:
-    // [Component 2] Sunrise/Sunset Strip
-    Vec4 CalculateSunriseColor(float celestialAngle) const;
+    // [NEW] Sky color rendering methods
+    void WriteSkyColorToRT();
+    void RenderSunsetStrip();
+    bool ShouldRenderSunsetStrip(float sunAngle) const;
+
+    // [NEW] Void dome conditional rendering
+    bool ShouldRenderVoidDome() const;
+
     // [Component 2] Shaders
     std::shared_ptr<enigma::graphic::ShaderProgram> m_skyBasicShader    = nullptr;
     std::shared_ptr<enigma::graphic::ShaderProgram> m_skyTexturedShader = nullptr;
@@ -54,6 +60,8 @@ private:
     std::shared_ptr<enigma::graphic::D12VertexBuffer> m_skyDiscVB = nullptr;
     std::vector<Vertex>                               m_skyDomeVertices; // Upper: centerZ = +16
     std::vector<Vertex>                               m_voidDomeVertices; // Lower: centerZ = -16
+    // [NEW] Sunset strip geometry
+    std::vector<Vertex> m_sunsetStripVertices;
 
     // [Component 6.4] Sky Rendering Parameters
     bool m_enableVoidGradient = true; // Void gradient toggle

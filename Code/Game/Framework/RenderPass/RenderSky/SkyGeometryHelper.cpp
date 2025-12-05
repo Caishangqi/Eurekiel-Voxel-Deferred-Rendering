@@ -53,10 +53,15 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba
     Vec3 bitangent(0.0f, 1.0f, 0.0f);
 
     // [Step 1] Pre-calculate all 9 perimeter vertices at HORIZON level
-    std::vector<Vec3> perimeterPositions;
-    std::vector<Vec2> perimeterUVs;
+    std::vector<Vec3>  perimeterPositions;
+    std::vector<Vec2>  perimeterUVs;
+    std::vector<Rgba8> perimeterColors; // [NEW] Store per-vertex colors for alpha gradient
     perimeterPositions.reserve(9);
     perimeterUVs.reserve(9);
+    perimeterColors.reserve(9);
+
+    // [FIX] Moved declaration before first use in loop below
+    bool isUpperHemisphere = (centerZ > 0.0f);
 
     for (int angleDeg = -180; angleDeg <= 180; angleDeg += static_cast<int>(ANGLE_STEP))
     {
@@ -85,6 +90,13 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba
         float u = (static_cast<float>(angleDeg) + 180.0f) / 360.0f;
         float v = 1.0f;
         perimeterUVs.emplace_back(u, v);
+
+        // [NEW] Alpha gradient for sky dome edge transparency
+        // Reference: Minecraft sky dome has semi-transparent edges at horizon
+        // Upper hemisphere: edge alpha = 0 (fully transparent at horizon)
+        // Lower hemisphere: keep opaque (void dome doesn't need transparency)
+        unsigned char edgeAlpha = isUpperHemisphere ? 0 : 255;
+        perimeterColors.emplace_back(color.r, color.g, color.b, edgeAlpha);
     }
 
     // ==========================================================================
@@ -96,7 +108,6 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba
     // - Lower hemisphere (centerZ < 0): Player looks DOWN from above
     //   -> CCW from above = Center -> Current -> Next (opposite order)
     // ==========================================================================
-    bool isUpperHemisphere = (centerZ > 0.0f);
 
     // Normal direction: always point toward player (inward)
     Vec3 normal = isUpperHemisphere ? Vec3(0.0f, 0.0f, -1.0f) : Vec3(0.0f, 0.0f, 1.0f);
@@ -107,17 +118,19 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba
         {
             // Upper hemisphere: CCW from below (player looks up)
             // Order: Center -> Next -> Current
+            // [NEW] Center vertex uses full alpha, perimeter vertices use gradient alpha
             vertices.emplace_back(centerPosition, color, centerUV, normal, tangent, bitangent);
-            vertices.emplace_back(perimeterPositions[i + 1], color, perimeterUVs[i + 1], normal, tangent, bitangent);
-            vertices.emplace_back(perimeterPositions[i], color, perimeterUVs[i], normal, tangent, bitangent);
+            vertices.emplace_back(perimeterPositions[i + 1], perimeterColors[i + 1], perimeterUVs[i + 1], normal, tangent, bitangent);
+            vertices.emplace_back(perimeterPositions[i], perimeterColors[i], perimeterUVs[i], normal, tangent, bitangent);
         }
         else
         {
             // Lower hemisphere: CCW from above (player looks down)
             // Order: Center -> Current -> Next (reversed)
+            // [NEW] Void dome keeps full opacity (no alpha gradient needed)
             vertices.emplace_back(centerPosition, color, centerUV, normal, tangent, bitangent);
-            vertices.emplace_back(perimeterPositions[i], color, perimeterUVs[i], normal, tangent, bitangent);
-            vertices.emplace_back(perimeterPositions[i + 1], color, perimeterUVs[i + 1], normal, tangent, bitangent);
+            vertices.emplace_back(perimeterPositions[i], perimeterColors[i], perimeterUVs[i], normal, tangent, bitangent);
+            vertices.emplace_back(perimeterPositions[i + 1], perimeterColors[i + 1], perimeterUVs[i + 1], normal, tangent, bitangent);
         }
     }
 

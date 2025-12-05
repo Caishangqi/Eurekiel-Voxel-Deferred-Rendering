@@ -33,6 +33,12 @@ public:
     float GetCompensatedCelestialAngle() const;
     float GetCloudTime() const;
 
+    // [FIX] Get sun angle for sunrise/sunset calculations
+    // Reference: Iris CelestialUniforms.java:24-32 getSunAngle()
+    // sunAngle = celestialAngle + 0.25 (with wrap-around)
+    // This ensures sunAngle=0.0 at sunrise, sunAngle=0.5 at sunset
+    float GetSunAngle() const;
+
     // [FIX P1] Calculate celestial body direction vectors (moved from SkyRenderPass)
     // These methods follow Iris CelestialUniforms.java:119-133 for position calculation
     // Returns VIEW SPACE DIRECTION VECTOR (w=0), not position!

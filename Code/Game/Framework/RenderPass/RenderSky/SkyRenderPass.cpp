@@ -1,5 +1,6 @@
 ﻿#include "SkyRenderPass.hpp"
 #include "SkyGeometryHelper.hpp"
+#include "SkyColorHelper.hpp"
 #include "Engine/Graphic/Resource/Buffer/D12VertexBuffer.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
@@ -13,6 +14,7 @@
 #include "Engine/Math/MathUtils.hpp"
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
 #include "Engine/Graphic/Camera/EnigmaCamera.hpp"
+#include <cmath> // [NEW] For std::abs in ShouldRenderSunsetStrip
 
 SkyRenderPass::SkyRenderPass()
 {
@@ -100,6 +102,9 @@ void SkyRenderPass::Execute()
     celestialData.moonPosition = g_theGame->m_timeOfDayManager->CalculateMoonPosition(gbufferModelView); // [FIX] VIEW SPACE position
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
+    // ==================== [NEW] Step 1: Write sky background color to colortex0 ====================
+    WriteSkyColorToRT();
+
     // ==================== [Component 2] Draw Sky Basic (Sky Sphere) ====================
     std::vector<uint32_t> rtOutputs     = {0}; // colortex0
     int                   depthTexIndex = 0; // depthtex0
@@ -109,8 +114,17 @@ void SkyRenderPass::Execute()
     // Upper hemisphere: Sky dome (player looks up to see sky)
     g_theRendererSubsystem->DrawVertexArray(m_skyDomeVertices);
 
-    // Lower hemisphere: Void dome (player looks down to see void gradient)
-    g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
+    // [NEW] Lower hemisphere: Void dome (only render when camera Z < horizon height)
+    // Reference: Minecraft LevelRenderer.java:1599-1607
+    // Condition: player.getEyePosition().y < level.getHorizonHeight()
+    // In our coordinate system: camera Z < 63.0 (sea level)
+    if (ShouldRenderVoidDome())
+    {
+        g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
+    }
+
+    // ==================== [NEW] Step 4: Render sunset strip (conditional) ====================
+    RenderSunsetStrip();
 
     // ==================== [Component 2] Draw Sky Textured (Sun/Moon) ====================
     // [FIX] Enable Alpha Blending for sun/moon soft edges
@@ -179,4 +193,102 @@ void SkyRenderPass::EndPass()
 
     // [CLEANUP] Reset blend mode to opaque
     g_theRendererSubsystem->SetBlendMode(BlendMode::Opaque);
+}
+
+void SkyRenderPass::WriteSkyColorToRT()
+{
+    // [FIX] Use sunAngle instead of celestialAngle for sky color calculations
+    float sunAngle = g_theGame->m_timeOfDayManager->GetSunAngle();
+
+    // [NEW] Calculate sky color using SkyColorHelper
+    Vec3 skyColor = SkyColorHelper::CalculateSkyColor(sunAngle);
+
+    // [NEW] Convert Vec3 to Rgba8 for ClearRenderTarget API
+    Rgba8 skyColorRgba8(
+        static_cast<unsigned char>(skyColor.x * 255.0f),
+        static_cast<unsigned char>(skyColor.y * 255.0f),
+        static_cast<unsigned char>(skyColor.z * 255.0f),
+        255
+    );
+
+    // [NEW] Clear colortex0 with sky color (RT index 0)
+    g_theRendererSubsystem->ClearRenderTarget(0, skyColorRgba8);
+}
+
+void SkyRenderPass::RenderSunsetStrip()
+{
+    // [FIX] Use sunAngle instead of celestialAngle for sunrise/sunset calculations
+    float sunAngle = g_theGame->m_timeOfDayManager->GetSunAngle();
+
+    // [NEW] Skip if not during sunrise/sunset
+    if (!ShouldRenderSunsetStrip(sunAngle))
+    {
+        return;
+    }
+
+    // [NEW] Calculate strip color (includes alpha for intensity)
+    Vec4 sunriseColor = SkyColorHelper::CalculateSunriseColor(sunAngle);
+
+    // [NEW] Generate strip geometry (updates each frame due to color change)
+    m_sunsetStripVertices = SkyGeometryHelper::GenerateSunriseStrip(sunriseColor);
+
+    // [NEW] Enable additive blending for glow effect
+    g_theRendererSubsystem->SetBlendMode(BlendMode::Additive);
+
+    // [NEW] Draw strip using same shader as sky dome
+    g_theRendererSubsystem->DrawVertexArray(m_sunsetStripVertices);
+}
+
+bool SkyRenderPass::ShouldRenderSunsetStrip(float sunAngle) const
+{
+    // [FIX] Minecraft time reference using sunAngle (not celestialAngle):
+    // Reference: Iris CelestialUniforms.java:24-32 getSunAngle()
+    // 
+    // sunAngle = celestialAngle + 0.25 (with wrap-around)
+    // This ensures:
+    // - tick 18000 (celestialAngle=0.75) -> sunAngle=0.0 -> sunrise
+    // - tick 0 (celestialAngle=0.0) -> sunAngle=0.25 -> after midnight (no strip)
+    // - tick 6000 (celestialAngle=0.25) -> sunAngle=0.5 -> sunset
+    // - tick 12000 (celestialAngle=0.5) -> sunAngle=0.75 -> noon (no strip)
+    constexpr float SUNRISE_CENTER = 0.0f; // [FIX] Sunrise at sunAngle 0.0
+    constexpr float SUNSET_CENTER  = 0.5f; // [FIX] Sunset at sunAngle 0.5
+    constexpr float THRESHOLD      = 0.1f;
+
+    // [FIX] Handle sunrise wrap-around (sunAngle near 0.0 or 1.0)
+    float distToSunrise = std::abs(sunAngle - SUNRISE_CENTER);
+    if (distToSunrise > 0.5f)
+    {
+        distToSunrise = 1.0f - distToSunrise; // Wrap around (e.g., 0.95 -> 0.05)
+    }
+
+    float distToSunset = std::abs(sunAngle - SUNSET_CENTER);
+
+    return (distToSunrise < THRESHOLD) || (distToSunset < THRESHOLD);
+}
+
+bool SkyRenderPass::ShouldRenderVoidDome() const
+{
+    // [NEW] Minecraft void dome rendering condition
+    // Reference: LevelRenderer.java:1599-1607
+    // 
+    // Minecraft code:
+    // double d = this.minecraft.player.getEyePosition(f).y - this.level.getLevelData().getHorizonHeight(this.level);
+    // if (d < 0.0D) { /* render darkBuffer (void dome) */ }
+    //
+    // getHorizonHeight() returns:
+    // - 63.0 for normal worlds (sea level)
+    // - minBuildHeight for flat worlds
+    //
+    // Coordinate mapping:
+    // - Minecraft Y axis = Our Z axis
+    // - Camera position in our system uses Z for vertical
+
+    constexpr float HORIZON_HEIGHT = 63.0f; // Minecraft sea level
+
+    // Get camera position (eye position)
+    Vec3 cameraPos = g_theGame->m_player->GetCamera()->GetPosition();
+
+    // Check if camera Z (Minecraft Y) is below horizon height
+    // Only render void dome when player is underground (Z < 63)
+    return cameraPos.z < HORIZON_HEIGHT;
 }
