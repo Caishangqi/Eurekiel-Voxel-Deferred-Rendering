@@ -29,7 +29,7 @@ public:
     // Query methods
     int   GetCurrentTick() const;
     int   GetDayCount() const;
-    float GetCelestialAngle() const;
+    float GetCelestialAngle() const; // Returns timeOfDay (0.0-1.0), NOT simple tick/24000
     float GetCompensatedCelestialAngle() const;
     float GetCloudTime() const;
 

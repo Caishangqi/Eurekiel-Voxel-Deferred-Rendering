@@ -1,6 +1,13 @@
 ﻿#include "Game/Framework/Time/TimeOfDayManager.hpp"
 
 #include "Engine/Core/Clock.hpp"
+
+// Helper function for fractional part calculation
+static double Frac(double value)
+{
+    return value - floor(value);
+}
+
 #include "Engine/Core/EngineCommon.hpp"
 #include "Engine/Core/ImGui/ImGuiSubsystem.hpp"
 #include "Engine/Input/InputSystem.hpp"
@@ -63,9 +70,14 @@ int TimeOfDayManager::GetDayCount() const
     return m_dayCount;
 }
 
+// Reference: Minecraft DimensionType.java:113-116 timeOfDay()
+// Non-linear time progression with -0.25 offset and cosine smoothing
+// Formula: d = frac(tick/24000 - 0.25), e = 0.5 - cos(d*PI)/2, return (d*2 + e)/3
 float TimeOfDayManager::GetCelestialAngle() const
 {
-    return static_cast<float>(m_currentTick) / static_cast<float>(TICKS_PER_DAY);
+    double d = Frac(static_cast<double>(m_currentTick) / 24000.0 - 0.25);
+    double e = 0.5 - std::cos(d * PI) / 2.0;
+    return static_cast<float>((d * 2.0 + e) / 3.0);
 }
 
 float TimeOfDayManager::GetCompensatedCelestialAngle() const
@@ -144,13 +156,19 @@ Vec3 TimeOfDayManager::CalculateCelestialPosition(float y, const Mat44& gbufferM
     Vec3 direction(0.0f, 0.0f, y);
 
     // [Step 2] Get sky angle for rotation
-    // [FIX] Apply -90 degree offset so that:
-    // - celestialAngle=0.00 (sunrise) -> sun at horizon (east)
-    // - celestialAngle=0.25 (noon)    -> sun at zenith (top)
-    // - celestialAngle=0.50 (sunset)  -> sun at horizon (west)
-    // - celestialAngle=0.75 (midnight)-> sun below horizon
+    // [FIX] Use celestialAngle directly (no additional offset needed)
+    // Reference: Iris CelestialUniforms.java:128
+    //   celestial.rotate(Axis.XP.rotationDegrees(getSkyAngle() * 360.0F));
+    // where getSkyAngle() = timeOfDay() which already includes -0.25 offset
+    //
+    // Minecraft time mapping (after timeOfDay() formula):
+    // - tick=0     (sunrise)  -> celestialAngle≈0.00 -> angle=0°   (horizon, east)
+    // - tick=6000  (noon)     -> celestialAngle≈0.25 -> angle=90°  (zenith)
+    // - tick=12000 (sunset)   -> celestialAngle≈0.50 -> angle=180° (horizon, west)
+    // - tick=13000 (evening)  -> celestialAngle≈0.54 -> angle=195° (below horizon)
+    // - tick=18000 (midnight) -> celestialAngle≈0.75 -> angle=270° (nadir)
     float celestialAngle = GetCelestialAngle();
-    float angleDegrees   = (celestialAngle - 0.25f) * 360.0f; // -90 degree offset
+    float angleDegrees   = celestialAngle * 360.0f; // Direct conversion, no offset
 
     // [Step 3] Build transformation matrix
     // In our Z-up coordinate system:

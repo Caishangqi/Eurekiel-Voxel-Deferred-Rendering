@@ -1,5 +1,6 @@
 #include "ImguiSettingSky.hpp"
 #include "SkyRenderPass.hpp"
+#include "SkyColorHelper.hpp"
 #include "Engine/Math/Vec3.hpp"
 #include "ThirdParty/imgui/imgui.h"
 
@@ -48,75 +49,143 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
 
         ImGui::Separator();
 
-        // ==================== Sky Color Adjustment ====================
+        // ==================== Sky Phase Colors (4-phase system) ====================
 
-        ImGui::Text("Sky Colors:");
-        ImGui::Spacing();
-
-        // Sky Zenith Color (top of sky)
-        Vec3  zenithColor         = skyPass->GetSkyZenithColor();
-        float zenithColorArray[3] = {zenithColor.x, zenithColor.y, zenithColor.z};
-
-        if (ImGui::ColorEdit3("Zenith Color", zenithColorArray))
+        if (ImGui::TreeNode("Sky Dome Phase Colors"))
         {
-            skyPass->SetSkyZenithColor(Vec3(zenithColorArray[0], zenithColorArray[1], zenithColorArray[2]));
+            ImGui::TextDisabled("(?) 4-phase interpolation system for sky dome");
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip(
+                    "Phase 0: Sunrise (tick 0, 6:00 AM)\n"
+                    "Phase 1: Noon (tick 6000, 12:00 PM)\n"
+                    "Phase 2: Sunset (tick 12000, 6:00 PM)\n"
+                    "Phase 3: Midnight (tick 18000, 12:00 AM)");
+            }
+
+            SkyPhaseColors& skyColors = SkyColorHelper::GetSkyColors();
+
+            float sunriseColor[3] = {skyColors.sunrise.x, skyColors.sunrise.y, skyColors.sunrise.z};
+            if (ImGui::ColorEdit3("Sunrise##Sky", sunriseColor))
+            {
+                skyColors.sunrise = Vec3(sunriseColor[0], sunriseColor[1], sunriseColor[2]);
+            }
+
+            float noonColor[3] = {skyColors.noon.x, skyColors.noon.y, skyColors.noon.z};
+            if (ImGui::ColorEdit3("Noon##Sky", noonColor))
+            {
+                skyColors.noon = Vec3(noonColor[0], noonColor[1], noonColor[2]);
+            }
+
+            float sunsetColor[3] = {skyColors.sunset.x, skyColors.sunset.y, skyColors.sunset.z};
+            if (ImGui::ColorEdit3("Sunset##Sky", sunsetColor))
+            {
+                skyColors.sunset = Vec3(sunsetColor[0], sunsetColor[1], sunsetColor[2]);
+            }
+
+            float midnightColor[3] = {skyColors.midnight.x, skyColors.midnight.y, skyColors.midnight.z};
+            if (ImGui::ColorEdit3("Midnight##Sky", midnightColor))
+            {
+                skyColors.midnight = Vec3(midnightColor[0], midnightColor[1], midnightColor[2]);
+            }
+
+            if (ImGui::Button("Reset Sky Colors"))
+            {
+                SkyColorHelper::ResetSkyColorsToDefault();
+            }
+
+            ImGui::TreePop();
         }
 
-        // Help text for zenith color
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetTooltip("Color at the top of the sky (default: deep blue)");
-        }
+        // ==================== Fog Phase Colors (4-phase system) ====================
 
-        // Sky Horizon Color (bottom of sky)
-        Vec3  horizonColor         = skyPass->GetSkyHorizonColor();
-        float horizonColorArray[3] = {horizonColor.x, horizonColor.y, horizonColor.z};
-
-        if (ImGui::ColorEdit3("Horizon Color", horizonColorArray))
+        if (ImGui::TreeNode("Fog Phase Colors"))
         {
-            skyPass->SetSkyHorizonColor(Vec3(horizonColorArray[0], horizonColorArray[1], horizonColorArray[2]));
-        }
+            ImGui::TextDisabled("(?) Fog colors for Clear RT (lighter than sky)");
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip(
+                    "Fog colors are used for clearing the render target.\n"
+                    "Generally lighter/more desaturated than sky colors.");
+            }
 
-        // Help text for horizon color
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetTooltip("Color at the horizon (default: light blue)");
+            SkyPhaseColors& fogColors = SkyColorHelper::GetFogColors();
+
+            float fogSunrise[3] = {fogColors.sunrise.x, fogColors.sunrise.y, fogColors.sunrise.z};
+            if (ImGui::ColorEdit3("Sunrise##Fog", fogSunrise))
+            {
+                fogColors.sunrise = Vec3(fogSunrise[0], fogSunrise[1], fogSunrise[2]);
+            }
+
+            float fogNoon[3] = {fogColors.noon.x, fogColors.noon.y, fogColors.noon.z};
+            if (ImGui::ColorEdit3("Noon##Fog", fogNoon))
+            {
+                fogColors.noon = Vec3(fogNoon[0], fogNoon[1], fogNoon[2]);
+            }
+
+            float fogSunset[3] = {fogColors.sunset.x, fogColors.sunset.y, fogColors.sunset.z};
+            if (ImGui::ColorEdit3("Sunset##Fog", fogSunset))
+            {
+                fogColors.sunset = Vec3(fogSunset[0], fogSunset[1], fogSunset[2]);
+            }
+
+            float fogMidnight[3] = {fogColors.midnight.x, fogColors.midnight.y, fogColors.midnight.z};
+            if (ImGui::ColorEdit3("Midnight##Fog", fogMidnight))
+            {
+                fogColors.midnight = Vec3(fogMidnight[0], fogMidnight[1], fogMidnight[2]);
+            }
+
+            if (ImGui::Button("Reset Fog Colors"))
+            {
+                SkyColorHelper::ResetFogColorsToDefault();
+            }
+
+            ImGui::TreePop();
         }
 
         ImGui::Separator();
 
-        // ==================== Read-Only Info Display ====================
+        // ==================== Legacy Sky Color Adjustment ====================
 
-        ImGui::Text("Celestial Bodies:");
-        ImGui::Spacing();
-
-        // Sun Position (read-only)
-        // [NOTE] Sun/Moon positions are calculated in Execute(), not accessible here
-        // This is a design limitation - positions are computed per-frame in Execute()
-        ImGui::BulletText("Sun Position: Calculated per-frame");
-        ImGui::BulletText("Moon Position: Calculated per-frame");
-
-        // Help text
-        if (ImGui::IsItemHovered())
+        if (ImGui::TreeNode("Legacy Sky Colors (Deprecated)"))
         {
-            ImGui::SetTooltip("Sun/Moon positions are computed dynamically based on celestial angle");
-        }
+            ImGui::TextDisabled("(?) Old zenith/horizon system - use Phase Colors instead");
 
-        // ==================== Reset to Defaults ====================
+            Vec3  zenithColor         = skyPass->GetSkyZenithColor();
+            float zenithColorArray[3] = {zenithColor.x, zenithColor.y, zenithColor.z};
+
+            if (ImGui::ColorEdit3("Zenith Color", zenithColorArray))
+            {
+                skyPass->SetSkyZenithColor(Vec3(zenithColorArray[0], zenithColorArray[1], zenithColorArray[2]));
+            }
+
+            Vec3  horizonColor         = skyPass->GetSkyHorizonColor();
+            float horizonColorArray[3] = {horizonColor.x, horizonColor.y, horizonColor.z};
+
+            if (ImGui::ColorEdit3("Horizon Color", horizonColorArray))
+            {
+                skyPass->SetSkyHorizonColor(Vec3(horizonColorArray[0], horizonColorArray[1], horizonColorArray[2]));
+            }
+
+            ImGui::TreePop();
+        }
 
         ImGui::Separator();
 
-        if (ImGui::Button("Reset to Defaults"))
+        // ==================== Reset All to Defaults ====================
+
+        if (ImGui::Button("Reset All to Defaults"))
         {
             skyPass->SetVoidGradientEnabled(true);
-            skyPass->SetSkyZenithColor(Vec3(0.47f, 0.65f, 1.0f)); // Default blue
-            skyPass->SetSkyHorizonColor(Vec3(0.75f, 0.85f, 1.0f)); // Default light blue
+            skyPass->SetSkyZenithColor(Vec3(0.47f, 0.65f, 1.0f));
+            skyPass->SetSkyHorizonColor(Vec3(0.75f, 0.85f, 1.0f));
+            SkyColorHelper::ResetSkyColorsToDefault();
+            SkyColorHelper::ResetFogColorsToDefault();
         }
 
-        // Help text for reset button
         if (ImGui::IsItemHovered())
         {
-            ImGui::SetTooltip("Reset all sky parameters to Minecraft vanilla defaults");
+            ImGui::SetTooltip("Reset all sky parameters including phase colors to defaults");
         }
 
         ImGui::Unindent();

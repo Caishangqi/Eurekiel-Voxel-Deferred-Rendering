@@ -96,7 +96,12 @@ void SkyRenderPass::Execute()
     celestialData.compensatedCelestialAngle = g_theGame->m_timeOfDayManager->GetCompensatedCelestialAngle();
     celestialData.cloudTime                 = g_theGame->m_timeOfDayManager->GetCloudTime();
 
-    celestialData.skyBrightness = cosf((celestialData.celestialAngle - 0.25f) * 6.28318530718f) * 0.5f + 0.5f;
+    // [FIX] Minecraft daylight factor formula (ClientLevel.java:681)
+    // Formula: h = cos(celestialAngle * 2π) * 2 + 0.5, clamped to [0, 1]
+    // - celestialAngle=0.0 (noon, tick=6000) -> h = 2.5 -> 1.0 (brightest)
+    // - celestialAngle=0.5 (midnight, tick=18000) -> h = -1.5 -> 0.0 (darkest)
+    float h                     = cosf(celestialData.celestialAngle * 6.28318530718f) * 2.0f + 0.5f;
+    celestialData.skyBrightness = (h < 0.0f) ? 0.0f : ((h > 1.0f) ? 1.0f : h);
 
     celestialData.sunPosition  = g_theGame->m_timeOfDayManager->CalculateSunPosition(gbufferModelView); // [FIX] VIEW SPACE position
     celestialData.moonPosition = g_theGame->m_timeOfDayManager->CalculateMoonPosition(gbufferModelView); // [FIX] VIEW SPACE position
@@ -197,22 +202,25 @@ void SkyRenderPass::EndPass()
 
 void SkyRenderPass::WriteSkyColorToRT()
 {
-    // [FIX] Use sunAngle instead of celestialAngle for sky color calculations
-    float sunAngle = g_theGame->m_timeOfDayManager->GetSunAngle();
+    // [FIX] Use fog color for Clear RT (matching Minecraft FogRenderer algorithm)
+    // Reference: Minecraft FogRenderer.java:45-150 setupColor()
+    float celestialAngle = g_theGame->m_timeOfDayManager->GetCelestialAngle();
+    float sunAngle       = g_theGame->m_timeOfDayManager->GetSunAngle();
 
-    // [NEW] Calculate sky color using SkyColorHelper
-    Vec3 skyColor = SkyColorHelper::CalculateSkyColor(sunAngle);
+    // [FIX] Calculate fog color using SkyColorHelper (not sky color!)
+    // Minecraft uses fogColor for clearing, not skyColor
+    Vec3 fogColor = SkyColorHelper::CalculateFogColor(celestialAngle, sunAngle);
 
     // [NEW] Convert Vec3 to Rgba8 for ClearRenderTarget API
-    Rgba8 skyColorRgba8(
-        static_cast<unsigned char>(skyColor.x * 255.0f),
-        static_cast<unsigned char>(skyColor.y * 255.0f),
-        static_cast<unsigned char>(skyColor.z * 255.0f),
+    Rgba8 fogColorRgba8(
+        static_cast<unsigned char>(fogColor.x * 255.0f),
+        static_cast<unsigned char>(fogColor.y * 255.0f),
+        static_cast<unsigned char>(fogColor.z * 255.0f),
         255
     );
 
-    // [NEW] Clear colortex0 with sky color (RT index 0)
-    g_theRendererSubsystem->ClearRenderTarget(0, skyColorRgba8);
+    // [FIX] Clear colortex0 with fog color (RT index 0)
+    g_theRendererSubsystem->ClearRenderTarget(0, fogColorRgba8);
 }
 
 void SkyRenderPass::RenderSunsetStrip()

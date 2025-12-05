@@ -1,6 +1,11 @@
-#include "Game/Framework/RenderPass/RenderSky/SkyColorHelper.hpp"
+﻿#include "Game/Framework/RenderPass/RenderSky/SkyColorHelper.hpp"
 #include "Engine/Math/MathUtils.hpp"
 #include <cmath>
+
+//-----------------------------------------------------------------------------------------------
+// [NEW] Static storage for configurable phase colors - initialized with defaults
+SkyPhaseColors SkyColorHelper::s_skyColors = SkyPhaseColors::GetDefaultSkyColors();
+SkyPhaseColors SkyColorHelper::s_fogColors = SkyPhaseColors::GetDefaultFogColors();
 
 //-----------------------------------------------------------------------------------------------
 // [NEW] Calculate daylight factor from celestial angle
@@ -56,29 +61,159 @@ float SkyColorHelper::CalculateSunsetFactor(float sunAngle)
 }
 
 //-----------------------------------------------------------------------------------------------
-// [FIX] Calculate sky color based on sunAngle (not celestialAngle)
-// Algorithm:
-// 1. Calculate day factor and sunset factor
-// 2. Interpolate between day/night colors based on day factor
-// 3. Blend in sunset color based on sunset factor
-Vec3 SkyColorHelper::CalculateSkyColor(float sunAngle)
+// [NEW] Phase color configuration accessors
+SkyPhaseColors& SkyColorHelper::GetSkyColors()
 {
-    // Color constants (use const instead of constexpr - Vec3 constructor is not constexpr)
-    const Vec3 DAY_SKY_COLOR(0.47f, 0.65f, 1.0f); // Bright blue
-    const Vec3 NIGHT_SKY_COLOR(0.0f, 0.0f, 0.02f); // Very dark blue
-    const Vec3 SUNSET_COLOR(1.0f, 0.5f, 0.2f); // Orange
+    return s_skyColors;
+}
 
-    // Calculate factors using sunAngle
-    float dayFactor    = CalculateDayFactor(sunAngle);
-    float sunsetFactor = CalculateSunsetFactor(sunAngle);
+SkyPhaseColors& SkyColorHelper::GetFogColors()
+{
+    return s_fogColors;
+}
 
-    // Interpolate between night and day colors
-    Vec3 baseColor = Interpolate(NIGHT_SKY_COLOR, DAY_SKY_COLOR, dayFactor);
+void SkyColorHelper::SetSkyColors(const SkyPhaseColors& colors)
+{
+    s_skyColors = colors;
+}
 
-    // Blend in sunset color at horizon times
-    Vec3 finalColor = Interpolate(baseColor, SUNSET_COLOR, sunsetFactor * 0.6f);
+void SkyColorHelper::SetFogColors(const SkyPhaseColors& colors)
+{
+    s_fogColors = colors;
+}
 
-    return finalColor;
+void SkyColorHelper::ResetSkyColorsToDefault()
+{
+    s_skyColors = SkyPhaseColors::GetDefaultSkyColors();
+}
+
+void SkyColorHelper::ResetFogColorsToDefault()
+{
+    s_fogColors = SkyPhaseColors::GetDefaultFogColors();
+}
+
+//-----------------------------------------------------------------------------------------------
+// [CONFIGURABLE] Calculate sky color using 4-phase interpolation
+// Uses configurable phase colors from s_skyColors (modifiable via ImGui)
+//
+// [FIX] Phase mapping based on ACTUAL celestialAngle values from TimeOfDayManager::GetCelestialAngle():
+// The Minecraft timeOfDay() formula produces NON-LINEAR celestialAngle values:
+// - tick 6000  (noon)     -> celestialAngle = 0.0
+// - tick 12000 (sunset)   -> celestialAngle ~ 0.215
+// - tick 18000 (midnight) -> celestialAngle = 0.5
+// - tick 0     (sunrise)  -> celestialAngle ~ 0.785
+//
+// Phase boundaries adjusted to match actual values:
+// - Phase 0 (0.0 - 0.15):   Noon -> Sunset
+// - Phase 1 (0.15 - 0.5):   Sunset -> Midnight
+// - Phase 2 (0.5 - 0.75):   Midnight -> Sunrise
+// - Phase 3 (0.75 - 1.0):   Sunrise -> Noon
+Vec3 SkyColorHelper::CalculateSkyColor(float celestialAngle)
+{
+    // [CONFIGURABLE] Use static phase colors (can be modified via ImGui)
+    const Vec3& COLOR_SUNRISE  = s_skyColors.sunrise;
+    const Vec3& COLOR_NOON     = s_skyColors.noon;
+    const Vec3& COLOR_SUNSET   = s_skyColors.sunset;
+    const Vec3& COLOR_MIDNIGHT = s_skyColors.midnight;
+
+    // Normalize celestialAngle to [0, 1)
+    float angle = celestialAngle;
+    while (angle < 0.0f) angle += 1.0f;
+    while (angle >= 1.0f) angle -= 1.0f;
+
+    Vec3 result;
+
+    // [FIX] Phase boundaries based on actual celestialAngle values
+    if (angle < 0.15f)
+    {
+        // Phase 0: Noon (0.0) to Sunset (0.15)
+        float t = angle / 0.15f;
+        result  = Interpolate(COLOR_NOON, COLOR_SUNSET, t);
+    }
+    else if (angle < 0.5f)
+    {
+        // Phase 1: Sunset (0.15) to Midnight (0.5)
+        float t = (angle - 0.15f) / 0.35f;
+        result  = Interpolate(COLOR_SUNSET, COLOR_MIDNIGHT, t);
+    }
+    else if (angle < 0.75f)
+    {
+        // Phase 2: Midnight (0.5) to Sunrise (0.75)
+        float t = (angle - 0.5f) / 0.25f;
+        result  = Interpolate(COLOR_MIDNIGHT, COLOR_SUNRISE, t);
+    }
+    else
+    {
+        // Phase 3: Sunrise (0.75) to Noon (1.0/0.0)
+        float t = (angle - 0.75f) / 0.25f;
+        result  = Interpolate(COLOR_SUNRISE, COLOR_NOON, t);
+    }
+
+    return result;
+}
+
+//-----------------------------------------------------------------------------------------------
+// [CONFIGURABLE] Calculate fog color using 4-phase interpolation
+// Uses configurable phase colors from s_fogColors (modifiable via ImGui)
+// Fog color is used for Clear RT and is generally lighter/more desaturated than sky color.
+//
+// [FIX] Phase mapping based on ACTUAL celestialAngle values from TimeOfDayManager::GetCelestialAngle():
+// The Minecraft timeOfDay() formula produces NON-LINEAR celestialAngle values:
+// - tick 6000  (noon)     -> celestialAngle = 0.0
+// - tick 12000 (sunset)   -> celestialAngle ~ 0.215
+// - tick 18000 (midnight) -> celestialAngle = 0.5
+// - tick 0     (sunrise)  -> celestialAngle ~ 0.785
+//
+// Phase boundaries adjusted to match actual values:
+// - Phase 0 (0.0 - 0.15):   Noon -> Sunset
+// - Phase 1 (0.15 - 0.5):   Sunset -> Midnight
+// - Phase 2 (0.5 - 0.75):   Midnight -> Sunrise
+// - Phase 3 (0.75 - 1.0):   Sunrise -> Noon
+Vec3 SkyColorHelper::CalculateFogColor(float celestialAngle, float sunAngle)
+{
+    // [CONFIGURABLE] Use static phase colors (can be modified via ImGui)
+    const Vec3& FOG_SUNRISE  = s_fogColors.sunrise;
+    const Vec3& FOG_NOON     = s_fogColors.noon;
+    const Vec3& FOG_SUNSET   = s_fogColors.sunset;
+    const Vec3& FOG_MIDNIGHT = s_fogColors.midnight;
+
+    // Normalize celestialAngle to [0, 1)
+    float angle = celestialAngle;
+    while (angle < 0.0f) angle += 1.0f;
+    while (angle >= 1.0f) angle -= 1.0f;
+
+    Vec3 result;
+
+    // [FIX] Phase boundaries based on actual celestialAngle values
+    if (angle < 0.15f)
+    {
+        // Phase 0: Noon (0.0) to Sunset (0.15)
+        float t = angle / 0.15f;
+        result  = Interpolate(FOG_NOON, FOG_SUNSET, t);
+    }
+    else if (angle < 0.5f)
+    {
+        // Phase 1: Sunset (0.15) to Midnight (0.5)
+        float t = (angle - 0.15f) / 0.35f;
+        result  = Interpolate(FOG_SUNSET, FOG_MIDNIGHT, t);
+    }
+    else if (angle < 0.75f)
+    {
+        // Phase 2: Midnight (0.5) to Sunrise (0.75)
+        float t = (angle - 0.5f) / 0.25f;
+        result  = Interpolate(FOG_MIDNIGHT, FOG_SUNRISE, t);
+    }
+    else
+    {
+        // Phase 3: Sunrise (0.75) to Noon (1.0/0.0)
+        float t = (angle - 0.75f) / 0.25f;
+        result  = Interpolate(FOG_SUNRISE, FOG_NOON, t);
+    }
+
+    // sunAngle parameter is kept for API compatibility but not used in configurable mode
+    (void)sunAngle;
+
+    return result;
 }
 
 //-----------------------------------------------------------------------------------------------

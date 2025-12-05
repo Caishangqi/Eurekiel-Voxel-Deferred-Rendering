@@ -9,6 +9,8 @@
 #include "Game/GameCommon.hpp"
 #include "Game/Framework/RenderPass/RenderCloud/ImguiSettingCloud.hpp"
 #include "Game/Framework/RenderPass/RenderCloud/CloudRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderSky/ImguiSettingSky.hpp"
+#include "Game/Framework/RenderPass/RenderSky/SkyRenderPass.hpp"
 #include "Game/Gameplay/Game.hpp"
 #include "ThirdParty/imgui/imgui.h"
 
@@ -31,6 +33,7 @@ void ImguiSceneRendering::Show()
 
     // [MODULE 3] Sun & Moon Parameters
     ShowSunMoonParameters(); /// WRONG should be ImguiSettingSunMoon::Show()
+    ImguiSettingSky::Show(dynamic_cast<SkyRenderPass*>(g_theGame->m_skyRenderPass.get()));
 
     // [FUTURE] Add more rendering modules here
     // - Terrain Rendering
