@@ -68,12 +68,20 @@ private:
     // @return View space direction vector (w=0), length ~100 units
     Vec3 CalculateCelestialPosition(float y, const Mat44& gbufferModelView) const;
 
+public:
+    // Minecraft Official Time Constants
+    // Reference: TimeCommand.java:17-24
+    static constexpr int TICK_DAY      = 1000; // Morning (sun just risen)
+    static constexpr int TICK_NOON     = 6000; // Noon (sun at zenith)
+    static constexpr int TICK_NIGHT    = 13000; // Night begins
+    static constexpr int TICK_MIDNIGHT = 18000; // Midnight (moon at zenith)
+
     // Constants
     static constexpr float SECONDS_PER_TICK       = 0.05f; // 20 ticks per second
     static constexpr int   TICKS_PER_DAY          = 24000; // Full day-night cycle
     static constexpr float CLOUD_TIME_SCALE       = 0.03f; // Cloud animation speed
     static constexpr float CELESTIAL_ANGLE_OFFSET = 0.25f; // Sun/Moon phase offset
-
+private:
     // Member variables
     Clock* m_clock           = nullptr;
     float  m_accumulatedTime = 0.0f;

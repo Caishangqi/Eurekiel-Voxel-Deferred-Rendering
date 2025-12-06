@@ -57,10 +57,17 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
             if (ImGui::IsItemHovered())
             {
                 ImGui::SetTooltip(
-                    "Phase 0: Sunrise (tick 0, 6:00 AM)\n"
-                    "Phase 1: Noon (tick 6000, 12:00 PM)\n"
-                    "Phase 2: Sunset (tick 12000, 6:00 PM)\n"
-                    "Phase 3: Midnight (tick 18000, 12:00 AM)");
+                    "[IMPORTANT] These are rendering phase color names, not Minecraft time points!\n"
+                    "Phase 0: Sunrise Color (interpolated around dawn)\n"
+                    "Phase 1: Noon Color (interpolated around midday)\n"
+                    "Phase 2: Sunset Color (interpolated around dusk)\n"
+                    "Phase 3: Midnight Color (interpolated at night)\n"
+                    "\n"
+                    "Minecraft official time points (TimeCommand.java:17-24):\n"
+                    "- day = 1000 ticks (6:00 AM)\n"
+                    "- noon = 6000 ticks (12:00 PM)\n"
+                    "- night = 13000 ticks (7:00 PM, night starts)\n"
+                    "- midnight = 18000 ticks (12:00 AM)");
             }
 
             SkyPhaseColors& skyColors = SkyColorHelper::GetSkyColors();

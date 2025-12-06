@@ -165,7 +165,7 @@ Vec3 TimeOfDayManager::CalculateCelestialPosition(float y, const Mat44& gbufferM
     // - tick=0     (sunrise)  -> celestialAngle≈0.00 -> angle=0°   (horizon, east)
     // - tick=6000  (noon)     -> celestialAngle≈0.25 -> angle=90°  (zenith)
     // - tick=12000 (sunset)   -> celestialAngle≈0.50 -> angle=180° (horizon, west)
-    // - tick=13000 (evening)  -> celestialAngle≈0.54 -> angle=195° (below horizon)
+    // - tick=13000 (night begins) -> celestialAngle≈0.54 -> angle=195° (below horizon, Minecraft official: TimeCommand.java:22)
     // - tick=18000 (midnight) -> celestialAngle≈0.75 -> angle=270° (nadir)
     float celestialAngle = GetCelestialAngle();
     float angleDegrees   = celestialAngle * 360.0f; // Direct conversion, no offset

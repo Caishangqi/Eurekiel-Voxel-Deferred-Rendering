@@ -93,25 +93,25 @@ void ImguiSettingTime::Show(TimeOfDayManager* timeManager)
         {
             timeManager->SetCurrentTick(tickValue);
         }
-        // Quick preset buttons for common times
-        if (ImGui::Button("Sunrise"))
+        // Quick preset buttons for common times (Minecraft official time points)
+        if (ImGui::Button("Day (1000)"))
         {
-            timeManager->SetCurrentTick(0);
+            timeManager->SetCurrentTick(TimeOfDayManager::TICK_DAY);
         }
         ImGui::SameLine();
-        if (ImGui::Button("Noon"))
+        if (ImGui::Button("Noon (6000)"))
         {
-            timeManager->SetCurrentTick(6000);
+            timeManager->SetCurrentTick(TimeOfDayManager::TICK_NOON);
         }
         ImGui::SameLine();
-        if (ImGui::Button("Sunset"))
+        if (ImGui::Button("Night (13000)"))
         {
-            timeManager->SetCurrentTick(12000);
+            timeManager->SetCurrentTick(TimeOfDayManager::TICK_NIGHT);
         }
         ImGui::SameLine();
-        if (ImGui::Button("Midnight"))
+        if (ImGui::Button("Midnight (18000)"))
         {
-            timeManager->SetCurrentTick(18000);
+            timeManager->SetCurrentTick(TimeOfDayManager::TICK_MIDNIGHT);
         }
         ImGui::Separator();
         if (ImGui::Button("Reset"))
