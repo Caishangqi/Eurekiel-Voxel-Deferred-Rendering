@@ -237,8 +237,9 @@ void SkyRenderPass::RenderSunsetStrip()
     // [NEW] Calculate strip color (includes alpha for intensity)
     Vec4 sunriseColor = SkyColorHelper::CalculateSunriseColor(sunAngle);
 
-    // [NEW] Generate strip geometry (updates each frame due to color change)
-    m_sunsetStripVertices = SkyGeometryHelper::GenerateSunriseStrip(sunriseColor);
+    // [NEW] Generate strip geometry with CPU transform (matches Minecraft LevelRenderer.java)
+    // Pass sunAngle for flip calculation: XP(90) * ZP(flip) * ZP(90)
+    m_sunsetStripVertices = SkyGeometryHelper::GenerateSunriseStrip(sunriseColor, sunAngle);
 
     // [NEW] Enable additive blending for glow effect
     g_theRendererSubsystem->SetBlendMode(BlendMode::Additive);

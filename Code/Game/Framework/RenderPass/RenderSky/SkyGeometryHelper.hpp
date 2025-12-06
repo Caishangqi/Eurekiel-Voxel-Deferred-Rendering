@@ -70,19 +70,25 @@ public:
     );
 
     /**
-     * @brief Generate sunrise/sunset strip mesh (TRIANGLE_LIST topology)
+     * @brief Generate sunrise/sunset strip mesh (TRIANGLE_LIST topology) with CPU transform
      * 
      * Creates a 48-vertex fan mesh (16 triangles) for rendering sunrise/sunset glow.
      * Center vertex has high alpha (orange), outer vertices have zero alpha (transparent).
      * GPU interpolation creates smooth gradient effect.
      * 
+     * [CRITICAL] Matches Minecraft's CPU-side transform approach:
+     *   poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
+     *   poseStack.mulPose(Axis.ZP.rotationDegrees(flip));  // 0 or 180 based on sunAngle
+     *   poseStack.mulPose(Axis.ZP.rotationDegrees(90.0F));
+     *   bufferBuilder.addVertex(matrix4f3, ...);  // CPU transform applied here!
+     * 
      * @param sunriseColor RGBA color from CalculateSunriseColor() (r, g, b, alpha)
-     * @param celestialAngle Current celestial angle for rotation calculation
+     * @param sunAngle Current sun angle (0.0-1.0) for flip calculation
      * @return std::vector<Vertex> Vertex array ready for TRIANGLE_LIST rendering (48 vertices)
      * 
      * @note Vertex count: 16 triangles * 3 = 48 vertices
-     * @note Z-axis curvature: z = sin(angle) * 40.0 * alpha (creates bowl shape)
-     * @note Reference: Minecraft LevelRenderer.java renderSunriseSunsetStrip()
+     * @note Transform: XP(90) * ZP(flip) * ZP(90) applied on CPU
+     * @note Reference: Minecraft LevelRenderer.java:1527-1548
      */
-    static std::vector<Vertex> GenerateSunriseStrip(const Vec4& sunriseColor);
+    static std::vector<Vertex> GenerateSunriseStrip(const Vec4& sunriseColor, float sunAngle);
 };

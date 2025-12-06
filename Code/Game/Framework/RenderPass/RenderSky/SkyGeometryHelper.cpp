@@ -1,7 +1,9 @@
 ﻿#include "Game/Framework/RenderPass/RenderSky/SkyGeometryHelper.hpp"
 #include "Engine/Math/MathUtils.hpp"
+#include "Engine/Math/Mat44.hpp"
 #include <cmath>
 
+#include "Engine/Core/VertexUtils.hpp"
 #include "Game/GameCommon.hpp"
 
 //-----------------------------------------------------------------------------------------------
@@ -185,78 +187,104 @@ std::vector<Vertex> SkyGeometryHelper::GenerateCelestialBillboard(
 }
 
 //-----------------------------------------------------------------------------------------------
-std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseColor)
+std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseColor, float sunAngle)
 {
     // ==========================================================================
-    // [Sunrise/Sunset Strip] - Engine Coordinate System Version
+    // [Sunrise/Sunset Strip] - CPU-side Transform using Mat44 (Matching Minecraft)
     // ==========================================================================
     //
-    // [Original Minecraft Geometry] (Y-up coordinate system):
-    //   Center: (0, 100, 0) - 100 units UP (+Y)
-    //   Outer:  X = sin(theta) * 120  (horizontal left-right)
-    //           Y = cos(theta) * 120  (vertical up-down)
-    //           Z = -cos(theta) * 40 * alpha (depth toward/away)
+    // [CRITICAL] Minecraft applies transforms on CPU, NOT in shader!
+    // Reference: LevelRenderer.java:1527-1548
     //
-    // [Minecraft Transform] XP(90) -> ZP(flip) -> ZP(90):
-    //   This rotates the vertical fan to horizontal, facing sunrise/sunset
+    //   poseStack.pushPose();
+    //   poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));        // Step 1
+    //   j = Mth.sin(sunAngle) < 0 ? 180.0F : 0.0F;
+    //   poseStack.mulPose(Axis.ZP.rotationDegrees(j));            // Step 2 (flip)
+    //   poseStack.mulPose(Axis.ZP.rotationDegrees(90.0F));        // Step 3
+    //   Matrix4f matrix4f3 = poseStack.last().pose();
+    //   bufferBuilder.addVertex(matrix4f3, 0.0F, 100.0F, 0.0F);   // CPU transform!
     //
-    // [Final Position in Camera Space]:
-    //   The strip becomes a HORIZONTAL ARC at the HORIZON
-    //   - Center point: in the +X direction (forward toward horizon)
-    //   - Arc spans: left-right along Y axis
-    //   - Depth variation: creates the "bowl" effect
+    // [Original Geometry] (MC Y-up, before transform):
+    //   Center: (0, 100, 0)
+    //   Outer:  (sin*120, cos*120, -cos*40*alpha)
     //
-    // ==========================================================================
-    // [ENGINE COORDINATE SYSTEM] (Z-up, X-forward, Y-left):
+    // [Transform Chain] XP(90) * ZP(flip) * ZP(90):
+    //   Combined rotation places strip at horizon, facing sunrise/sunset direction
     //
-    //   After all transforms, the strip should be positioned:
-    //   - Center: somewhere on the horizon ring, toward sunrise/sunset
-    //   - Arc: horizontal band spanning left-right
-    //   - Player looks toward +X to see the strip
-    //
-    //   We generate directly in ENGINE SPACE, no coordinate conversion needed!
-    //   The SkyRenderPass only needs to apply camera view rotation.
     // ==========================================================================
 
     std::vector<Vertex> vertices;
     vertices.reserve(51); // 17 triangles * 3 vertices
 
-    // ==========================================================================
-    // [Minecraft Vanilla Specs] LevelRenderer.java:1538-1546
-    // ==========================================================================
-    // bufferBuilder.addVertex(matrix4f3, 0.0F, 100.0F, 0.0F)           // Center
-    // for(int o = 0; o <= 16; ++o) {
-    //     p = (float)o * 6.2831855F / 16.0F;                           // 16 segments
-    //     q = Mth.sin(p);
-    //     r = Mth.cos(p);
-    //     bufferBuilder.addVertex(q * 120.0F, r * 120.0F, -r * 40.0F * fs[3]);
-    // }
-    // ==========================================================================
     constexpr int   SEGMENTS    = 16;
-    constexpr float CENTER_DIST = 100.0f; // [FIX] Minecraft: (0, 100, 0)
-    constexpr float OUTER_DIST  = 120.0f; // [FIX] Minecraft: sin*120, cos*120
-    constexpr float DEPTH_SCALE = 40.0f; // [FIX] Minecraft: -cos*40*alpha
+    constexpr float CENTER_DIST = 100.0f;
+    constexpr float OUTER_DIST  = 120.0f;
+    constexpr float DEPTH_SCALE = 40.0f;
     constexpr float TWO_PI      = 6.28318530718f;
 
     // ==========================================================================
-    // [ENGINE SPACE] Strip Geometry
+    // [STEP 1] Build combined rotation matrix using Mat44
     // ==========================================================================
-    // After Minecraft's XP(90)->ZP(90) transform, the geometry becomes:
-    //   - The "up" direction (MC +Y) becomes "forward" (Engine +X)
-    //   - The "right" direction (MC +X) becomes "left" (Engine +Y)
-    //   - The "toward" direction (MC -Z) becomes "up" (Engine +Z)
+    // Minecraft transform order (column-major, right multiply):
+    //   final = XP(90) * ZP(flip) * ZP(90)
     //
-    // So in ENGINE SPACE:
-    //   Center: (CENTER_DIST, 0, 0) - toward +X (forward/horizon)
-    //   Outer arc: spans in Y direction (left-right)
-    //              with X variation (depth toward horizon)
-    //              and Z variation (height, the "bowl" curve)
+    // Using Mat44::Append which is "multiply on right in column notation"
+    // So we build: start with XP(90), append ZP(flip), append ZP(90)
     // ==========================================================================
 
-    // Center position: forward toward horizon (+X direction)
-    Vec3 centerPosition(CENTER_DIST, 0.0f, 0.0f);
+    // Calculate flip angle based on sun position
+    float sinSunAngle = std::sin(sunAngle * TWO_PI);
+    float flipAngle   = (sinSunAngle < 0.0f) ? 180.0f : 0.0f;
 
-    // Center color: full sunriseColor with original alpha
+    // ==========================================================================
+    // Preparing the Geometry same look between Vertex In
+    // ==========================================================================
+
+    // Build the combined transform matrix
+    Mat44 transformMC = Mat44::MakeYRotationDegrees(180);
+
+
+    // ==========================================================================
+    // [STEP 2] Generate original MC geometry (Y-up space, no transform yet)
+    // ==========================================================================
+    float depthOffset = DEPTH_SCALE * sunriseColor.w;
+
+    // Center vertex in MC space: (0, 100, 0)
+    Vec3 centerMC(0.0f, CENTER_DIST, 0.0f);
+
+    // Outer vertices in MC space: (sin*120, cos*120, -cos*40*alpha)
+    std::vector<Vec3> outerMC;
+    outerMC.reserve(SEGMENTS + 1);
+
+    for (int i = 0; i <= SEGMENTS; ++i)
+    {
+        float angle = static_cast<float>(i) * TWO_PI / static_cast<float>(SEGMENTS);
+        float sinA  = std::sin(angle);
+        float cosA  = std::cos(angle);
+
+        // Original MC geometry (Y-up): (sin*120, cos*120, -cos*40*alpha)
+        float mcX = sinA * OUTER_DIST;
+        float mcY = cosA * OUTER_DIST;
+        float mcZ = -cosA * depthOffset;
+
+        outerMC.emplace_back(mcX, mcY, mcZ);
+    }
+
+    // ==========================================================================
+    // [STEP 3] Apply transform using Mat44::TransformPosition3D
+    // ==========================================================================
+    Vec3 centerPosition = transformMC.TransformPosition3D(centerMC);
+
+    std::vector<Vec3> outerPositions;
+    outerPositions.reserve(SEGMENTS + 1);
+    for (const Vec3& mcPos : outerMC)
+    {
+        outerPositions.push_back(transformMC.TransformPosition3D(mcPos));
+    }
+
+    // ==========================================================================
+    // [STEP 4] Setup colors and vertex attributes
+    // ==========================================================================
     Rgba8 centerColor = Rgba8(
         static_cast<unsigned char>(sunriseColor.x * 255.0f),
         static_cast<unsigned char>(sunriseColor.y * 255.0f),
@@ -264,7 +292,6 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
         static_cast<unsigned char>(sunriseColor.w * 255.0f)
     );
 
-    // Outer color: same RGB but alpha = 0 (transparent edge)
     Rgba8 outerColor = Rgba8(
         static_cast<unsigned char>(sunriseColor.x * 255.0f),
         static_cast<unsigned char>(sunriseColor.y * 255.0f),
@@ -274,58 +301,27 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
 
     // Default vertex attributes
     Vec2 defaultUV(0.5f, 0.5f);
-    Vec3 normal(-1.0f, 0.0f, 0.0f); // Facing back toward player (-X)
-    Vec3 tangent(0.0f, 1.0f, 0.0f);
-    Vec3 bitangent(0.0f, 0.0f, 1.0f);
+    Vec3 normal(0.0f, 0.0f, -1.0f);
+    Vec3 tangent(1.0f, 0.0f, 0.0f);
+    Vec3 bitangent(0.0f, 1.0f, 0.0f);
 
     // ==========================================================================
-    // [STEP 2] Generate outer vertices in ENGINE SPACE
-    // ==========================================================================
-    // Mapping from Minecraft post-transform to Engine:
-    //   MC X (after transform) -> Engine Y (left-right)
-    //   MC Y (after transform) -> Engine X (forward, toward horizon)
-    //   MC Z (after transform) -> Engine Z (up-down)
-    //
-    // Original MC outer: (sin*120, cos*120, -cos*40*alpha)
-    // After XP(90): Y->-Z, Z->Y => (sin*120, -(-cos*40*alpha), -cos*120)
-    //             = (sin*120, cos*40*alpha, -cos*120)
-    // After ZP(90): X->-Y, Y->X => (-cos*40*alpha, sin*120, -cos*120)
-    //
-    // In Engine space:
-    //   X (forward) = cos(theta) * DEPTH_SCALE * alpha  (depth toward horizon)
-    //   Y (left)    = sin(theta) * OUTER_DIST           (horizontal span)
-    //   Z (up)      = -cos(theta) * OUTER_DIST          (vertical curve)
-    // ==========================================================================
-    std::vector<Vec3> outerPositions;
-    outerPositions.reserve(SEGMENTS + 1);
-
-    float depthOffset = DEPTH_SCALE * sunriseColor.w; // Scale by alpha
-
-    for (int i = 0; i <= SEGMENTS; ++i)
-    {
-        float angle = static_cast<float>(i) * TWO_PI / static_cast<float>(SEGMENTS);
-        float sinA  = std::sin(angle);
-        float cosA  = std::cos(angle);
-
-        // Engine space coordinates (derived from MC transform)
-        float x = cosA * depthOffset; // Forward depth (toward horizon)
-        float y = sinA * OUTER_DIST; // Left-right span
-        float z = -cosA * OUTER_DIST; // Up-down curve (inverted bowl)
-
-        outerPositions.emplace_back(x, y, z);
-    }
-
-    // ==========================================================================
-    // [STEP 3] Generate TRIANGLE_LIST (16 triangles)
+    // [STEP 5] Generate TRIANGLE_LIST (16 triangles)
     // ==========================================================================
     for (int i = 0; i < SEGMENTS; ++i)
     {
-        // CCW winding when viewed from behind (player at origin looking toward +X)
         vertices.emplace_back(centerPosition, centerColor, defaultUV, normal, tangent, bitangent);
         vertices.emplace_back(outerPositions[i], outerColor, defaultUV, normal, tangent, bitangent);
         vertices.emplace_back(outerPositions[i + 1], outerColor, defaultUV, normal, tangent, bitangent);
     }
 
-    // [DONE] 16 triangles * 3 vertices = 48 vertices
+    // ==========================================================================
+    // Adjust the Geometry same out with vertex out
+    // ==========================================================================
+    /// [ADJUST]
+    /// need adjust the geomrtry, sorry my brain is lazy
+    Mat44 adjust = Mat44::MakeZRotationDegrees(90);
+    adjust.AppendZRotation(flipAngle);
+    TransformVertexArray3D(vertices, adjust);
     return vertices;
 }
