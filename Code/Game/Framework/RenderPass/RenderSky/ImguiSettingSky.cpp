@@ -72,10 +72,10 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
 
             SkyPhaseColors& skyColors = SkyColorHelper::GetSkyColors();
 
-            float sunriseColor[3] = {skyColors.sunrise.x, skyColors.sunrise.y, skyColors.sunrise.z};
+            float sunriseColor[3] = {skyColors.day.x, skyColors.day.y, skyColors.day.z};
             if (ImGui::ColorEdit3("Sunrise##Sky", sunriseColor))
             {
-                skyColors.sunrise = Vec3(sunriseColor[0], sunriseColor[1], sunriseColor[2]);
+                skyColors.day = Vec3(sunriseColor[0], sunriseColor[1], sunriseColor[2]);
             }
 
             float noonColor[3] = {skyColors.noon.x, skyColors.noon.y, skyColors.noon.z};
@@ -84,10 +84,10 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
                 skyColors.noon = Vec3(noonColor[0], noonColor[1], noonColor[2]);
             }
 
-            float sunsetColor[3] = {skyColors.sunset.x, skyColors.sunset.y, skyColors.sunset.z};
+            float sunsetColor[3] = {skyColors.night.x, skyColors.night.y, skyColors.night.z};
             if (ImGui::ColorEdit3("Sunset##Sky", sunsetColor))
             {
-                skyColors.sunset = Vec3(sunsetColor[0], sunsetColor[1], sunsetColor[2]);
+                skyColors.night = Vec3(sunsetColor[0], sunsetColor[1], sunsetColor[2]);
             }
 
             float midnightColor[3] = {skyColors.midnight.x, skyColors.midnight.y, skyColors.midnight.z};
@@ -118,10 +118,10 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
 
             SkyPhaseColors& fogColors = SkyColorHelper::GetFogColors();
 
-            float fogSunrise[3] = {fogColors.sunrise.x, fogColors.sunrise.y, fogColors.sunrise.z};
+            float fogSunrise[3] = {fogColors.day.x, fogColors.day.y, fogColors.day.z};
             if (ImGui::ColorEdit3("Sunrise##Fog", fogSunrise))
             {
-                fogColors.sunrise = Vec3(fogSunrise[0], fogSunrise[1], fogSunrise[2]);
+                fogColors.day = Vec3(fogSunrise[0], fogSunrise[1], fogSunrise[2]);
             }
 
             float fogNoon[3] = {fogColors.noon.x, fogColors.noon.y, fogColors.noon.z};
@@ -130,10 +130,10 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
                 fogColors.noon = Vec3(fogNoon[0], fogNoon[1], fogNoon[2]);
             }
 
-            float fogSunset[3] = {fogColors.sunset.x, fogColors.sunset.y, fogColors.sunset.z};
+            float fogSunset[3] = {fogColors.night.x, fogColors.night.y, fogColors.night.z};
             if (ImGui::ColorEdit3("Sunset##Fog", fogSunset))
             {
-                fogColors.sunset = Vec3(fogSunset[0], fogSunset[1], fogSunset[2]);
+                fogColors.night = Vec3(fogSunset[0], fogSunset[1], fogSunset[2]);
             }
 
             float fogMidnight[3] = {fogColors.midnight.x, fogColors.midnight.y, fogColors.midnight.z};

@@ -14,19 +14,19 @@
  */
 struct SkyPhaseColors
 {
-    Vec3 sunrise;
+    Vec3 day;
     Vec3 noon;
-    Vec3 sunset;
+    Vec3 night;
     Vec3 midnight;
 
     // Default sky dome colors (Minecraft-inspired)
     static SkyPhaseColors GetDefaultSkyColors()
     {
         SkyPhaseColors colors;
-        colors.sunrise  = Vec3(0.95f, 0.55f, 0.35f); // Orange-pink
-        colors.noon     = Vec3(0.47f, 0.66f, 1.0f); // Bright blue
-        colors.sunset   = Vec3(0.95f, 0.45f, 0.25f); // Orange-red
-        colors.midnight = Vec3(0.05f, 0.05f, 0.12f); // Dark blue
+        colors.day      = Vec3(0.51f, 0.68f, 1.0f);
+        colors.noon     = Vec3(0.51f, 0.68f, 1.0f);
+        colors.night    = Vec3(0.28f, 0.26f, 0.35f); // Orange-red
+        colors.midnight = Vec3(0.0f, 0.0f, 0.0f); // Dark blue
         return colors;
     }
 
@@ -34,9 +34,9 @@ struct SkyPhaseColors
     static SkyPhaseColors GetDefaultFogColors()
     {
         SkyPhaseColors colors;
-        colors.sunrise  = Vec3(0.98f, 0.65f, 0.45f); // Warm orange-pink
+        colors.day      = Vec3(0.98f, 0.65f, 0.45f); // Warm orange-pink
         colors.noon     = Vec3(0.75f, 0.85f, 1.0f); // Light blue
-        colors.sunset   = Vec3(0.98f, 0.55f, 0.35f); // Warm orange-red
+        colors.night    = Vec3(0.98f, 0.55f, 0.35f); // Warm orange-red
         colors.midnight = Vec3(0.08f, 0.08f, 0.15f); // Dark blue-gray
         return colors;
     }

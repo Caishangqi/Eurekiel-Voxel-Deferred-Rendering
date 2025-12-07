@@ -111,9 +111,9 @@ void SkyColorHelper::ResetFogColorsToDefault()
 Vec3 SkyColorHelper::CalculateSkyColor(float celestialAngle)
 {
     // [CONFIGURABLE] Use static phase colors (can be modified via ImGui)
-    const Vec3& COLOR_SUNRISE  = s_skyColors.sunrise;
+    const Vec3& COLOR_SUNRISE  = s_skyColors.day;
     const Vec3& COLOR_NOON     = s_skyColors.noon;
-    const Vec3& COLOR_SUNSET   = s_skyColors.sunset;
+    const Vec3& COLOR_SUNSET   = s_skyColors.night;
     const Vec3& COLOR_MIDNIGHT = s_skyColors.midnight;
 
     // Normalize celestialAngle to [0, 1)
@@ -172,9 +172,9 @@ Vec3 SkyColorHelper::CalculateSkyColor(float celestialAngle)
 Vec3 SkyColorHelper::CalculateFogColor(float celestialAngle, float sunAngle)
 {
     // [CONFIGURABLE] Use static phase colors (can be modified via ImGui)
-    const Vec3& FOG_SUNRISE  = s_fogColors.sunrise;
+    const Vec3& FOG_DAY      = s_fogColors.day;
     const Vec3& FOG_NOON     = s_fogColors.noon;
-    const Vec3& FOG_SUNSET   = s_fogColors.sunset;
+    const Vec3& FOG_NIGHT    = s_fogColors.night;
     const Vec3& FOG_MIDNIGHT = s_fogColors.midnight;
 
     // Normalize celestialAngle to [0, 1)
@@ -189,25 +189,25 @@ Vec3 SkyColorHelper::CalculateFogColor(float celestialAngle, float sunAngle)
     {
         // Phase 0: Noon (0.0) to Sunset (0.15)
         float t = angle / 0.15f;
-        result  = Interpolate(FOG_NOON, FOG_SUNSET, t);
+        result  = Interpolate(FOG_NOON, FOG_NIGHT, t);
     }
     else if (angle < 0.5f)
     {
         // Phase 1: Sunset (0.15) to Midnight (0.5)
         float t = (angle - 0.15f) / 0.35f;
-        result  = Interpolate(FOG_SUNSET, FOG_MIDNIGHT, t);
+        result  = Interpolate(FOG_NIGHT, FOG_MIDNIGHT, t);
     }
     else if (angle < 0.75f)
     {
         // Phase 2: Midnight (0.5) to Sunrise (0.75)
         float t = (angle - 0.5f) / 0.25f;
-        result  = Interpolate(FOG_MIDNIGHT, FOG_SUNRISE, t);
+        result  = Interpolate(FOG_MIDNIGHT, FOG_DAY, t);
     }
     else
     {
         // Phase 3: Sunrise (0.75) to Noon (1.0/0.0)
         float t = (angle - 0.75f) / 0.25f;
-        result  = Interpolate(FOG_SUNRISE, FOG_NOON, t);
+        result  = Interpolate(FOG_DAY, FOG_NOON, t);
     }
 
     // sunAngle parameter is kept for API compatibility but not used in configurable mode

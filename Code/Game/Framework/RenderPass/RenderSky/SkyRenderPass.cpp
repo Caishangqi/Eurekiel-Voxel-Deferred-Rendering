@@ -9,6 +9,8 @@
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Graphic/Sprite/Sprite.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/CelestialConstantBuffer.hpp"
+#include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
+#include "Game/Framework/RenderPass/WorldRenderingPhase.hpp" // [NEW] For renderStage
 #include "Game/Gameplay/Game.hpp"
 #include "Engine/Math/Mat44.hpp"
 #include "Engine/Math/MathUtils.hpp"
@@ -72,9 +74,12 @@ SkyRenderPass::SkyRenderPass()
     m_voidDomeVertices = SkyGeometryHelper::GenerateSkyDisc(-16.0f); // Lower hemisphere (void)
 
     // [Component 2] Register CelestialConstantBuffer to slot 15 (PerFrame update)
-    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CelestialConstantBuffer>(
-        15,
-        enigma::graphic::UpdateFrequency::PerFrame // [FIX P1] Celestial data updates per frame, not per object
+    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CelestialConstantBuffer>(15, enigma::graphic::UpdateFrequency::PerObject // [FIX P1] Celestial data updates per frame, not per object
+    );
+
+    // [NEW] Register CommonConstantBuffer to slot 16 (PerFrame update)
+    // Contains skyColor, fogColor, weather parameters - mirrors Iris CommonUniforms
+    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(8, enigma::graphic::UpdateFrequency::PerObject, 10000
     );
 }
 
@@ -107,6 +112,20 @@ void SkyRenderPass::Execute()
     celestialData.moonPosition = g_theGame->m_timeOfDayManager->CalculateMoonPosition(gbufferModelView); // [FIX] VIEW SPACE position
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
+    // ==================== [NEW] Upload CommonConstantBuffer ====================
+    // [IMPORTANT] skyColor is CPU-calculated, mirrors Iris CommonUniforms.getSkyColor()
+    // This replaces hardcoded sky colors in gbuffers_skybasic.ps.hlsl
+    commonData.skyColor         = SkyColorHelper::CalculateSkyColor(celestialData.celestialAngle);
+    commonData.fogColor         = SkyColorHelper::CalculateFogColor(celestialData.celestialAngle, celestialData.compensatedCelestialAngle);
+    commonData.rainStrength     = 0.0f; // TODO: Get from weather system
+    commonData.wetness          = 0.0f; // TODO: Smoothed rain strength
+    commonData.thunderStrength  = 0.0f; // TODO: Get from weather system
+    commonData.screenBrightness = 1.0f; // TODO: Get from player settings
+    commonData.nightVision      = 0.0f; // TODO: Get from player effects
+    commonData.blindness        = 0.0f; // TODO: Get from player effects
+    commonData.darknessFactor   = 0.0f; // TODO: Get from biome effects
+    commonData.renderStage      = ToRenderStage(WorldRenderingPhase::NONE); // [NEW] Initialize to NONE
+
     // ==================== [NEW] Step 1: Write sky background color to colortex0 ====================
     WriteSkyColorToRT();
 
@@ -114,6 +133,10 @@ void SkyRenderPass::Execute()
     std::vector<uint32_t> rtOutputs     = {0}; // colortex0
     int                   depthTexIndex = 0; // depthtex0
     g_theRendererSubsystem->UseProgram(m_skyBasicShader, rtOutputs, depthTexIndex);
+
+    // [NEW] Set renderStage to SKY for sky dome rendering
+    commonData.renderStage = ToRenderStage(WorldRenderingPhase::SKY);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
 
     // [FIX] Draw both hemispheres to form complete sky sphere
     // Upper hemisphere: Sky dome (player looks up to see sky)
@@ -125,10 +148,14 @@ void SkyRenderPass::Execute()
     // In our coordinate system: camera Z < 63.0 (sea level)
     if (ShouldRenderVoidDome())
     {
+        // [NEW] Set renderStage to VOID for void dome rendering
+        commonData.renderStage = ToRenderStage(WorldRenderingPhase::SKY_VOID);
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
         g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
     }
 
     // ==================== [NEW] Step 4: Render sunset strip (conditional) ====================
+    // [NEW] Set renderStage to SUNSET for sunset strip rendering
     RenderSunsetStrip();
 
     // ==================== [Component 2] Draw Sky Textured (Sun/Moon) ====================
@@ -138,6 +165,11 @@ void SkyRenderPass::Execute()
 
     // [Component 2] Draw Sun Billboard
     {
+        // [NEW] Set renderStage to SUN
+        commonData.renderStage    = ToRenderStage(WorldRenderingPhase::SUN);
+        commonData.darknessFactor = 12.f;
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+
         // Generate sun billboard vertices with calculated UV
         std::vector<Vertex> sunVertices = SkyGeometryHelper::GenerateCelestialBillboard(
             0.0f, // celestialType = 0 (Sun)
@@ -153,6 +185,10 @@ void SkyRenderPass::Execute()
 
     // [Component 2] Draw Moon Billboard
     {
+        // [NEW] Set renderStage to MOON
+        commonData.renderStage = ToRenderStage(WorldRenderingPhase::MOON);
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+
         // [FIX] Calculate moon phase using dayCount (changes daily, not per-tick)
         // Minecraft: moonPhase = dayCount % 8 (0=full moon, cycles through 8 phases)
         int moonPhase = g_theGame->m_timeOfDayManager->GetDayCount() % 8;
@@ -172,6 +208,10 @@ void SkyRenderPass::Execute()
         // Draw moon billboard (2 triangles = 6 vertices)
         g_theRendererSubsystem->DrawVertexArray(moonVertices);
     }
+
+    // [NEW] Reset renderStage to NONE at end of pass
+    commonData.renderStage = ToRenderStage(WorldRenderingPhase::NONE);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
 
     EndPass();
 }
@@ -234,6 +274,9 @@ void SkyRenderPass::RenderSunsetStrip()
         return;
     }
 
+    commonData.renderStage = ToRenderStage(WorldRenderingPhase::SUNSET);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+
     // [NEW] Calculate strip color (includes alpha for intensity)
     Vec4 sunriseColor = SkyColorHelper::CalculateSunriseColor(sunAngle);
 
@@ -242,7 +285,7 @@ void SkyRenderPass::RenderSunsetStrip()
     m_sunsetStripVertices = SkyGeometryHelper::GenerateSunriseStrip(sunriseColor, sunAngle);
 
     // [NEW] Enable additive blending for glow effect
-    g_theRendererSubsystem->SetBlendMode(BlendMode::Additive);
+    g_theRendererSubsystem->SetBlendMode(BlendMode::Premultiplied);
 
     // [NEW] Draw strip using same shader as sky dome
     g_theRendererSubsystem->DrawVertexArray(m_sunsetStripVertices);

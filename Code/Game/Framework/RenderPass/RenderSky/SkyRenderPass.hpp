@@ -3,8 +3,10 @@
 #include <vector>
 
 #include "Engine/Graphic/Core/EnigmaGraphicCommon.hpp"
+#include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
 #include "Engine/Math/Vec3.hpp"
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
+#include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
 
 namespace enigma::graphic
 {
@@ -70,4 +72,7 @@ private:
 
     // Sun Stripe
     bool m_enableSunStrip = true;
+
+    CommonConstantBuffer               commonData;
+    enigma::graphic::PerObjectUniforms perObjectData;
 };
