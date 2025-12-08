@@ -1,14 +1,84 @@
-﻿#include "Game/Framework/RenderPass/RenderSky/SkyColorHelper.hpp"
+#include "Game/Framework/RenderPass/RenderSky/SkyColorHelper.hpp"
 #include "Engine/Math/MathUtils.hpp"
 #include <cmath>
 
 //-----------------------------------------------------------------------------------------------
-// [NEW] Static storage for configurable phase colors - initialized with defaults
-SkyPhaseColors SkyColorHelper::s_skyColors = SkyPhaseColors::GetDefaultSkyColors();
-SkyPhaseColors SkyColorHelper::s_fogColors = SkyPhaseColors::GetDefaultFogColors();
+// [NEW] BezierEasing::Apply implementation
+// Uses cubic Bezier evaluation for time remapping (like CSS cubic-bezier)
+//
+// The curve is defined by 4 points:
+// P0 = (0, 0), P1 = (x1, y1), P2 = (x2, y2), P3 = (1, 1)
+//
+// For time remapping, we need to find the Y value for a given X (the linear t).
+// This requires solving the cubic Bezier equation for the parameter that gives us X,
+// then evaluating Y at that parameter.
+//
+// Simplified approach: Since we're mapping t to eased-t, we can use direct evaluation
+// with the assumption that the curve is monotonic (always increasing in X).
+float BezierEasing::Apply(float t) const
+{
+    // Clamp input to [0, 1]
+    if (t <= 0.0f) return 0.0f;
+    if (t >= 1.0f) return 1.0f;
+
+    // For a proper CSS cubic-bezier, we need to find the parameter 'u' such that
+    // the X coordinate of the Bezier curve equals 't', then return the Y coordinate.
+    //
+    // Bezier X(u) = 3(1-u)^2 * u * x1 + 3(1-u) * u^2 * x2 + u^3
+    // Bezier Y(u) = 3(1-u)^2 * u * y1 + 3(1-u) * u^2 * y2 + u^3
+    //
+    // We use Newton-Raphson iteration to solve for u given X(u) = t
+
+    float u = t; // Initial guess
+
+    // Newton-Raphson iteration (typically converges in 4-8 iterations)
+    for (int i = 0; i < 8; ++i)
+    {
+        float u2         = u * u;
+        float u3         = u2 * u;
+        float oneMinusU  = 1.0f - u;
+        float oneMinusU2 = oneMinusU * oneMinusU;
+
+        // Calculate X(u)
+        float xu = 3.0f * oneMinusU2 * u * p1.x + 3.0f * oneMinusU * u2 * p2.x + u3;
+
+        // Calculate X'(u) for Newton-Raphson
+        float dxu = 3.0f * oneMinusU2 * p1.x + 6.0f * oneMinusU * u * (p2.x - p1.x) + 3.0f * u2 * (1.0f - p2.x);
+
+        // Avoid division by zero
+        if (std::abs(dxu) < 1e-6f) break;
+
+        // Newton-Raphson step
+        float diff = xu - t;
+        if (std::abs(diff) < 1e-6f) break; // Close enough
+
+        u = u - diff / dxu;
+
+        // Clamp u to [0, 1]
+        if (u < 0.0f) u = 0.0f;
+        if (u > 1.0f) u = 1.0f;
+    }
+
+    // Calculate Y(u) with the found parameter
+    float u2         = u * u;
+    float u3         = u2 * u;
+    float oneMinusU  = 1.0f - u;
+    float oneMinusU2 = oneMinusU * oneMinusU;
+
+    float yu = 3.0f * oneMinusU2 * u * p1.y + 3.0f * oneMinusU * u2 * p2.y + u3;
+
+    return yu;
+}
 
 //-----------------------------------------------------------------------------------------------
-// [NEW] Calculate daylight factor from celestial angle
+// Static storage for configurable phase colors and easing - initialized with defaults
+SkyPhaseColors     SkyColorHelper::s_skyColors    = SkyPhaseColors::GetDefaultSkyColors();
+SkyPhaseColors     SkyColorHelper::s_fogColors    = SkyPhaseColors::GetDefaultFogColors();
+SunriseStripColors SkyColorHelper::s_stripColors  = SunriseStripColors::GetDefault();
+SkyEasingConfig    SkyColorHelper::s_easingConfig = SkyEasingConfig::GetDefault();
+
+//-----------------------------------------------------------------------------------------------
+// Calculate daylight factor from celestial angle
 // Reference: TimeOfDayManager.cpp:160 CalculateCloudColor()
 // Formula: cos(celestialAngle * 2PI) * 2 + 0.5, clamped to [0, 1]
 float SkyColorHelper::CalculateDayFactor(float celestialAngle)
@@ -24,35 +94,18 @@ float SkyColorHelper::CalculateDayFactor(float celestialAngle)
 }
 
 //-----------------------------------------------------------------------------------------------
-// [FIX] Calculate sunset/sunrise intensity factor
+// Calculate sunset/sunrise intensity factor
 // Reference: Minecraft DimensionSpecialEffects.java:44-59 getSunriseColor()
-// Uses Minecraft's exact formula for sunrise/sunset alpha calculation
-//
-// Minecraft Algorithm:
-// 1. i = cos(timeOfDay * 2π) - 0.0
-// 2. Check if i ∈ [-0.4, 0.4] (sunrise/sunset window)
-// 3. k = (i - 0.0) / 0.4 * 0.5 + 0.5
-// 4. l = 1.0 - (1.0 - sin(k * π)) * 0.99
-// 5. alpha = l * l (平方衰减)
-//
-// Key differences from previous implementation:
-// - Uses celestialAngle (timeOfDay), not sunAngle
-// - Uses cos-based window check, not distance-based
-// - Uses complex sin/cos formula for smooth falloff
-// - Applies quadratic decay (l*l)
 float SkyColorHelper::CalculateSunsetFactor(float sunAngle)
 {
     // [CONVERSION] sunAngle -> celestialAngle
-    // Reference: CelestialUniforms.java getSunAngle()
-    // sunAngle = celestialAngle + 0.25 (with wrap)
-    // Therefore: celestialAngle = sunAngle - 0.25
     float celestialAngle = sunAngle - 0.25f;
     if (celestialAngle < 0.0f) celestialAngle += 1.0f;
 
     constexpr float TWO_PI = 6.2831855f;
     constexpr float PI     = 3.1415927f;
 
-    // Step 1: i = cos(celestialAngle * 2π) - 0.0
+    // Step 1: i = cos(celestialAngle * 2pi) - 0.0
     float i = std::cos(celestialAngle * TWO_PI) - 0.0f;
 
     // Step 2: Check sunrise/sunset window [-0.4, 0.4]
@@ -65,7 +118,7 @@ float SkyColorHelper::CalculateSunsetFactor(float sunAngle)
     // Step 3: k = (i - 0.0) / 0.4 * 0.5 + 0.5
     float k = (i - 0.0f) / WINDOW * 0.5f + 0.5f;
 
-    // Step 4: l = 1.0 - (1.0 - sin(k * π)) * 0.99
+    // Step 4: l = 1.0 - (1.0 - sin(k * pi)) * 0.99
     float l = 1.0f - (1.0f - std::sin(k * PI)) * 0.99f;
 
     // Step 5: alpha = l * l (quadratic decay)
@@ -75,7 +128,7 @@ float SkyColorHelper::CalculateSunsetFactor(float sunAngle)
 }
 
 //-----------------------------------------------------------------------------------------------
-// [NEW] Phase color configuration accessors
+// Phase color configuration accessors
 SkyPhaseColors& SkyColorHelper::GetSkyColors()
 {
     return s_skyColors;
@@ -106,29 +159,57 @@ void SkyColorHelper::ResetFogColorsToDefault()
     s_fogColors = SkyPhaseColors::GetDefaultFogColors();
 }
 
+// Sunrise strip color accessors
+SunriseStripColors& SkyColorHelper::GetStripColors()
+{
+    return s_stripColors;
+}
+
+void SkyColorHelper::SetStripColors(const SunriseStripColors& colors)
+{
+    s_stripColors = colors;
+}
+
+void SkyColorHelper::ResetStripColorsToDefault()
+{
+    s_stripColors = SunriseStripColors::GetDefault();
+}
+
+// [NEW] Easing configuration accessors
+SkyEasingConfig& SkyColorHelper::GetEasingConfig()
+{
+    return s_easingConfig;
+}
+
+void SkyColorHelper::SetEasingConfig(const SkyEasingConfig& config)
+{
+    s_easingConfig = config;
+}
+
+void SkyColorHelper::ResetEasingToDefault()
+{
+    s_easingConfig = SkyEasingConfig::GetDefault();
+}
+
+void SkyColorHelper::SetMinecraftStyleEasing()
+{
+    s_easingConfig = SkyEasingConfig::GetMinecraftStyle();
+}
+
 //-----------------------------------------------------------------------------------------------
-// [CONFIGURABLE] Calculate sky color using 5-phase interpolation
-// Uses configurable phase colors from s_skyColors (modifiable via ImGui)
-//
-// [NEW] 5-phase system with Dawn phase for tick 0-1000 transition
-// The Minecraft timeOfDay() formula produces NON-LINEAR celestialAngle values:
-// - tick 6000  (noon)     -> celestialAngle = 0.0
-// - tick 12000 (sunset)   -> celestialAngle ~ 0.25
-// - tick 18000 (midnight) -> celestialAngle = 0.5
-// - tick 0     (sunrise)  -> celestialAngle ~ 0.75
-// - tick 1000  (dawn)     -> celestialAngle ~ 0.79 [NEW]
+// [NEW] Calculate sky color using 5-phase interpolation with Bezier easing
 //
 // Phase boundaries (5-phase):
 // - Phase 0 (0.0 - 0.25):   Noon -> Sunset
 // - Phase 1 (0.25 - 0.5):   Sunset -> Midnight
 // - Phase 2 (0.5 - 0.75):   Midnight -> Sunrise
-// - Phase 3 (0.75 - 0.79):  Sunrise -> Dawn [NEW]
+// - Phase 3 (0.75 - 0.79):  Sunrise -> Dawn
 // - Phase 4 (0.79 - 1.0):   Dawn -> Noon
 Vec3 SkyColorHelper::CalculateSkyColor(float celestialAngle)
 {
-    // [CONFIGURABLE] Use static phase colors (can be modified via ImGui)
+    // Use static phase colors (can be modified via ImGui)
     const Vec3& COLOR_SUNRISE  = s_skyColors.sunrise;
-    const Vec3& COLOR_DAWN     = s_skyColors.dawn; // [NEW] Light yellow morning
+    const Vec3& COLOR_DAWN     = s_skyColors.dawn;
     const Vec3& COLOR_NOON     = s_skyColors.noon;
     const Vec3& COLOR_SUNSET   = s_skyColors.sunset;
     const Vec3& COLOR_MIDNIGHT = s_skyColors.midnight;
@@ -140,60 +221,53 @@ Vec3 SkyColorHelper::CalculateSkyColor(float celestialAngle)
 
     Vec3 result;
 
-    // [NEW] 5-phase interpolation with Dawn phase
+    // 5-phase interpolation with Bezier easing
     if (angle < 0.25f)
     {
         // Phase 0: Noon (0.0) to Sunset (0.25)
-        float t = angle / 0.25f;
-        result  = Interpolate(COLOR_NOON, COLOR_SUNSET, t);
+        float t      = angle / 0.25f;
+        float easedT = s_easingConfig.noonToSunset.Apply(t);
+        result       = Interpolate(COLOR_NOON, COLOR_SUNSET, easedT);
     }
     else if (angle < 0.5f)
     {
         // Phase 1: Sunset (0.25) to Midnight (0.5)
-        float t = (angle - 0.25f) / 0.25f;
-        result  = Interpolate(COLOR_SUNSET, COLOR_MIDNIGHT, t);
+        float t      = (angle - 0.25f) / 0.25f;
+        float easedT = s_easingConfig.sunsetToMidnight.Apply(t);
+        result       = Interpolate(COLOR_SUNSET, COLOR_MIDNIGHT, easedT);
     }
     else if (angle < 0.75f)
     {
         // Phase 2: Midnight (0.5) to Sunrise (0.75)
-        float t = (angle - 0.5f) / 0.25f;
-        result  = Interpolate(COLOR_MIDNIGHT, COLOR_SUNRISE, t);
+        float t      = (angle - 0.5f) / 0.25f;
+        float easedT = s_easingConfig.midnightToSunrise.Apply(t);
+        result       = Interpolate(COLOR_MIDNIGHT, COLOR_SUNRISE, easedT);
     }
     else if (angle < 0.79f)
     {
-        // Phase 3: Sunrise (0.75) to Dawn (0.79) [NEW]
-        // This is the orange->yellow transition (tick 0 -> tick 1000)
-        float t = (angle - 0.75f) / 0.04f;
-        result  = Interpolate(COLOR_SUNRISE, COLOR_DAWN, t);
+        // Phase 3: Sunrise (0.75) to Dawn (0.79)
+        float t      = (angle - 0.75f) / 0.04f;
+        float easedT = s_easingConfig.sunriseToDawn.Apply(t);
+        result       = Interpolate(COLOR_SUNRISE, COLOR_DAWN, easedT);
     }
     else
     {
         // Phase 4: Dawn (0.79) to Noon (1.0/0.0)
-        // Morning yellow to bright blue transition
-        float t = (angle - 0.79f) / 0.21f;
-        result  = Interpolate(COLOR_DAWN, COLOR_NOON, t);
+        float t      = (angle - 0.79f) / 0.21f;
+        float easedT = s_easingConfig.dawnToNoon.Apply(t);
+        result       = Interpolate(COLOR_DAWN, COLOR_NOON, easedT);
     }
 
     return result;
 }
 
 //-----------------------------------------------------------------------------------------------
-// [CONFIGURABLE] Calculate fog color using 5-phase interpolation
-// Uses configurable phase colors from s_fogColors (modifiable via ImGui)
-// Fog color is used for Clear RT and is generally lighter/more desaturated than sky color.
-//
-// [NEW] 5-phase system with Dawn phase for tick 0-1000 transition
-// Phase boundaries (5-phase, same as CalculateSkyColor):
-// - Phase 0 (0.0 - 0.25):   Noon -> Sunset
-// - Phase 1 (0.25 - 0.5):   Sunset -> Midnight
-// - Phase 2 (0.5 - 0.75):   Midnight -> Sunrise
-// - Phase 3 (0.75 - 0.79):  Sunrise -> Dawn [NEW]
-// - Phase 4 (0.79 - 1.0):   Dawn -> Noon
+// [NEW] Calculate fog color using 5-phase interpolation with Bezier easing
 Vec3 SkyColorHelper::CalculateFogColor(float celestialAngle, float sunAngle)
 {
-    // [CONFIGURABLE] Use static phase colors (can be modified via ImGui)
+    // Use static phase colors (can be modified via ImGui)
     const Vec3& FOG_SUNRISE  = s_fogColors.sunrise;
-    const Vec3& FOG_DAWN     = s_fogColors.dawn; // [NEW] Light morning fog
+    const Vec3& FOG_DAWN     = s_fogColors.dawn;
     const Vec3& FOG_NOON     = s_fogColors.noon;
     const Vec3& FOG_SUNSET   = s_fogColors.sunset;
     const Vec3& FOG_MIDNIGHT = s_fogColors.midnight;
@@ -205,97 +279,102 @@ Vec3 SkyColorHelper::CalculateFogColor(float celestialAngle, float sunAngle)
 
     Vec3 result;
 
-    // [NEW] 5-phase interpolation with Dawn phase
+    // 5-phase interpolation with Bezier easing (same phases as CalculateSkyColor)
     if (angle < 0.25f)
     {
         // Phase 0: Noon (0.0) to Sunset (0.25)
-        float t = angle / 0.25f;
-        result  = Interpolate(FOG_NOON, FOG_SUNSET, t);
+        float t      = angle / 0.25f;
+        float easedT = s_easingConfig.noonToSunset.Apply(t);
+        result       = Interpolate(FOG_NOON, FOG_SUNSET, easedT);
     }
     else if (angle < 0.5f)
     {
         // Phase 1: Sunset (0.25) to Midnight (0.5)
-        float t = (angle - 0.25f) / 0.25f;
-        result  = Interpolate(FOG_SUNSET, FOG_MIDNIGHT, t);
+        float t      = (angle - 0.25f) / 0.25f;
+        float easedT = s_easingConfig.sunsetToMidnight.Apply(t);
+        result       = Interpolate(FOG_SUNSET, FOG_MIDNIGHT, easedT);
     }
     else if (angle < 0.75f)
     {
         // Phase 2: Midnight (0.5) to Sunrise (0.75)
-        float t = (angle - 0.5f) / 0.25f;
-        result  = Interpolate(FOG_MIDNIGHT, FOG_SUNRISE, t);
+        float t      = (angle - 0.5f) / 0.25f;
+        float easedT = s_easingConfig.midnightToSunrise.Apply(t);
+        result       = Interpolate(FOG_MIDNIGHT, FOG_SUNRISE, easedT);
     }
     else if (angle < 0.79f)
     {
-        // Phase 3: Sunrise (0.75) to Dawn (0.79) [NEW]
-        float t = (angle - 0.75f) / 0.04f;
-        result  = Interpolate(FOG_SUNRISE, FOG_DAWN, t);
+        // Phase 3: Sunrise (0.75) to Dawn (0.79)
+        float t      = (angle - 0.75f) / 0.04f;
+        float easedT = s_easingConfig.sunriseToDawn.Apply(t);
+        result       = Interpolate(FOG_SUNRISE, FOG_DAWN, easedT);
     }
     else
     {
         // Phase 4: Dawn (0.79) to Noon (1.0/0.0)
-        float t = (angle - 0.79f) / 0.21f;
-        result  = Interpolate(FOG_DAWN, FOG_NOON, t);
+        float t      = (angle - 0.79f) / 0.21f;
+        float easedT = s_easingConfig.dawnToNoon.Apply(t);
+        result       = Interpolate(FOG_DAWN, FOG_NOON, easedT);
     }
 
-    // sunAngle parameter is kept for API compatibility but not used in configurable mode
+    // sunAngle parameter is kept for API compatibility but not used
     (void)sunAngle;
 
     return result;
 }
 
 //-----------------------------------------------------------------------------------------------
-// [FIX] Calculate sunrise/sunset glow color
-// Returns RGBA where RGB is orange tint and A is intensity
-// Alpha peaks at sunrise/sunset (sunAngle 0.0/0.5), zero otherwise
+// Calculate sunrise/sunset glow color using configurable strip colors
 Vec4 SkyColorHelper::CalculateSunriseColor(float sunAngle)
 {
-    const Vec3 SUNRISE_COLOR(1.0f, 0.4f, 0.2f); // Orange-red glow (const - Vec3 not constexpr)
-
     float intensity = CalculateSunsetFactor(sunAngle);
 
-    return Vec4(SUNRISE_COLOR.x, SUNRISE_COLOR.y, SUNRISE_COLOR.z, intensity);
+    // Early exit if no glow visible
+    if (intensity < 0.001f)
+    {
+        return Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+
+    // Determine if we're in sunrise or sunset based on sunAngle
+    float distToSunrise = sunAngle < 0.5f ? sunAngle : (1.0f - sunAngle);
+    float distToSunset  = sunAngle > 0.5f ? (sunAngle - 0.5f) : (0.5f - sunAngle);
+
+    Vec3 stripColor;
+    if (distToSunrise < distToSunset)
+    {
+        // Closer to sunrise (sunAngle near 0.0 or 1.0)
+        stripColor = s_stripColors.sunriseStrip;
+    }
+    else
+    {
+        // Closer to sunset (sunAngle near 0.5)
+        stripColor = s_stripColors.sunsetStrip;
+    }
+
+    return Vec4(stripColor.x, stripColor.y, stripColor.z, intensity);
 }
 
 //-----------------------------------------------------------------------------------------------
-// [NEW] Calculate sky color with CPU-side fog blending based on elevation angle
-// Reference: Iris FogMode.OFF for SKY_BASIC - skyColor is pre-blended with fog
-// Reference: Minecraft ClientLevel.getSkyColor() considers view direction
-//
-// Algorithm:
-// 1. Get base skyColor and fogColor for current celestialAngle
-// 2. Calculate elevationFactor from elevation angle (0° horizon -> 90° zenith)
-// 3. Apply smooth falloff: factor = pow(sin(elevation), 0.5)
-// 4. Blend: result = lerp(fogColor, skyColor, factor)
-//
-// This creates the smooth gradient from fogColor at horizon to skyColor at zenith
+// Calculate sky color with CPU-side fog blending based on elevation angle
 Vec3 SkyColorHelper::CalculateSkyColorWithFog(float celestialAngle, float elevationDegrees)
 {
     // Step 1: Get base colors for current time
     Vec3 skyColor = CalculateSkyColor(celestialAngle);
-    Vec3 fogColor = CalculateFogColor(celestialAngle, 0.0f); // sunAngle not used in current impl
+    Vec3 fogColor = CalculateFogColor(celestialAngle, 0.0f);
 
     // Step 2: Clamp elevation to valid range [0, 90] for sky dome
-    // Negative elevations (void dome) handled separately
     float clampedElevation = elevationDegrees;
     if (clampedElevation < 0.0f) clampedElevation = 0.0f;
     if (clampedElevation > 90.0f) clampedElevation = 90.0f;
 
     // Step 3: Calculate elevation factor with smooth falloff
-    // Using sin(elevation) creates natural falloff at horizon
-    // Square root makes the transition more gradual near horizon
     constexpr float DEG_TO_RAD   = 0.017453292f;
     float           elevationRad = clampedElevation * DEG_TO_RAD;
     float           sinElevation = std::sin(elevationRad);
 
     // Smooth falloff: sqrt gives more gradual transition near horizon
-    // At 0°: factor = 0 (pure fog)
-    // At 30°: factor ≈ 0.71
-    // At 60°: factor ≈ 0.93
-    // At 90°: factor = 1 (pure sky)
     float elevationFactor = std::sqrt(sinElevation);
 
     // Step 4: Blend fogColor -> skyColor based on elevation
-    // lerp(fogColor, skyColor, factor) = fogColor + (skyColor - fogColor) * factor
     Vec3 result;
     result.x = fogColor.x + (skyColor.x - fogColor.x) * elevationFactor;
     result.y = fogColor.y + (skyColor.y - fogColor.y) * elevationFactor;
@@ -305,17 +384,7 @@ Vec3 SkyColorHelper::CalculateSkyColorWithFog(float celestialAngle, float elevat
 }
 
 //-----------------------------------------------------------------------------------------------
-// [NEW] Convert vertex position to elevation angle
-// Used for sky dome vertex color calculation
-//
-// Coordinate system (Engine Z-up):
-// - Z axis = vertical (up)
-// - XY plane = horizontal
-// - Elevation = angle from horizontal plane to vertex direction
-//
-// Formula: elevation = atan2(z, horizontal_distance) * RAD_TO_DEG
-// - At zenith (0,0,16): elevation = 90°
-// - At horizon (512,0,0): elevation = 0°
+// Convert vertex position to elevation angle
 float SkyColorHelper::CalculateElevationAngle(const Vec3& vertexPos)
 {
     constexpr float RAD_TO_DEG = 57.29577951f;
@@ -324,7 +393,6 @@ float SkyColorHelper::CalculateElevationAngle(const Vec3& vertexPos)
     float horizontalDist = std::sqrt(vertexPos.x * vertexPos.x + vertexPos.y * vertexPos.y);
 
     // Calculate elevation angle using atan2
-    // atan2(z, horizontal) gives angle from horizontal plane
     float elevationRad = std::atan2(vertexPos.z, horizontalDist);
 
     return elevationRad * RAD_TO_DEG;

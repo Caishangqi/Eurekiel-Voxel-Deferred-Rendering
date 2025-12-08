@@ -175,28 +175,204 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
             ImGui::TreePop();
         }
 
-        ImGui::Separator();
+        // ==================== Sunrise/Sunset Strip Colors ====================
 
-        // ==================== Legacy Sky Color Adjustment ====================
-
-        if (ImGui::TreeNode("Legacy Sky Colors (Deprecated)"))
+        if (ImGui::TreeNode("Sunrise/Sunset Strip Colors"))
         {
-            ImGui::TextDisabled("(?) Old zenith/horizon system - use Phase Colors instead");
-
-            Vec3  zenithColor         = skyPass->GetSkyZenithColor();
-            float zenithColorArray[3] = {zenithColor.x, zenithColor.y, zenithColor.z};
-
-            if (ImGui::ColorEdit3("Zenith Color", zenithColorArray))
+            ImGui::TextDisabled("(?) Strip glow colors at horizon during sunrise/sunset");
+            if (ImGui::IsItemHovered())
             {
-                skyPass->SetSkyZenithColor(Vec3(zenithColorArray[0], zenithColorArray[1], zenithColorArray[2]));
+                ImGui::SetTooltip(
+                    "The sunrise strip is the horizontal glow band at the horizon.\n"
+                    "This is SEPARATE from the sky dome colors - the strip overlays the sky.\n"
+                    "\n"
+                    "Sunrise Strip: Visible around tick 23000-1000 (early morning)\n"
+                    "Sunset Strip: Visible around tick 11000-13000 (evening)");
             }
 
-            Vec3  horizonColor         = skyPass->GetSkyHorizonColor();
-            float horizonColorArray[3] = {horizonColor.x, horizonColor.y, horizonColor.z};
+            SunriseStripColors& stripColors = SkyColorHelper::GetStripColors();
 
-            if (ImGui::ColorEdit3("Horizon Color", horizonColorArray))
+            float sunriseStrip[3] = {stripColors.sunriseStrip.x, stripColors.sunriseStrip.y, stripColors.sunriseStrip.z};
+            if (ImGui::ColorEdit3("Sunrise Strip##Strip", sunriseStrip))
             {
-                skyPass->SetSkyHorizonColor(Vec3(horizonColorArray[0], horizonColorArray[1], horizonColorArray[2]));
+                stripColors.sunriseStrip = Vec3(sunriseStrip[0], sunriseStrip[1], sunriseStrip[2]);
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Strip color during sunrise (tick 23000-1000).\nDefault: warm orange-yellow.");
+            }
+
+            float sunsetStrip[3] = {stripColors.sunsetStrip.x, stripColors.sunsetStrip.y, stripColors.sunsetStrip.z};
+            if (ImGui::ColorEdit3("Sunset Strip##Strip", sunsetStrip))
+            {
+                stripColors.sunsetStrip = Vec3(sunsetStrip[0], sunsetStrip[1], sunsetStrip[2]);
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Strip color during sunset (tick 11000-13000).\nDefault: orange-red.");
+            }
+
+            if (ImGui::Button("Reset Strip Colors"))
+            {
+                SkyColorHelper::ResetStripColorsToDefault();
+            }
+
+            ImGui::TreePop();
+        }
+
+        // ==================== Phase Transition Easing (Bezier Curves) ====================
+
+        if (ImGui::TreeNode("Phase Transition Easing"))
+        {
+            ImGui::TextDisabled("(?) Bezier curves for non-linear color transitions");
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip(
+                    "Controls how quickly colors transition between phases.\n"
+                    "Like CSS cubic-bezier: maps linear time to eased time.\n"
+                    "\n"
+                    "Control Points P1(x1,y1) and P2(x2,y2):\n"
+                    "- Linear: P1(0,0) P2(1,1) - constant speed\n"
+                    "- EaseIn: P1(0.42,0) P2(1,1) - slow start\n"
+                    "- EaseOut: P1(0,0) P2(0.58,1) - slow end\n"
+                    "- HoldStart: P1(0.8,0) P2(0.9,0.1) - stay at start longer\n"
+                    "\n"
+                    "Use 'Minecraft Style' for longer nights!");
+            }
+
+            SkyEasingConfig& easing = SkyColorHelper::GetEasingConfig();
+
+            // Helper lambda for editing a single Bezier easing
+            auto EditBezierEasing = [](const char* label, BezierEasing& bez) -> bool
+            {
+                bool changed = false;
+                if (ImGui::TreeNode(label))
+                {
+                    // P1 control point
+                    float p1[2] = {bez.p1.x, bez.p1.y};
+                    if (ImGui::SliderFloat2("P1 (x1, y1)", p1, 0.0f, 1.0f, "%.2f"))
+                    {
+                        bez.p1.x = p1[0];
+                        bez.p1.y = p1[1];
+                        changed  = true;
+                    }
+                    if (ImGui::IsItemHovered())
+                    {
+                        ImGui::SetTooltip("First control point.\nHigher y1 = faster start.");
+                    }
+
+                    // P2 control point
+                    float p2[2] = {bez.p2.x, bez.p2.y};
+                    if (ImGui::SliderFloat2("P2 (x2, y2)", p2, 0.0f, 1.0f, "%.2f"))
+                    {
+                        bez.p2.x = p2[0];
+                        bez.p2.y = p2[1];
+                        changed  = true;
+                    }
+                    if (ImGui::IsItemHovered())
+                    {
+                        ImGui::SetTooltip("Second control point.\nLower x2 = slower end.");
+                    }
+
+                    // Quick preset buttons
+                    if (ImGui::Button("Linear"))
+                    {
+                        bez     = BezierEasing::Linear();
+                        changed = true;
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("EaseIn"))
+                    {
+                        bez     = BezierEasing::EaseIn();
+                        changed = true;
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("EaseOut"))
+                    {
+                        bez     = BezierEasing::EaseOut();
+                        changed = true;
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("EaseInOut"))
+                    {
+                        bez     = BezierEasing::EaseInOut();
+                        changed = true;
+                    }
+
+                    if (ImGui::Button("HoldStart"))
+                    {
+                        bez     = BezierEasing::HoldStart();
+                        changed = true;
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("HoldEnd"))
+                    {
+                        bez     = BezierEasing::HoldEnd();
+                        changed = true;
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button("HoldMiddle"))
+                    {
+                        bez     = BezierEasing::HoldMiddle();
+                        changed = true;
+                    }
+
+                    ImGui::TreePop();
+                }
+                return changed;
+            };
+
+            // Phase transition easings
+            EditBezierEasing("Noon -> Sunset (Phase 0)", easing.noonToSunset);
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("celestialAngle 0.0 - 0.25\nDay to evening transition.");
+            }
+
+            EditBezierEasing("Sunset -> Midnight (Phase 1)", easing.sunsetToMidnight);
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("celestialAngle 0.25 - 0.5\nEvening to night. Use HoldEnd for longer night!");
+            }
+
+            EditBezierEasing("Midnight -> Sunrise (Phase 2)", easing.midnightToSunrise);
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("celestialAngle 0.5 - 0.75\nNight to morning. Use HoldStart for longer night!");
+            }
+
+            EditBezierEasing("Sunrise -> Dawn (Phase 3)", easing.sunriseToDawn);
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("celestialAngle 0.75 - 0.79\nSunrise glow to dawn (tick 0-1000).");
+            }
+
+            EditBezierEasing("Dawn -> Noon (Phase 4)", easing.dawnToNoon);
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("celestialAngle 0.79 - 1.0\nMorning to midday.");
+            }
+
+            ImGui::Separator();
+
+            // Global preset buttons
+            if (ImGui::Button("All Linear (Default)"))
+            {
+                SkyColorHelper::ResetEasingToDefault();
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Reset all phases to linear interpolation.\nFast, uniform transitions.");
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Minecraft Style"))
+            {
+                SkyColorHelper::SetMinecraftStyleEasing();
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Longer nights with quick sunrise/sunset.\nPhase 1: quick to midnight, hold\nPhase 2: hold midnight, quick sunrise");
             }
 
             ImGui::TreePop();
@@ -213,11 +389,13 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
             skyPass->SetSkyHorizonColor(Vec3(0.75f, 0.85f, 1.0f));
             SkyColorHelper::ResetSkyColorsToDefault();
             SkyColorHelper::ResetFogColorsToDefault();
+            SkyColorHelper::ResetStripColorsToDefault();
+            SkyColorHelper::ResetEasingToDefault();
         }
 
         if (ImGui::IsItemHovered())
         {
-            ImGui::SetTooltip("Reset all sky parameters including phase colors to defaults");
+            ImGui::SetTooltip("Reset all sky parameters including phase colors, strip colors, and easing to defaults");
         }
 
         ImGui::Unindent();

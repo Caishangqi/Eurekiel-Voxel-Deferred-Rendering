@@ -345,8 +345,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
     float flipAngle   = (sinSunAngle < 0.0f) ? 180.0f : 0.0f;
 
     // [DEBUG] Print transform debug info
-    DebuggerPrintf("[SunsetStrip] sunAngle=%.4f, sin(sunAngle)=%.4f, flipAngle=%.1f\n",
-                   sunAngle, sinSunAngle, flipAngle);
+    DebuggerPrintf("[SunsetStrip] sunAngle=%.4f, sin(sunAngle)=%.4f, flipAngle=%.1f\n", sunAngle, sinSunAngle, flipAngle);
 
     // ==========================================================================
     // Preparing the Geometry same look between Vertex In
