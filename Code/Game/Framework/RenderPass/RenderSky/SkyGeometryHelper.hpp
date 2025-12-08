@@ -28,23 +28,43 @@ public:
 
     //-----------------------------------------------------------------------------------------------
     /**
-     * @brief Generate a sky disc mesh (TRIANGLE_FAN topology)
-     * 
+     * @brief Generate a sky disc mesh (TRIANGLE_FAN topology) with uniform color
+     *
      * Creates a 10-vertex disc mesh following Minecraft vanilla specifications:
      * - 1 center vertex at (0, 0, centerZ)
      * - 9 perimeter vertices from -180° to +180° with 45° steps
      * - Radius: 512.0 units
      * - Topology: TRIANGLE_FAN (center vertex first, then perimeter vertices in CCW order)
-     * 
+     *
      * @param centerZ Z-coordinate of the center vertex (typically ±16.0 for sky/void)
      * @param color Vertex color (default: white)
      * @return std::vector<Vertex> Vertex array ready for TRIANGLE_FAN rendering
-     * 
+     *
      * @note Vertex count: 10 (1 center + 9 perimeter)
      * @note Perimeter vertices: angles [-180°, -135°, -90°, -45°, 0°, 45°, 90°, 135°, 180°]
      * @note Reference: Minecraft LevelRenderer.java:571-582 buildSkyDisc()
      */
     static std::vector<Vertex> GenerateSkyDisc(float centerZ, const Rgba8& color = Rgba8::WHITE);
+
+    /**
+     * @brief Generate a sky disc mesh with CPU-side fog blending (Iris-style)
+     *
+     * Creates sky dome vertices with per-vertex colors blended based on elevation angle.
+     * This implements Iris-style CPU fog calculation where skyColor smoothly transitions
+     * to fogColor at the horizon.
+     *
+     * @param centerZ Z-coordinate of the center vertex (typically +16.0 for sky dome)
+     * @param celestialAngle Current celestial angle (0.0 - 1.0) from TimeOfDayManager
+     * @return std::vector<Vertex> Vertex array with fog-blended colors
+     *
+     * @note Center vertex (zenith): uses pure skyColor
+     * @note Perimeter vertices (horizon): uses pure fogColor
+     * @note GPU interpolation creates smooth gradient between them
+     *
+     * @note Reference: Iris FogMode.OFF for SKY_BASIC - skyColor pre-blended with fog
+     * @note Reference: Minecraft ClientLevel.getSkyColor() considers view direction
+     */
+    static std::vector<Vertex> GenerateSkyDiscWithFog(float centerZ, float celestialAngle);
 
     /**
      * @brief Generate a celestial billboard mesh (sun/moon) with CPU-calculated UV

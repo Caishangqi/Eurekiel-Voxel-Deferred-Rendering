@@ -18,6 +18,8 @@
 #include "Engine/Graphic/Camera/EnigmaCamera.hpp"
 #include <cmath> // [NEW] For std::abs in ShouldRenderSunsetStrip
 
+#include "Engine/Core/VertexUtils.hpp"
+
 SkyRenderPass::SkyRenderPass()
 {
     // [Component 2] Load Shaders (gbuffers_skybasic, gbuffers_skytextured)
@@ -96,7 +98,6 @@ void SkyRenderPass::Execute()
     // This is needed to calculate VIEW SPACE sun/moon positions (following Iris CelestialUniforms.java)
     Mat44 gbufferModelView = g_theGame->m_player->GetCamera()->GetWorldToCameraTransform();
 
-    CelestialConstantBuffer celestialData;
     celestialData.celestialAngle            = g_theGame->m_timeOfDayManager->GetCelestialAngle();
     celestialData.compensatedCelestialAngle = g_theGame->m_timeOfDayManager->GetCompensatedCelestialAngle();
     celestialData.cloudTime                 = g_theGame->m_timeOfDayManager->GetCloudTime();
@@ -134,29 +135,15 @@ void SkyRenderPass::Execute()
     int                   depthTexIndex = 0; // depthtex0
     g_theRendererSubsystem->UseProgram(m_skyBasicShader, rtOutputs, depthTexIndex);
 
-    // [NEW] Set renderStage to SKY for sky dome rendering
-    commonData.renderStage = ToRenderStage(WorldRenderingPhase::SKY);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
-
-    // [FIX] Draw both hemispheres to form complete sky sphere
-    // Upper hemisphere: Sky dome (player looks up to see sky)
-    g_theRendererSubsystem->DrawVertexArray(m_skyDomeVertices);
-
-    // [NEW] Lower hemisphere: Void dome (only render when camera Z < horizon height)
-    // Reference: Minecraft LevelRenderer.java:1599-1607
-    // Condition: player.getEyePosition().y < level.getHorizonHeight()
-    // In our coordinate system: camera Z < 63.0 (sea level)
-    if (ShouldRenderVoidDome())
-    {
-        // [NEW] Set renderStage to VOID for void dome rendering
-        commonData.renderStage = ToRenderStage(WorldRenderingPhase::SKY_VOID);
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
-        g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
-    }
+    RenderSkyDome();
+    RenderVoidDome();
 
     // ==================== [NEW] Step 4: Render sunset strip (conditional) ====================
     // [NEW] Set renderStage to SUNSET for sunset strip rendering
     RenderSunsetStrip();
+
+    // Reset the Camera Matrices
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(g_theGame->m_player->GetCamera()->GetMatricesUniforms());
 
     // ==================== [Component 2] Draw Sky Textured (Sun/Moon) ====================
     // [FIX] Enable Alpha Blending for sun/moon soft edges
@@ -280,15 +267,71 @@ void SkyRenderPass::RenderSunsetStrip()
     // [NEW] Calculate strip color (includes alpha for intensity)
     Vec4 sunriseColor = SkyColorHelper::CalculateSunriseColor(sunAngle);
 
+    // ==========================================================================
+    // [NEW] Set colorModulator for GPU-side coloring (Minecraft/Iris style)
+    // ==========================================================================
+    // Reference: Minecraft DynamicTransforms.ColorModulator
+    //            Iris iris_ColorModulator (VanillaTransformer.java:76-79)
+    //
+    // Flow:
+    //   1. Vertex color = pure white (255,255,255), alpha gradient
+    //   2. colorModulator = sunriseColor (set here)
+    //   3. Shader: finalColor = white * colorModulator = actual sunset color
+    // ==========================================================================
+    celestialData.colorModulator = sunriseColor; // [NEW] Set colorModulator = sunriseColor
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
+
     // [NEW] Generate strip geometry with CPU transform (matches Minecraft LevelRenderer.java)
     // Pass sunAngle for flip calculation: XP(90) * ZP(flip) * ZP(90)
     m_sunsetStripVertices = SkyGeometryHelper::GenerateSunriseStrip(sunriseColor, sunAngle);
 
     // [NEW] Enable additive blending for glow effect
-    g_theRendererSubsystem->SetBlendMode(BlendMode::Premultiplied);
+    g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
 
     // [NEW] Draw strip using same shader as sky dome
     g_theRendererSubsystem->DrawVertexArray(m_sunsetStripVertices);
+}
+
+void SkyRenderPass::RenderSkyDome()
+{
+    commonData.renderStage = ToRenderStage(WorldRenderingPhase::SKY);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+
+    MatricesUniforms matUniform = g_theGame->m_player->GetCamera()->GetMatricesUniforms();
+    matUniform.gbufferModelView.SetTranslation3D(Vec3(0.0f, 0.0f, 0.0f));
+
+    // ==========================================================================
+    // [NEW] Generate sky dome with CPU-side fog blending (Iris-style)
+    // ==========================================================================
+    // Instead of using pre-generated vertices with uniform color, we regenerate
+    // the sky dome each frame with per-vertex colors blended based on elevation:
+    // - Zenith (center): pure skyColor
+    // - Horizon (edge): pure fogColor
+    // GPU interpolation creates smooth gradient matching Minecraft appearance
+    // ==========================================================================
+    float celestialAngle = g_theGame->m_timeOfDayManager->GetCelestialAngle();
+    m_skyDomeVertices    = SkyGeometryHelper::GenerateSkyDiscWithFog(16.0f, celestialAngle);
+
+    // [FIX] Draw both hemispheres to form complete sky sphere
+    // Upper hemisphere: Sky dome (player looks up to see sky)
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matUniform);
+    g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
+    g_theRendererSubsystem->DrawVertexArray(m_skyDomeVertices);
+}
+
+void SkyRenderPass::RenderVoidDome()
+{
+    // [NEW] Lower hemisphere: Void dome (only render when camera Z < horizon height)
+    // Reference: Minecraft LevelRenderer.java:1599-1607
+    // Condition: player.getEyePosition().y < level.getHorizonHeight()
+    // In our coordinate system: camera Z < 63.0 (sea level)
+    if (ShouldRenderVoidDome())
+    {
+        // [NEW] Set renderStage to VOID for void dome rendering
+        commonData.renderStage = ToRenderStage(WorldRenderingPhase::SKY_VOID);
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+        g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
+    }
 }
 
 bool SkyRenderPass::ShouldRenderSunsetStrip(float sunAngle) const

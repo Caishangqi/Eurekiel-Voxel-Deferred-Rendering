@@ -1,4 +1,5 @@
 ﻿#include "Game/Framework/RenderPass/RenderSky/SkyGeometryHelper.hpp"
+#include "Game/Framework/RenderPass/RenderSky/SkyColorHelper.hpp" // [NEW] For fog blending
 #include "Engine/Math/MathUtils.hpp"
 #include "Engine/Math/Mat44.hpp"
 #include <cmath>
@@ -141,6 +142,113 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba
 }
 
 //-----------------------------------------------------------------------------------------------
+// [NEW] Generate sky disc with CPU-side fog blending (Iris-style)
+// Each vertex color is calculated based on its elevation angle:
+// - Center (zenith, elevation=90°): pure skyColor
+// - Perimeter (horizon, elevation=0°): pure fogColor
+// GPU interpolation creates smooth gradient between vertices
+std::vector<Vertex> SkyGeometryHelper::GenerateSkyDiscWithFog(float centerZ, float celestialAngle)
+{
+    std::vector<Vertex> vertices;
+    vertices.reserve(24); // 8 triangles * 3 vertices
+
+    constexpr float RADIUS     = 512.0f;
+    constexpr float ANGLE_STEP = 45.0f;
+    constexpr float DEG_TO_RAD = 0.017453292f;
+
+    // ==========================================================================
+    // [Step 1] Calculate center vertex color (zenith = pure skyColor)
+    // ==========================================================================
+    Vec3 centerPosition(0.0f, 0.0f, centerZ);
+
+    // Center vertex elevation = 90° (looking straight up)
+    float centerElevation = SkyColorHelper::CalculateElevationAngle(centerPosition);
+    Vec3  centerColorVec  = SkyColorHelper::CalculateSkyColorWithFog(celestialAngle, centerElevation);
+
+    Rgba8 centerColor(
+        static_cast<unsigned char>(centerColorVec.x * 255.0f),
+        static_cast<unsigned char>(centerColorVec.y * 255.0f),
+        static_cast<unsigned char>(centerColorVec.z * 255.0f),
+        255 // Fully opaque at center
+    );
+
+    Vec2 centerUV(0.5f, 0.5f);
+
+    // Normal points INWARD (toward player) for correct lighting
+    bool isUpperHemisphere = (centerZ > 0.0f);
+    Vec3 normal            = isUpperHemisphere ? Vec3(0.0f, 0.0f, -1.0f) : Vec3(0.0f, 0.0f, 1.0f);
+    Vec3 tangent(1.0f, 0.0f, 0.0f);
+    Vec3 bitangent(0.0f, 1.0f, 0.0f);
+
+    // ==========================================================================
+    // [Step 2] Calculate perimeter vertices (horizon = pure fogColor)
+    // ==========================================================================
+    std::vector<Vec3>  perimeterPositions;
+    std::vector<Vec2>  perimeterUVs;
+    std::vector<Rgba8> perimeterColors;
+    perimeterPositions.reserve(9);
+    perimeterUVs.reserve(9);
+    perimeterColors.reserve(9);
+
+    for (int angleDeg = -180; angleDeg <= 180; angleDeg += static_cast<int>(ANGLE_STEP))
+    {
+        float angleRad = static_cast<float>(angleDeg) * DEG_TO_RAD;
+
+        // Perimeter position at horizon (Z = 0)
+        float x = RADIUS * std::cos(angleRad);
+        float y = RADIUS * std::sin(angleRad);
+        float z = 0.0f;
+
+        Vec3 perimeterPos(x, y, z);
+        perimeterPositions.push_back(perimeterPos);
+
+        // UV mapping
+        float u = (static_cast<float>(angleDeg) + 180.0f) / 360.0f;
+        float v = 1.0f;
+        perimeterUVs.emplace_back(u, v);
+
+        // Calculate fog-blended color based on elevation
+        // [FIX] Perimeter is at horizon (Z=0), so elevation = 0° -> pure fogColor
+        float perimeterElevation = SkyColorHelper::CalculateElevationAngle(perimeterPos);
+        Vec3  perimeterColorVec  = SkyColorHelper::CalculateSkyColorWithFog(celestialAngle, perimeterElevation);
+
+        // [FIX] Alpha should be FULLY OPAQUE (255) for both center and perimeter!
+        // The gradient is achieved through RGB color interpolation, NOT alpha blending.
+        // Previous bug: alpha=0 at edge caused the perimeter to be transparent/discarded.
+        Rgba8 perimeterColor(
+            static_cast<unsigned char>(perimeterColorVec.x * 255.0f),
+            static_cast<unsigned char>(perimeterColorVec.y * 255.0f),
+            static_cast<unsigned char>(perimeterColorVec.z * 255.0f),
+            255 // [FIX] Fully opaque - gradient via RGB, not alpha!
+        );
+        perimeterColors.push_back(perimeterColor);
+    }
+
+    // ==========================================================================
+    // [Step 3] Generate TRIANGLE_LIST with correct winding order
+    // ==========================================================================
+    for (size_t i = 0; i < perimeterPositions.size() - 1; ++i)
+    {
+        if (isUpperHemisphere)
+        {
+            // Upper hemisphere: CCW from below (player looks up)
+            vertices.emplace_back(centerPosition, centerColor, centerUV, normal, tangent, bitangent);
+            vertices.emplace_back(perimeterPositions[i + 1], perimeterColors[i + 1], perimeterUVs[i + 1], normal, tangent, bitangent);
+            vertices.emplace_back(perimeterPositions[i], perimeterColors[i], perimeterUVs[i], normal, tangent, bitangent);
+        }
+        else
+        {
+            // Lower hemisphere: CCW from above (player looks down)
+            vertices.emplace_back(centerPosition, centerColor, centerUV, normal, tangent, bitangent);
+            vertices.emplace_back(perimeterPositions[i], perimeterColors[i], perimeterUVs[i], normal, tangent, bitangent);
+            vertices.emplace_back(perimeterPositions[i + 1], perimeterColors[i + 1], perimeterUVs[i + 1], normal, tangent, bitangent);
+        }
+    }
+
+    return vertices;
+}
+
+//-----------------------------------------------------------------------------------------------
 std::vector<Vertex> SkyGeometryHelper::GenerateCelestialBillboard(
     float        celestialType,
     const AABB2& uvBounds,
@@ -236,6 +344,10 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
     float sinSunAngle = std::sin(sunAngle * TWO_PI);
     float flipAngle   = (sinSunAngle < 0.0f) ? 180.0f : 0.0f;
 
+    // [DEBUG] Print transform debug info
+    DebuggerPrintf("[SunsetStrip] sunAngle=%.4f, sin(sunAngle)=%.4f, flipAngle=%.1f\n",
+                   sunAngle, sinSunAngle, flipAngle);
+
     // ==========================================================================
     // Preparing the Geometry same look between Vertex In
     // ==========================================================================
@@ -248,6 +360,10 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
     // [STEP 2] Generate original MC geometry (Y-up space, no transform yet)
     // ==========================================================================
     float depthOffset = DEPTH_SCALE * sunriseColor.w;
+
+    // [DEBUG] Print geometry parameters
+    DebuggerPrintf("[SunsetStrip] sunriseColor.w(alpha)=%.4f, depthOffset=%.2f\n",
+                   sunriseColor.w, depthOffset);
 
     // Center vertex in MC space: (0, 100, 0)
     Vec3 centerMC(0.0f, CENTER_DIST, 0.0f);
@@ -267,7 +383,20 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
         float mcY = cosA * OUTER_DIST;
         float mcZ = -cosA * depthOffset;
 
+        // [DEBUG] Print depth variation
+        if (i == 0 || i == 8) // 打印首尾顶点
+        {
+            DebuggerPrintf("[SunsetStrip] Vertex[%d]: angle=%.1f, cosA=%.3f, mcZ=%.2f\n",
+                           i, angle * 57.2958f, cosA, mcZ);
+        }
+
         outerMC.emplace_back(mcX, mcY, mcZ);
+
+        // [DEBUG] Print first vertex depth
+        if (i == 0)
+        {
+            DebuggerPrintf("[SunsetStrip] First outer vertex: cos(0)=%.2f, mcZ=%.2f\n", cosA, mcZ);
+        }
     }
 
     // ==========================================================================
@@ -285,19 +414,10 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
     // ==========================================================================
     // [STEP 4] Setup colors and vertex attributes
     // ==========================================================================
-    Rgba8 centerColor = Rgba8(
-        static_cast<unsigned char>(sunriseColor.x * 255.0f),
-        static_cast<unsigned char>(sunriseColor.y * 255.0f),
-        static_cast<unsigned char>(sunriseColor.z * 255.0f),
-        static_cast<unsigned char>(sunriseColor.w * 255.0f)
-    );
-
-    Rgba8 outerColor = Rgba8(
-        static_cast<unsigned char>(sunriseColor.x * 255.0f),
-        static_cast<unsigned char>(sunriseColor.y * 255.0f),
-        static_cast<unsigned char>(sunriseColor.z * 255.0f),
-        0
-    );
+    // [FIX] Match Minecraft: pure white vertices, GPU applies sunriseColor
+    // Reference: Minecraft VS In data shows (255,255,255,255) center, (255,255,255,0) edge
+    Rgba8 centerColor = Rgba8(255, 255, 255, 255); // Pure white, fully opaque
+    Rgba8 outerColor  = Rgba8(255, 255, 255, 0); // Pure white, fully transparent
 
     // Default vertex attributes
     Vec2 defaultUV(0.5f, 0.5f);

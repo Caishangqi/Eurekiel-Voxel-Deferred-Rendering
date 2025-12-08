@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Engine/Math/Vec3.hpp"
+#include "Engine/Math/Vec4.hpp"
 
 // =============================================================================
 // CelestialConstantBuffer - 用户自定义 Constant Buffer
@@ -57,6 +58,14 @@ struct CelestialConstantBuffer
     // ==================== 月亮方向向量（16 字节） ====================
     alignas(16) Vec3 moonPosition; // 月亮方向向量（视图空间，w=0），长度约100单位
     float            _padding3; // 填充到 16 字节
+
+    // ==================== 颜色调制器（16 字节） ====================
+    // [NEW] Matches Minecraft/Iris ColorModulator
+    // Reference: Minecraft DynamicTransforms.ColorModulator
+    //            Iris iris_ColorModulator (ExternallyManagedUniforms.java:49)
+    // Usage: Shader中 finalColor = input.Color * colorModulator
+    // Sunset strip: colorModulator = sunriseColor, 顶点纯白, 结果 = 实际日落颜色
+    alignas(16) Vec4 colorModulator = Vec4(1.0f, 1.0f, 1.0f, 1.0f); // 颜色调制器 (RGBA)，默认白色
 };
 
 #pragma warning(pop)
@@ -73,7 +82,8 @@ struct CelestialConstantBuffer
 //   - Vec3 sunPosition                   → HLSL: float3 sunPosition
 //   - float _padding2                    → HLSL: (自动填充，无需声明)
 //   - Vec3 moonPosition                  → HLSL: float3 moonPosition
-//   - float _padding3                    → HLSL: (自动填充，无需声明)
+//   - float _padding3                    → HLSL: float _padding3 (显式填充)
+//   - Vec4 colorModulator                → HLSL: float4 colorModulator [NEW]
 //
 // HLSL Side (celestial_uniforms.hlsl):
 //   cbuffer CelestialUniforms : register(b15)
@@ -85,7 +95,8 @@ struct CelestialConstantBuffer
 //       float3 sunPosition;
 //       // padding 由 HLSL 编译器自动处理
 //       float3 moonPosition;
-//       // padding 由 HLSL 编译器自动处理
+//       float  _padding3;                // 显式填充
+//       float4 colorModulator;           // [NEW] 颜色调制器
 //   };
 //
 // =============================================================================

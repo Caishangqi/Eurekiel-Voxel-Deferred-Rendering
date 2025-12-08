@@ -4,29 +4,36 @@
 
 //-----------------------------------------------------------------------------------------------
 /**
- * @brief Configuration structure for 4-phase sky colors
+ * @brief Configuration structure for 5-phase sky colors
  * 
- * Stores the 4 key colors used for sky and fog interpolation:
- * - Sunrise (celestialAngle 0.0, tick 0, 6:00 AM)
- * - Noon (celestialAngle 0.25, tick 6000, 12:00 PM)
- * - Sunset (celestialAngle 0.5, tick 12000, 6:00 PM)
- * - Midnight (celestialAngle 0.75, tick 18000, 12:00 AM)
+ * Stores the 5 key colors used for sky and fog interpolation:
+ * - Sunrise (celestialAngle ~0.785, tick 0, 6:00 AM) - Orange sunrise glow
+ * - Dawn (celestialAngle ~0.83, tick 1000, 7:00 AM) - Light yellow morning
+ * - Noon (celestialAngle 0.0, tick 6000, 12:00 PM) - Bright blue
+ * - Sunset (celestialAngle ~0.215, tick 12000, 6:00 PM) - Orange-red
+ * - Midnight (celestialAngle 0.5, tick 18000, 12:00 AM) - Dark blue/black
+ * 
+ * @note [NEW] Dawn phase added to support tick 0-1000 transition
+ *       Minecraft shows light yellow sky during early morning (tick 1000+)
+ *       This allows sunrise strip to be orange while sky transitions to yellow
  */
 struct SkyPhaseColors
 {
-    Vec3 day;
-    Vec3 noon;
-    Vec3 night;
-    Vec3 midnight;
+    Vec3 sunrise; // tick 0 (6:00 AM) - Orange-pink sunrise
+    Vec3 dawn; // tick 1000 (7:00 AM) - Light yellow morning [NEW]
+    Vec3 noon; // tick 6000 (12:00 PM) - Bright blue
+    Vec3 sunset; // tick 13000 (6:00 PM) - Orange-red sunset
+    Vec3 midnight; // tick 18000 (12:00 AM) - Dark blue/black
 
     // Default sky dome colors (Minecraft-inspired)
     static SkyPhaseColors GetDefaultSkyColors()
     {
         SkyPhaseColors colors;
-        colors.day      = Vec3(0.51f, 0.68f, 1.0f);
-        colors.noon     = Vec3(0.51f, 0.68f, 1.0f);
-        colors.night    = Vec3(0.28f, 0.26f, 0.35f); // Orange-red
-        colors.midnight = Vec3(0.0f, 0.0f, 0.0f); // Dark blue
+        colors.sunrise  = Vec3(0.5f, 0.62f, 0.87f); // Orange-pink sunrise
+        colors.dawn     = Vec3(0.52f, 0.69f, 1.0f); // Light yellow/pale blue morning [NEW]
+        colors.noon     = Vec3(0.51f, 0.68f, 1.0f); // Bright blue
+        colors.sunset   = Vec3(0.26f, 0.26f, 0.35f); // Orange-red sunset
+        colors.midnight = Vec3(0.0f, 0.01f, 0.01f); // Near black
         return colors;
     }
 
@@ -34,10 +41,11 @@ struct SkyPhaseColors
     static SkyPhaseColors GetDefaultFogColors()
     {
         SkyPhaseColors colors;
-        colors.day      = Vec3(0.98f, 0.65f, 0.45f); // Warm orange-pink
-        colors.noon     = Vec3(0.75f, 0.85f, 1.0f); // Light blue
-        colors.night    = Vec3(0.98f, 0.55f, 0.35f); // Warm orange-red
-        colors.midnight = Vec3(0.08f, 0.08f, 0.15f); // Dark blue-gray
+        colors.sunrise  = Vec3(0.75f, 0.69f, 0.65f); // Warm sunrise fog
+        colors.dawn     = Vec3(0.71f, 0.82f, 1.0f); // Light morning fog [NEW]
+        colors.noon     = Vec3(0.71f, 0.82f, 1.0f); // Bright day fog
+        colors.sunset   = Vec3(0.73f, 0.31f, 0.24f); // Warm sunset fog
+        colors.midnight = Vec3(0.04f, 0.04f, 0.07f); // Dark night fog
         return colors;
     }
 };
@@ -143,6 +151,42 @@ public:
 
     static void ResetSkyColorsToDefault();
     static void ResetFogColorsToDefault();
+
+    //-----------------------------------------------------------------------------------------------
+    /**
+     * @brief Calculate sky color blended with fog based on elevation angle (CPU-side fog)
+     *
+     * This function implements Iris-style CPU fog blending. Instead of GPU fog calculations,
+     * the sky color is pre-blended with fog color based on viewing elevation angle.
+     * This ensures shader packs see the correct skyColor without needing custom fog code.
+     *
+     * @param celestialAngle Current celestial angle (0.0 - 1.0), from TimeOfDayManager
+     * @param elevationAngle Elevation angle in degrees: 90° = zenith (pure sky), 0° = horizon (pure fog)
+     * @return Vec3 RGB color blended between skyColor and fogColor
+     *
+     * @note Blend formula: lerp(fogColor, skyColor, elevationFactor)
+     * @note elevationFactor = pow(sin(elevation), 0.5) for smooth falloff
+     * @note At zenith (90°): returns pure skyColor
+     * @note At horizon (0°): returns pure fogColor
+     *
+     * @note Reference: Iris FogMode.OFF for SKY_BASIC - CPU skyColor includes fog blending
+     * @note Reference: Minecraft ClientLevel.getSkyColor() considers view direction
+     */
+    static Vec3 CalculateSkyColorWithFog(float celestialAngle, float elevationDegrees);
+
+    /**
+     * @brief Convert vertex position to elevation angle (relative to camera)
+     *
+     * Utility function to calculate the elevation angle from a vertex position.
+     * Used when generating sky dome vertices with fog-blended colors.
+     *
+     * @param vertexPos Vertex position in local space (relative to camera at origin)
+     * @return float Elevation angle in degrees (0° = horizon, 90° = zenith, -90° = nadir)
+     *
+     * @note Formula: elevation = atan2(z, sqrt(x*x + y*y)) * RAD_TO_DEG
+     * @note For sky dome: center (0,0,16) = 90°, perimeter (x,y,0) = 0°
+     */
+    static float CalculateElevationAngle(const Vec3& vertexPos);
 
 private:
     // [NEW] Static storage for configurable phase colors

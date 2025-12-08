@@ -49,22 +49,24 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
 
         ImGui::Separator();
 
-        // ==================== Sky Phase Colors (4-phase system) ====================
+        // ==================== Sky Phase Colors (5-phase system) ====================
 
         if (ImGui::TreeNode("Sky Dome Phase Colors"))
         {
-            ImGui::TextDisabled("(?) 4-phase interpolation system for sky dome");
+            ImGui::TextDisabled("(?) 5-phase interpolation system for sky dome");
             if (ImGui::IsItemHovered())
             {
                 ImGui::SetTooltip(
-                    "[IMPORTANT] These are rendering phase color names, not Minecraft time points!\n"
-                    "Phase 0: Sunrise Color (interpolated around dawn)\n"
-                    "Phase 1: Noon Color (interpolated around midday)\n"
-                    "Phase 2: Sunset Color (interpolated around dusk)\n"
-                    "Phase 3: Midnight Color (interpolated at night)\n"
+                    "[NEW] 5-phase system with Dawn phase for tick 0-1000 transition!\n"
+                    "\n"
+                    "Phase 0: Sunrise Color (tick 0, 6:00 AM) - Orange-pink\n"
+                    "Phase 1: Dawn Color (tick 1000, 7:00 AM) - Light yellow [NEW]\n"
+                    "Phase 2: Noon Color (tick 6000, 12:00 PM) - Bright blue\n"
+                    "Phase 3: Sunset Color (tick 12000, 6:00 PM) - Orange-red\n"
+                    "Phase 4: Midnight Color (tick 18000, 12:00 AM) - Dark blue/black\n"
                     "\n"
                     "Minecraft official time points (TimeCommand.java:17-24):\n"
-                    "- day = 1000 ticks (6:00 AM)\n"
+                    "- day = 1000 ticks (7:00 AM, dawn complete)\n"
                     "- noon = 6000 ticks (12:00 PM)\n"
                     "- night = 13000 ticks (7:00 PM, night starts)\n"
                     "- midnight = 18000 ticks (12:00 AM)");
@@ -72,26 +74,37 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
 
             SkyPhaseColors& skyColors = SkyColorHelper::GetSkyColors();
 
-            float sunriseColor[3] = {skyColors.day.x, skyColors.day.y, skyColors.day.z};
-            if (ImGui::ColorEdit3("Sunrise##Sky", sunriseColor))
+            float sunriseColor[3] = {skyColors.sunrise.x, skyColors.sunrise.y, skyColors.sunrise.z};
+            if (ImGui::ColorEdit3("Sunrise (tick 0)##Sky", sunriseColor))
             {
-                skyColors.day = Vec3(sunriseColor[0], sunriseColor[1], sunriseColor[2]);
+                skyColors.sunrise = Vec3(sunriseColor[0], sunriseColor[1], sunriseColor[2]);
+            }
+
+            // [NEW] Dawn phase color editor
+            float dawnColor[3] = {skyColors.dawn.x, skyColors.dawn.y, skyColors.dawn.z};
+            if (ImGui::ColorEdit3("Dawn (tick 1000)##Sky", dawnColor))
+            {
+                skyColors.dawn = Vec3(dawnColor[0], dawnColor[1], dawnColor[2]);
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Light yellow morning sky after sunrise.\nTransition from orange sunrise to bright day.");
             }
 
             float noonColor[3] = {skyColors.noon.x, skyColors.noon.y, skyColors.noon.z};
-            if (ImGui::ColorEdit3("Noon##Sky", noonColor))
+            if (ImGui::ColorEdit3("Noon (tick 6000)##Sky", noonColor))
             {
                 skyColors.noon = Vec3(noonColor[0], noonColor[1], noonColor[2]);
             }
 
-            float sunsetColor[3] = {skyColors.night.x, skyColors.night.y, skyColors.night.z};
-            if (ImGui::ColorEdit3("Sunset##Sky", sunsetColor))
+            float sunsetColor[3] = {skyColors.sunset.x, skyColors.sunset.y, skyColors.sunset.z};
+            if (ImGui::ColorEdit3("Sunset (tick 12000)##Sky", sunsetColor))
             {
-                skyColors.night = Vec3(sunsetColor[0], sunsetColor[1], sunsetColor[2]);
+                skyColors.sunset = Vec3(sunsetColor[0], sunsetColor[1], sunsetColor[2]);
             }
 
             float midnightColor[3] = {skyColors.midnight.x, skyColors.midnight.y, skyColors.midnight.z};
-            if (ImGui::ColorEdit3("Midnight##Sky", midnightColor))
+            if (ImGui::ColorEdit3("Midnight (tick 18000)##Sky", midnightColor))
             {
                 skyColors.midnight = Vec3(midnightColor[0], midnightColor[1], midnightColor[2]);
             }
@@ -104,40 +117,52 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
             ImGui::TreePop();
         }
 
-        // ==================== Fog Phase Colors (4-phase system) ====================
+        // ==================== Fog Phase Colors (5-phase system) ====================
 
         if (ImGui::TreeNode("Fog Phase Colors"))
         {
-            ImGui::TextDisabled("(?) Fog colors for Clear RT (lighter than sky)");
+            ImGui::TextDisabled("(?) 5-phase fog colors for Clear RT (lighter than sky)");
             if (ImGui::IsItemHovered())
             {
                 ImGui::SetTooltip(
                     "Fog colors are used for clearing the render target.\n"
-                    "Generally lighter/more desaturated than sky colors.");
+                    "Generally lighter/more desaturated than sky colors.\n"
+                    "[NEW] Includes Dawn phase for tick 0-1000 transition.");
             }
 
             SkyPhaseColors& fogColors = SkyColorHelper::GetFogColors();
 
-            float fogSunrise[3] = {fogColors.day.x, fogColors.day.y, fogColors.day.z};
-            if (ImGui::ColorEdit3("Sunrise##Fog", fogSunrise))
+            float fogSunrise[3] = {fogColors.sunrise.x, fogColors.sunrise.y, fogColors.sunrise.z};
+            if (ImGui::ColorEdit3("Sunrise (tick 0)##Fog", fogSunrise))
             {
-                fogColors.day = Vec3(fogSunrise[0], fogSunrise[1], fogSunrise[2]);
+                fogColors.sunrise = Vec3(fogSunrise[0], fogSunrise[1], fogSunrise[2]);
+            }
+
+            // [NEW] Dawn phase fog color editor
+            float fogDawn[3] = {fogColors.dawn.x, fogColors.dawn.y, fogColors.dawn.z};
+            if (ImGui::ColorEdit3("Dawn (tick 1000)##Fog", fogDawn))
+            {
+                fogColors.dawn = Vec3(fogDawn[0], fogDawn[1], fogDawn[2]);
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Light morning fog after sunrise.\nTransition from warm sunrise fog to bright day fog.");
             }
 
             float fogNoon[3] = {fogColors.noon.x, fogColors.noon.y, fogColors.noon.z};
-            if (ImGui::ColorEdit3("Noon##Fog", fogNoon))
+            if (ImGui::ColorEdit3("Noon (tick 6000)##Fog", fogNoon))
             {
                 fogColors.noon = Vec3(fogNoon[0], fogNoon[1], fogNoon[2]);
             }
 
-            float fogSunset[3] = {fogColors.night.x, fogColors.night.y, fogColors.night.z};
-            if (ImGui::ColorEdit3("Sunset##Fog", fogSunset))
+            float fogSunset[3] = {fogColors.sunset.x, fogColors.sunset.y, fogColors.sunset.z};
+            if (ImGui::ColorEdit3("Sunset (tick 12000)##Fog", fogSunset))
             {
-                fogColors.night = Vec3(fogSunset[0], fogSunset[1], fogSunset[2]);
+                fogColors.sunset = Vec3(fogSunset[0], fogSunset[1], fogSunset[2]);
             }
 
             float fogMidnight[3] = {fogColors.midnight.x, fogColors.midnight.y, fogColors.midnight.z};
-            if (ImGui::ColorEdit3("Midnight##Fog", fogMidnight))
+            if (ImGui::ColorEdit3("Midnight (tick 18000)##Fog", fogMidnight))
             {
                 fogColors.midnight = Vec3(fogMidnight[0], fogMidnight[1], fogMidnight[2]);
             }

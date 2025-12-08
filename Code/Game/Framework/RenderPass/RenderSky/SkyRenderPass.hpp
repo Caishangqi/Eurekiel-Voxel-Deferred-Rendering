@@ -6,6 +6,7 @@
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
 #include "Engine/Math/Vec3.hpp"
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
+#include "Game/Framework/RenderPass/ConstantBuffer/CelestialConstantBuffer.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
 
 namespace enigma::graphic
@@ -43,6 +44,8 @@ private:
     // [NEW] Sky color rendering methods
     void WriteSkyColorToRT();
     void RenderSunsetStrip();
+    void RenderSkyDome();
+    void RenderVoidDome();
     bool ShouldRenderSunsetStrip(float sunAngle) const;
 
     // [NEW] Void dome conditional rendering
@@ -73,6 +76,7 @@ private:
     // Sun Stripe
     bool m_enableSunStrip = true;
 
-    CommonConstantBuffer               commonData;
+    CommonConstantBuffer    commonData;
+    CelestialConstantBuffer celestialData;
     enigma::graphic::PerObjectUniforms perObjectData;
 };

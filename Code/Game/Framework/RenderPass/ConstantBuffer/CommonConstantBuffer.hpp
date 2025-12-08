@@ -68,8 +68,17 @@ struct CommonConstantBuffer
     float             blindness; // Blindness effect (0.0-1.0)
     float             darknessFactor; // Darkness effect (0.0-1.0)
 
+    // ==================== Fog Parameters (16 bytes) ====================
+    // [NEW] Fog distance parameters for shader fog calculations
+    // Source: Minecraft Fog cbuffer (fog.glsl)
+    // Note: These are provided for future shader use, CPU skyColor already includes fog blending
+    alignas(16) float fogStart; // Fog start distance (FogEnvironmentalStart)
+    float             fogEnd; // Fog end distance (FogEnvironmentalEnd)
+    float             fogSkyEnd; // Sky-specific fog end distance (FogSkyEnd)
+    float             fogCloudsEnd; // Clouds-specific fog end distance (FogCloudsEnd)
+
     // ==================== Render Stage (16 bytes) ====================
-    // [NEW] Current rendering phase for shader program differentiation
+    // Current rendering phase for shader program differentiation
     // Source: Iris CommonUniforms.java:108 - uniform1i("renderStage", ...)
     // Values: WorldRenderingPhase enum ordinal (0=NONE, 1=SKY, 2=SUNSET, etc.)
     alignas(16) int renderStage; // WorldRenderingPhase ordinal
@@ -79,7 +88,7 @@ struct CommonConstantBuffer
 #pragma warning(pop)
 
 // =============================================================================
-// [IMPORTANT] C++ struct to HLSL cbuffer field mapping (80 bytes total)
+// [IMPORTANT] C++ struct to HLSL cbuffer field mapping (96 bytes total)
 // =============================================================================
 //
 // C++ Side (CommonConstantBuffer):
@@ -95,11 +104,15 @@ struct CommonConstantBuffer
 //   - float nightVision              -> HLSL: float nightVision
 //   - float blindness                -> HLSL: float blindness
 //   - float darknessFactor           -> HLSL: float darknessFactor
-//   - int renderStage                -> HLSL: int renderStage [NEW]
+//   - float fogStart                 -> HLSL: float fogStart     [NEW]
+//   - float fogEnd                   -> HLSL: float fogEnd       [NEW]
+//   - float fogSkyEnd                -> HLSL: float fogSkyEnd    [NEW]
+//   - float fogCloudsEnd             -> HLSL: float fogCloudsEnd [NEW]
+//   - int renderStage                -> HLSL: int renderStage
 //   - int _padding4[3]               -> HLSL: (auto-padded, no declaration needed)
 //
 // HLSL Side (common_uniforms.hlsl):
-//   cbuffer CommonUniforms : register(b16, space1)
+//   cbuffer CommonUniforms : register(b8)
 //   {
 //       float3 skyColor;
 //       float3 fogColor;
@@ -110,7 +123,11 @@ struct CommonConstantBuffer
 //       float  nightVision;
 //       float  blindness;
 //       float  darknessFactor;
-//       int    renderStage;  // [NEW] Use RENDER_STAGE_* macros
+//       float  fogStart;     // [NEW] Fog start distance
+//       float  fogEnd;       // [NEW] Fog end distance
+//       float  fogSkyEnd;    // [NEW] Sky-specific fog end
+//       float  fogCloudsEnd; // [NEW] Clouds-specific fog end
+//       int    renderStage;  // Use RENDER_STAGE_* macros
 //   };
 //
 // HLSL Macros Available:
