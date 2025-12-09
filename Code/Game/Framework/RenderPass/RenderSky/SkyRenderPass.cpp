@@ -9,17 +9,16 @@
 #include "Engine/Graphic/Sprite/Sprite.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/CelestialConstantBuffer.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
-#include "Game/Framework/RenderPass/WorldRenderingPhase.hpp" // [NEW] For renderStage
+#include "Game/Framework/RenderPass/WorldRenderingPhase.hpp"
 #include "Game/Gameplay/Game.hpp"
 #include "Engine/Math/Mat44.hpp"
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
 #include "Engine/Graphic/Camera/EnigmaCamera.hpp"
-
 #include "Engine/Core/VertexUtils.hpp"
 
 SkyRenderPass::SkyRenderPass()
 {
-    // [Component 2] Load Shaders (gbuffers_skybasic, gbuffers_skytextured)
+    // Load shaders
     enigma::graphic::ShaderCompileOptions shaderCompileOptions;
     shaderCompileOptions.enableDebugInfo = true;
 
@@ -37,8 +36,7 @@ SkyRenderPass::SkyRenderPass()
         shaderCompileOptions
     );
 
-
-    // [Component 2] Load sun.png 
+    // Load textures
     m_sunTexture = g_theRendererSubsystem->CreateTexture2D(
         ".enigma/assets/engine/textures/environment/sun.png",
         TextureUsage::ShaderResource,
@@ -51,35 +49,21 @@ SkyRenderPass::SkyRenderPass()
         "Test UV Texture"
     );
 
-    // [Component 2] Load moon_phases.png as SpriteAtlas (4x2 grid)
     m_moonPhasesAtlas = std::make_shared<SpriteAtlas>("MoonPhases");
     m_moonPhasesAtlas->BuildFromGrid(".enigma/assets/engine/textures/environment/moon_phases.png", IntVec2(4, 2));
 
-    // ==========================================================================
-    // [Component 5.1] Generate Sky Sphere (Two Hemispheres)
-    // ==========================================================================
-    // Minecraft sky structure:
-    //     ● (0,0,+16) Sky Zenith
-    //    /|\
-    //   / | \  Upper Hemisphere (Sky Dome)
-    //  /  |  \
-    // ●───●───● Z=0 Horizon (Player Level)
-    //  \  |  /
-    //   \ | /  Lower Hemisphere (Void Dome)
-    //    \|/
-    //     ● (0,0,-16) Void Nadir
-    // ==========================================================================
-    m_skyDomeVertices  = SkyGeometryHelper::GenerateSkyDisc(16.0f); // Upper hemisphere (sky)
-    m_voidDomeVertices = SkyGeometryHelper::GenerateSkyDisc(-16.0f); // Lower hemisphere (void)
+    // Generate sky geometry (two hemispheres)
+    // Reference: Minecraft LevelRenderer.java sky structure
+    m_skyDomeVertices  = SkyGeometryHelper::GenerateSkyDisc(16.0f);
+    m_voidDomeVertices = SkyGeometryHelper::GenerateSkyDisc(-16.0f);
     m_sunQuadVertices  = SkyGeometryHelper::GenerateCelestialQuad(AABB2::ZERO_TO_ONE);
 
-    // [Component 2] Register CelestialConstantBuffer to slot 9 (PerFrame update)
-    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CelestialConstantBuffer>(9, enigma::graphic::UpdateFrequency::PerObject // [FIX P1] Celestial data updates per frame, not per object
+    // Register constant buffers
+    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CelestialConstantBuffer>(
+        9, enigma::graphic::UpdateFrequency::PerObject
     );
-
-    // [NEW] Register CommonConstantBuffer to slot 16 (PerFrame update)
-    // Contains skyColor, fogColor, weather parameters - mirrors Iris CommonUniforms
-    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(8, enigma::graphic::UpdateFrequency::PerObject, 10000
+    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(
+        8, enigma::graphic::UpdateFrequency::PerObject, 10000
     );
 }
 
@@ -91,50 +75,43 @@ void SkyRenderPass::Execute()
 {
     BeginPass();
 
-    // ==================== [Component 2] Upload CelestialConstantBuffer ====================
-    // [FIX] Get gbufferModelView (World->Camera transform) from player camera
-    // This is needed to calculate VIEW SPACE sun/moon positions (following Iris CelestialUniforms.java)
+    // Upload CelestialConstantBuffer
+    // Reference: Iris CelestialUniforms.java
     Mat44 gbufferModelView = g_theGame->m_player->GetCamera()->GetWorldToCameraTransform();
 
     celestialData.celestialAngle            = g_theGame->m_timeOfDayManager->GetCelestialAngle();
     celestialData.compensatedCelestialAngle = g_theGame->m_timeOfDayManager->GetCompensatedCelestialAngle();
     celestialData.cloudTime                 = g_theGame->m_timeOfDayManager->GetCloudTime();
 
-    // [FIX] Minecraft daylight factor formula (ClientLevel.java:681)
-    // Formula: h = cos(celestialAngle * 2π) * 2 + 0.5, clamped to [0, 1]
-    // - celestialAngle=0.0 (noon, tick=6000) -> h = 2.5 -> 1.0 (brightest)
-    // - celestialAngle=0.5 (midnight, tick=18000) -> h = -1.5 -> 0.0 (darkest)
+    // Reference: Minecraft ClientLevel.java:681 - daylight factor formula
     float h                     = cosf(celestialData.celestialAngle * 6.28318530718f) * 2.0f + 0.5f;
     celestialData.skyBrightness = (h < 0.0f) ? 0.0f : ((h > 1.0f) ? 1.0f : h);
 
-    celestialData.sunPosition    = g_theGame->m_timeOfDayManager->CalculateSunPosition(gbufferModelView); // [FIX] VIEW SPACE position
-    celestialData.moonPosition   = g_theGame->m_timeOfDayManager->CalculateMoonPosition(gbufferModelView); // [FIX] VIEW SPACE position
-    celestialData.colorModulator = Vec4(1.0f, 1.0f, 1.0f, 1.0f); // [FIX] Default to white, RenderSunsetStrip will override when needed
+    celestialData.sunPosition    = g_theGame->m_timeOfDayManager->CalculateSunPosition(gbufferModelView);
+    celestialData.moonPosition   = g_theGame->m_timeOfDayManager->CalculateMoonPosition(gbufferModelView);
+    celestialData.colorModulator = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
-    // ==================== [NEW] Upload CommonConstantBuffer ====================
-    // [IMPORTANT] skyColor is CPU-calculated, mirrors Iris CommonUniforms.getSkyColor()
-    // This replaces hardcoded sky colors in gbuffers_skybasic.ps.hlsl
+    // Upload CommonConstantBuffer
+    // Reference: Iris CommonUniforms.java
     commonData.skyColor         = SkyColorHelper::CalculateSkyColor(celestialData.celestialAngle);
     commonData.fogColor         = SkyColorHelper::CalculateFogColor(celestialData.celestialAngle, celestialData.compensatedCelestialAngle);
-    commonData.rainStrength     = 0.0f; // TODO: Get from weather system
-    commonData.wetness          = 0.0f; // TODO: Smoothed rain strength
-    commonData.thunderStrength  = 0.0f; // TODO: Get from weather system
-    commonData.screenBrightness = 1.0f; // TODO: Get from player settings
-    commonData.nightVision      = 0.0f; // TODO: Get from player effects
-    commonData.blindness        = 0.0f; // TODO: Get from player effects
-    commonData.darknessFactor   = 0.0f; // TODO: Get from biome effects
-    commonData.renderStage      = ToRenderStage(WorldRenderingPhase::NONE); // [NEW] Initialize to NONE
+    commonData.rainStrength     = 0.0f;
+    commonData.wetness          = 0.0f;
+    commonData.thunderStrength  = 0.0f;
+    commonData.screenBrightness = 1.0f;
+    commonData.nightVision      = 0.0f;
+    commonData.blindness        = 0.0f;
+    commonData.darknessFactor   = 0.0f;
+    commonData.renderStage      = ToRenderStage(WorldRenderingPhase::NONE);
 
-    // ==================== [NEW] Step 1: Write sky background color to colortex0 ====================
     WriteSkyColorToRT();
 
-    // ==================== [Component 2] Draw Sky Basic (Sky Sphere) ====================
-    std::vector<uint32_t> rtOutputs     = {0}; // colortex0
-    int                   depthTexIndex = 0; // depthtex0
+    // Draw sky basic (sky sphere)
+    std::vector<uint32_t> rtOutputs     = {0};
+    int                   depthTexIndex = 0;
     g_theRendererSubsystem->UseProgram(m_skyBasicShader, rtOutputs, depthTexIndex);
 
-    // We upload the view matrix to view rotation only
     {
         MatricesUniforms matUniform = g_theGame->m_player->GetCamera()->GetMatricesUniforms();
         matUniform.gbufferModelView.SetTranslation3D(Vec3(0.0f, 0.0f, 0.0f));
@@ -143,29 +120,18 @@ void SkyRenderPass::Execute()
 
     RenderSkyDome();
     RenderVoidDome();
-
-    // ==================== [NEW] Step 4: Render sunset strip (conditional) ====================
-    // [NEW] Set renderStage to SUNSET for sunset strip rendering
     RenderSunsetStrip();
 
-    // ==================== [Component 2] Draw Sky Textured (Sun/Moon) ====================
-    // [FIX] Enable Alpha Blending for sun/moon soft edges
+    // Draw sky textured (sun/moon)
     g_theRendererSubsystem->SetBlendMode(BlendMode::Additive);
     g_theRendererSubsystem->UseProgram(m_skyTexturedShader, rtOutputs, depthTexIndex);
 
-    // [Component 2] Draw Sun Billboard
     RenderSun();
-
-    // [Component 2] Draw Moon Billboard
     RenderMoon();
 
-    // [IMPORTANT] Restore normal camera matrices AFTER celestial rendering
-    // Sun/Moon rendering requires gbufferModelView without translation (line 141)
-    // Other geometry needs normal camera transform with translation
+    // Restore normal camera matrices after celestial rendering
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(g_theGame->m_player->GetCamera()->GetMatricesUniforms());
 
-
-    // [NEW] Reset renderStage to NONE at end of pass
     commonData.renderStage = ToRenderStage(WorldRenderingPhase::NONE);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
 
@@ -174,40 +140,26 @@ void SkyRenderPass::Execute()
 
 void SkyRenderPass::BeginPass()
 {
-    // ==================== [Component 2] Set Depth State to ALWAYS (depth value 1.0) ====================
-    // WHY: Sky is rendered at maximum depth (1.0) to ensure it's always behind all geometry
-    // Depth test ALWAYS ensures all sky pixels pass depth test regardless of depth buffer content
+    // Sky rendered at maximum depth (1.0) - always behind all geometry
     g_theRendererSubsystem->SetDepthMode(DepthMode::Always);
     g_theRendererSubsystem->SetCustomImage(0, nullptr);
 }
 
 void SkyRenderPass::EndPass()
 {
-    // ==================== [Component 2] Cleanup Render States ====================
-    // Reference: SceneUnitTest_StencilXRay.cpp:94 EndPass cleanup logic
-
-    // [CLEANUP] Reset depth state to default (ReadWrite + LessEqual)
     g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled);
-
-    // [CLEANUP] Reset stencil state to disabled
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::Disabled());
-
-    // [CLEANUP] Reset blend mode to opaque
     g_theRendererSubsystem->SetBlendMode(BlendMode::Opaque);
 }
 
 void SkyRenderPass::WriteSkyColorToRT()
 {
-    // [FIX] Use fog color for Clear RT (matching Minecraft FogRenderer algorithm)
     // Reference: Minecraft FogRenderer.java:45-150 setupColor()
     float celestialAngle = g_theGame->m_timeOfDayManager->GetCelestialAngle();
     float sunAngle       = g_theGame->m_timeOfDayManager->GetSunAngle();
 
-    // [FIX] Calculate fog color using SkyColorHelper (not sky color!)
-    // Minecraft uses fogColor for clearing, not skyColor
     Vec3 fogColor = SkyColorHelper::CalculateFogColor(celestialAngle, sunAngle);
 
-    // [NEW] Convert Vec3 to Rgba8 for ClearRenderTarget API
     Rgba8 fogColorRgba8(
         static_cast<unsigned char>(fogColor.x * 255.0f),
         static_cast<unsigned char>(fogColor.y * 255.0f),
@@ -215,16 +167,14 @@ void SkyRenderPass::WriteSkyColorToRT()
         255
     );
 
-    // [FIX] Clear colortex0 with fog color (RT index 0)
     g_theRendererSubsystem->ClearRenderTarget(0, fogColorRgba8);
 }
 
 void SkyRenderPass::RenderSunsetStrip()
 {
-    // [FIX] Use sunAngle instead of celestialAngle for sunrise/sunset calculations
+    // Reference: Minecraft LevelRenderer.java:1480-1545
     float sunAngle = g_theGame->m_timeOfDayManager->GetSunAngle();
 
-    // [NEW] Skip if not during sunrise/sunset
     if (!ShouldRenderSunsetStrip(sunAngle))
     {
         return;
@@ -233,31 +183,14 @@ void SkyRenderPass::RenderSunsetStrip()
     commonData.renderStage = ToRenderStage(WorldRenderingPhase::SUNSET);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
 
-    // [NEW] Calculate strip color (includes alpha for intensity)
-    Vec4 sunriseColor = SkyColorHelper::CalculateSunriseColor(sunAngle);
-
-    // ==========================================================================
-    // [NEW] Set colorModulator for GPU-side coloring (Minecraft/Iris style)
-    // ==========================================================================
-    // Reference: Minecraft DynamicTransforms.ColorModulator
-    //            Iris iris_ColorModulator (VanillaTransformer.java:76-79)
-    //
-    // Flow:
-    //   1. Vertex color = pure white (255,255,255), alpha gradient
-    //   2. colorModulator = sunriseColor (set here)
-    //   3. Shader: finalColor = white * colorModulator = actual sunset color
-    // ==========================================================================
-    celestialData.colorModulator = sunriseColor; // [NEW] Set colorModulator = sunriseColor
+    // Reference: Iris iris_ColorModulator (VanillaTransformer.java:76-79)
+    Vec4 sunriseColor            = SkyColorHelper::CalculateSunriseColor(sunAngle);
+    celestialData.colorModulator = sunriseColor;
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
-    // [NEW] Generate strip geometry with CPU transform (matches Minecraft LevelRenderer.java)
-    // Pass sunAngle for flip calculation: XP(90) * ZP(flip) * ZP(90)
     m_sunsetStripVertices = SkyGeometryHelper::GenerateSunriseStrip(sunriseColor, sunAngle);
 
-    // [NEW] Enable additive blending for glow effect
     g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
-
-    // [NEW] Draw strip using same shader as sky dome
     g_theRendererSubsystem->DrawVertexArray(m_sunsetStripVertices);
 }
 
@@ -266,20 +199,9 @@ void SkyRenderPass::RenderSkyDome()
     commonData.renderStage = ToRenderStage(WorldRenderingPhase::SKY);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
 
-    // ==========================================================================
-    // [NEW] Generate sky dome with CPU-side fog blending (Iris-style)
-    // ==========================================================================
-    // Instead of using pre-generated vertices with uniform color, we regenerate
-    // the sky dome each frame with per-vertex colors blended based on elevation:
-    // - Zenith (center): pure skyColor
-    // - Horizon (edge): pure fogColor
-    // GPU interpolation creates smooth gradient matching Minecraft appearance
-    // ==========================================================================
+    // Generate sky dome with per-vertex fog blending (zenith=skyColor, horizon=fogColor)
     float celestialAngle = g_theGame->m_timeOfDayManager->GetCelestialAngle();
     m_skyDomeVertices    = SkyGeometryHelper::GenerateSkyDiscWithFog(16.0f, celestialAngle);
-
-    // [FIX] Draw both hemispheres to form complete sky sphere
-    // Upper hemisphere: Sky dome (player looks up to see sky)
 
     g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
     g_theRendererSubsystem->DrawVertexArray(m_skyDomeVertices);
@@ -287,13 +209,9 @@ void SkyRenderPass::RenderSkyDome()
 
 void SkyRenderPass::RenderVoidDome()
 {
-    // [NEW] Lower hemisphere: Void dome (only render when camera Z < horizon height)
     // Reference: Minecraft LevelRenderer.java:1599-1607
-    // Condition: player.getEyePosition().y < level.getHorizonHeight()
-    // In our coordinate system: camera Z < 63.0 (sea level)
     if (ShouldRenderVoidDome())
     {
-        // [NEW] Set renderStage to VOID for void dome rendering
         commonData.renderStage = ToRenderStage(WorldRenderingPhase::SKY_VOID);
         g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
         g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
@@ -302,134 +220,94 @@ void SkyRenderPass::RenderVoidDome()
 
 void SkyRenderPass::RenderSun()
 {
-    // ==========================================================================
-    // [REFACTOR] Minecraft Vanilla Sun Rendering Architecture
-    // ==========================================================================
-    // Reference: Minecraft LevelRenderer.java:1548-1558 + position_tex.vsh
-    // Iris CelestialUniforms.java:119-133 getCelestialPosition()
-    //
-    // Architecture:
-    // 1. Standardized quad vertices (-1 to 1, XY plane, Z=0)
-    // 2. CPU calculates complete ModelMatrix with Scale + Translate + Rotation
-    // 3. VS applies simple matrix chain: modelMatrix → gbufferModelView → projection
-    //
-    // Transform Chain (applied order):
-    //   1. Scale(30)            → Quad from 2×2 to 60×60 units
-    //   2. Translate(0, 0, 100) → Move to 100 units distance from camera
-    //   3. CelestialRotation    → Rotate to sky position based on time
-    // ==========================================================================
-
-    // [STEP 1] Set renderStage to SUN
+    // Reference: Minecraft LevelRenderer.java:1548-1558
+    // Reference: Iris CelestialUniforms.java:119-133
     commonData.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
 
-
-    float skyAngle = g_theGame->m_timeOfDayManager->GetSunAngle();
-
-    // [NEW] Use member variable instead of constexpr (ImGui configurable)
+    float           skyAngle     = g_theGame->m_timeOfDayManager->GetSunAngle();
     float           sunSize      = m_sunSize;
     constexpr float SUN_DISTANCE = 100.0f;
 
+    // Model matrix: Translate -> Orient -> Scale
     Mat44 modelMatrix;
     modelMatrix.Append(Mat44::MakeTranslation3D(Vec3(SUN_DISTANCE, 0.0f, 0.0f)));
     modelMatrix.AppendYRotation(-90.f);
     modelMatrix.Append(Mat44::MakeUniformScale3D(sunSize));
 
-
-    // gbufferModelView: Only remove translation (keep camera rotation)
+    // Celestial view: camera rotation + time rotation, no translation
     MatricesUniforms matricesUniforms = g_theGame->m_player->GetCamera()->GetMatricesUniforms();
     Mat44            celestialView    = matricesUniforms.gbufferModelView;
     celestialView.AppendYRotation(-360 * skyAngle);
-    celestialView.SetTranslation3D(Vec3::ZERO); // Keep sun at "infinite distance"
+    celestialView.SetTranslation3D(Vec3::ZERO);
     matricesUniforms.gbufferModelView        = celestialView;
     matricesUniforms.gbufferModelViewInverse = celestialView.GetInverse();
 
-    // [STEP 3] Upload PerObjectUniforms with complete model matrix
     perObjectData.modelMatrix        = modelMatrix;
     perObjectData.modelMatrixInverse = modelMatrix.GetInverse();
 
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectData);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matricesUniforms);
 
-
-    // [FIX] Reset colorModulator to white before Sun/Moon rendering
-    // RenderSunsetStrip() sets colorModulator to sunriseColor which may have low alpha
+    // Reset colorModulator to white (RenderSunsetStrip may have changed it)
     celestialData.colorModulator = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
-
-    // [STEP 4] Bind sun texture to customImage0
     g_theRendererSubsystem->SetCustomImage(0, m_sunTexture.get());
-    // [STEP 5] Draw standardized quad (6 vertices, -1 to 1 range)
     g_theRendererSubsystem->DrawVertexArray(m_sunQuadVertices);
 }
 
 void SkyRenderPass::RenderMoon()
 {
+    // Reference: Minecraft LevelRenderer.java:1559-1580
     commonData.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
 
-
-    float skyAngle = g_theGame->m_timeOfDayManager->GetSunAngle();
-
-    // [NEW] Use member variable instead of constexpr (ImGui configurable)
+    float           skyAngle      = g_theGame->m_timeOfDayManager->GetSunAngle();
     float           moonSize      = m_moonSize;
     constexpr float MOON_DISTANCE = -100.0f;
 
+    // Model matrix: Translate -> Orient -> Scale
     Mat44 modelMatrix;
     modelMatrix.Append(Mat44::MakeTranslation3D(Vec3(MOON_DISTANCE, 0.0f, 0.0f)));
     modelMatrix.AppendYRotation(90.f);
     modelMatrix.Append(Mat44::MakeUniformScale3D(moonSize));
 
-    // gbufferModelView: Only remove translation (keep camera rotation)
+    // Celestial view: camera rotation + time rotation, no translation
     MatricesUniforms matricesUniforms = g_theGame->m_player->GetCamera()->GetMatricesUniforms();
     Mat44            celestialView    = matricesUniforms.gbufferModelView;
     celestialView.AppendYRotation(-360 * skyAngle);
-    celestialView.SetTranslation3D(Vec3::ZERO); // Keep sun at "infinite distance"
+    celestialView.SetTranslation3D(Vec3::ZERO);
     matricesUniforms.gbufferModelView        = celestialView;
     matricesUniforms.gbufferModelViewInverse = celestialView.GetInverse();
 
-    // [STEP 3] Upload PerObjectUniforms with complete model matrix
     perObjectData.modelMatrix        = modelMatrix;
     perObjectData.modelMatrixInverse = modelMatrix.GetInverse();
 
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectData);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matricesUniforms);
 
-    // [STEP 4] Calculate moon phase and bind texture
-    // Reference: Minecraft LevelRenderer.java:1562
-    // moonPhase = dayCount % 8 (0=full moon, 4=new moon, cycles through 8 phases)
+    // Reference: Minecraft LevelRenderer.java:1562 - moon phase calculation
     int moonPhase = g_theGame->m_timeOfDayManager->GetDayCount() % 8;
 
-    // Bind moon phase texture to customImage0
     g_theRendererSubsystem->SetCustomImage(0, m_moonPhasesAtlas->GetSprite(moonPhase).GetTexture().get());
-
     m_moonQuadVertices = SkyGeometryHelper::GenerateCelestialQuad(m_moonPhasesAtlas->GetSprite(moonPhase).GetUVBounds());
-
-    // [STEP 5] Draw standardized quad (6 vertices, -1 to 1 range)
     g_theRendererSubsystem->DrawVertexArray(m_moonQuadVertices);
 }
 
 bool SkyRenderPass::ShouldRenderSunsetStrip(float sunAngle) const
 {
-    // [FIX] Minecraft time reference using sunAngle (not celestialAngle):
     // Reference: Iris CelestialUniforms.java:24-32 getSunAngle()
-    // 
-    // sunAngle = celestialAngle + 0.25 (with wrap-around)
-    // This ensures:
-    // - tick 18000 (celestialAngle=0.75) -> sunAngle=0.0 -> sunrise
-    // - tick 0 (celestialAngle=0.0) -> sunAngle=0.25 -> after midnight (no strip)
-    // - tick 6000 (celestialAngle=0.25) -> sunAngle=0.5 -> sunset
-    // - tick 12000 (celestialAngle=0.5) -> sunAngle=0.75 -> noon (no strip)
-    constexpr float SUNRISE_CENTER = 0.0f; // [FIX] Sunrise at sunAngle 0.0
-    constexpr float SUNSET_CENTER  = 0.5f; // [FIX] Sunset at sunAngle 0.5
+    // sunAngle 0.0 = sunrise (tick 18000), sunAngle 0.5 = sunset (tick 6000)
+    constexpr float SUNRISE_CENTER = 0.0f;
+    constexpr float SUNSET_CENTER  = 0.5f;
     constexpr float THRESHOLD      = 0.1f;
 
-    // [FIX] Handle sunrise wrap-around (sunAngle near 0.0 or 1.0)
+    // Handle wrap-around for sunrise (sunAngle near 0.0 or 1.0)
     float distToSunrise = std::abs(sunAngle - SUNRISE_CENTER);
     if (distToSunrise > 0.5f)
     {
-        distToSunrise = 1.0f - distToSunrise; // Wrap around (e.g., 0.95 -> 0.05)
+        distToSunrise = 1.0f - distToSunrise;
     }
 
     float distToSunset = std::abs(sunAngle - SUNSET_CENTER);
@@ -439,27 +317,9 @@ bool SkyRenderPass::ShouldRenderSunsetStrip(float sunAngle) const
 
 bool SkyRenderPass::ShouldRenderVoidDome() const
 {
-    // [NEW] Minecraft void dome rendering condition
-    // Reference: LevelRenderer.java:1599-1607
-    // 
-    // Minecraft code:
-    // double d = this.minecraft.player.getEyePosition(f).y - this.level.getLevelData().getHorizonHeight(this.level);
-    // if (d < 0.0D) { /* render darkBuffer (void dome) */ }
-    //
-    // getHorizonHeight() returns:
-    // - 63.0 for normal worlds (sea level)
-    // - minBuildHeight for flat worlds
-    //
-    // Coordinate mapping:
-    // - Minecraft Y axis = Our Z axis
-    // - Camera position in our system uses Z for vertical
-
-    constexpr float HORIZON_HEIGHT = 63.0f; // Minecraft sea level
-
-    // Get camera position (eye position)
-    Vec3 cameraPos = g_theGame->m_player->GetCamera()->GetPosition();
-
-    // Check if camera Z (Minecraft Y) is below horizon height
-    // Only render void dome when player is underground (Z < 63)
+    // Reference: Minecraft LevelRenderer.java:1599-1607
+    // Render void dome when camera Z < horizon height (63.0 = sea level)
+    constexpr float HORIZON_HEIGHT = 63.0f;
+    Vec3            cameraPos      = g_theGame->m_player->GetCamera()->GetPosition();
     return cameraPos.z < HORIZON_HEIGHT;
 }

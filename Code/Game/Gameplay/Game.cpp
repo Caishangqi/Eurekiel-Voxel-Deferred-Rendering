@@ -36,8 +36,9 @@ Game::Game()
     m_timeOfDayManager = std::make_unique<TimeOfDayManager>(m_gameClock.get());
 
     /// Prepare player
-    m_player             = std::make_unique<PlayerCharacter>(this);
-    m_player->m_position = Vec3(0, 0, 64);
+    m_player                = std::make_unique<PlayerCharacter>(this);
+    m_player->m_position    = Vec3(0, 0, 64);
+    m_player->m_orientation = EulerAngles(0, 0, 0);
 
     /// Scene (Test Only)
     //m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
