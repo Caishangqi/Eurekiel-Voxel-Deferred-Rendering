@@ -91,24 +91,47 @@ public:
 
     /**
      * @brief Generate sunrise/sunset strip mesh (TRIANGLE_LIST topology) with CPU transform
-     * 
+     *
      * Creates a 48-vertex fan mesh (16 triangles) for rendering sunrise/sunset glow.
      * Center vertex has high alpha (orange), outer vertices have zero alpha (transparent).
      * GPU interpolation creates smooth gradient effect.
-     * 
+     *
      * [CRITICAL] Matches Minecraft's CPU-side transform approach:
      *   poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
      *   poseStack.mulPose(Axis.ZP.rotationDegrees(flip));  // 0 or 180 based on sunAngle
      *   poseStack.mulPose(Axis.ZP.rotationDegrees(90.0F));
      *   bufferBuilder.addVertex(matrix4f3, ...);  // CPU transform applied here!
-     * 
+     *
      * @param sunriseColor RGBA color from CalculateSunriseColor() (r, g, b, alpha)
      * @param sunAngle Current sun angle (0.0-1.0) for flip calculation
      * @return std::vector<Vertex> Vertex array ready for TRIANGLE_LIST rendering (48 vertices)
-     * 
+     *
      * @note Vertex count: 16 triangles * 3 = 48 vertices
      * @note Transform: XP(90) * ZP(flip) * ZP(90) applied on CPU
      * @note Reference: Minecraft LevelRenderer.java:1527-1548
      */
     static std::vector<Vertex> GenerateSunriseStrip(const Vec4& sunriseColor, float sunAngle);
+
+    /**
+     * @brief Generate fixed quad for celestial bodies (Minecraft Vanilla style)
+     *
+     * [REFACTOR] Simplified CPU-side quad generation:
+     * - Fixed quad in XY plane (Z=0), facing +Z direction
+     * - 6 vertices (2 triangles) with white color and UV (0,0)-(1,1)
+     * - No celestialType encoding, no billboard offset calculation
+     * - CPU calculates celestial rotation matrix, uploaded via PerObjectUniforms.modelMatrix
+     *
+     * @param uvBounds UV coordinates from SpriteAtlas (default: ZERO_TO_ONE for full texture)
+     * @return std::vector<Vertex> Vertex array ready for TRIANGLE_LIST rendering (6 vertices)
+     *
+     * @note Vertex count: 6 (2 triangles)
+     * @note Position: XY plane centered at origin, Z=0
+     * @note UV: Maps to uvBounds (typically 0,0 to 1,1 for single texture)
+     * @note Color: White (Rgba8::White), modulated by ColorModulator in shader
+     *
+     * Reference:
+     * - Minecraft position_tex.vsh uses simple ModelViewMat transform
+     * - Iris CelestialUniforms.java calculates rotation on CPU
+     */
+    static std::vector<Vertex> GenerateCelestialQuad(const AABB2& uvBounds);
 };

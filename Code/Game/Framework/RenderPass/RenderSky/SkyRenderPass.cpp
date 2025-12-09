@@ -1,7 +1,6 @@
 ﻿#include "SkyRenderPass.hpp"
 #include "SkyGeometryHelper.hpp"
 #include "SkyColorHelper.hpp"
-#include "Engine/Graphic/Resource/Buffer/D12VertexBuffer.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
 #include "Game/GameCommon.hpp"
@@ -13,10 +12,8 @@
 #include "Game/Framework/RenderPass/WorldRenderingPhase.hpp" // [NEW] For renderStage
 #include "Game/Gameplay/Game.hpp"
 #include "Engine/Math/Mat44.hpp"
-#include "Engine/Math/MathUtils.hpp"
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
 #include "Engine/Graphic/Camera/EnigmaCamera.hpp"
-#include <cmath> // [NEW] For std::abs in ShouldRenderSunsetStrip
 
 #include "Engine/Core/VertexUtils.hpp"
 
@@ -74,9 +71,10 @@ SkyRenderPass::SkyRenderPass()
     // ==========================================================================
     m_skyDomeVertices  = SkyGeometryHelper::GenerateSkyDisc(16.0f); // Upper hemisphere (sky)
     m_voidDomeVertices = SkyGeometryHelper::GenerateSkyDisc(-16.0f); // Lower hemisphere (void)
+    m_sunQuadVertices  = SkyGeometryHelper::GenerateCelestialQuad(AABB2::ZERO_TO_ONE);
 
-    // [Component 2] Register CelestialConstantBuffer to slot 15 (PerFrame update)
-    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CelestialConstantBuffer>(15, enigma::graphic::UpdateFrequency::PerObject // [FIX P1] Celestial data updates per frame, not per object
+    // [Component 2] Register CelestialConstantBuffer to slot 9 (PerFrame update)
+    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CelestialConstantBuffer>(9, enigma::graphic::UpdateFrequency::PerObject // [FIX P1] Celestial data updates per frame, not per object
     );
 
     // [NEW] Register CommonConstantBuffer to slot 16 (PerFrame update)
@@ -109,8 +107,9 @@ void SkyRenderPass::Execute()
     float h                     = cosf(celestialData.celestialAngle * 6.28318530718f) * 2.0f + 0.5f;
     celestialData.skyBrightness = (h < 0.0f) ? 0.0f : ((h > 1.0f) ? 1.0f : h);
 
-    celestialData.sunPosition  = g_theGame->m_timeOfDayManager->CalculateSunPosition(gbufferModelView); // [FIX] VIEW SPACE position
-    celestialData.moonPosition = g_theGame->m_timeOfDayManager->CalculateMoonPosition(gbufferModelView); // [FIX] VIEW SPACE position
+    celestialData.sunPosition    = g_theGame->m_timeOfDayManager->CalculateSunPosition(gbufferModelView); // [FIX] VIEW SPACE position
+    celestialData.moonPosition   = g_theGame->m_timeOfDayManager->CalculateMoonPosition(gbufferModelView); // [FIX] VIEW SPACE position
+    celestialData.colorModulator = Vec4(1.0f, 1.0f, 1.0f, 1.0f); // [FIX] Default to white, RenderSunsetStrip will override when needed
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
     // ==================== [NEW] Upload CommonConstantBuffer ====================
@@ -135,6 +134,13 @@ void SkyRenderPass::Execute()
     int                   depthTexIndex = 0; // depthtex0
     g_theRendererSubsystem->UseProgram(m_skyBasicShader, rtOutputs, depthTexIndex);
 
+    // We upload the view matrix to view rotation only
+    {
+        MatricesUniforms matUniform = g_theGame->m_player->GetCamera()->GetMatricesUniforms();
+        matUniform.gbufferModelView.SetTranslation3D(Vec3(0.0f, 0.0f, 0.0f));
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matUniform);
+    }
+
     RenderSkyDome();
     RenderVoidDome();
 
@@ -142,59 +148,22 @@ void SkyRenderPass::Execute()
     // [NEW] Set renderStage to SUNSET for sunset strip rendering
     RenderSunsetStrip();
 
-    // Reset the Camera Matrices
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(g_theGame->m_player->GetCamera()->GetMatricesUniforms());
-
     // ==================== [Component 2] Draw Sky Textured (Sun/Moon) ====================
     // [FIX] Enable Alpha Blending for sun/moon soft edges
     g_theRendererSubsystem->SetBlendMode(BlendMode::Additive);
     g_theRendererSubsystem->UseProgram(m_skyTexturedShader, rtOutputs, depthTexIndex);
 
     // [Component 2] Draw Sun Billboard
-    {
-        // [NEW] Set renderStage to SUN
-        commonData.renderStage    = ToRenderStage(WorldRenderingPhase::SUN);
-        commonData.darknessFactor = 12.f;
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
-
-        // Generate sun billboard vertices with calculated UV
-        std::vector<Vertex> sunVertices = SkyGeometryHelper::GenerateCelestialBillboard(
-            0.0f, // celestialType = 0 (Sun)
-            AABB2::ZERO_TO_ONE
-        );
-
-        // Bind sun texture to customImage0
-        g_theRendererSubsystem->SetCustomImage(0, m_sunTexture.get());
-
-        // Draw sun billboard (2 triangles = 6 vertices)
-        g_theRendererSubsystem->DrawVertexArray(sunVertices);
-    }
+    RenderSun();
 
     // [Component 2] Draw Moon Billboard
-    {
-        // [NEW] Set renderStage to MOON
-        commonData.renderStage = ToRenderStage(WorldRenderingPhase::MOON);
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+    RenderMoon();
 
-        // [FIX] Calculate moon phase using dayCount (changes daily, not per-tick)
-        // Minecraft: moonPhase = dayCount % 8 (0=full moon, cycles through 8 phases)
-        int moonPhase = g_theGame->m_timeOfDayManager->GetDayCount() % 8;
+    // [IMPORTANT] Restore normal camera matrices AFTER celestial rendering
+    // Sun/Moon rendering requires gbufferModelView without translation (line 141)
+    // Other geometry needs normal camera transform with translation
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(g_theGame->m_player->GetCamera()->GetMatricesUniforms());
 
-        // Calculate moon UV from atlas (CPU-side calculation)
-        AABB2 moonUV = m_moonPhasesAtlas->GetSprite(moonPhase).GetUVBounds();
-
-        // Generate moon billboard vertices with calculated UV
-        std::vector<Vertex> moonVertices = SkyGeometryHelper::GenerateCelestialBillboard(
-            1.0f, // celestialType = 1 (Moon)
-            moonUV
-        );
-
-        // Bind moon texture to customImage0
-        g_theRendererSubsystem->SetCustomImage(0, m_moonPhasesAtlas->GetSprite(moonPhase).GetTexture().get());
-
-        // Draw moon billboard (2 triangles = 6 vertices)
-        g_theRendererSubsystem->DrawVertexArray(moonVertices);
-    }
 
     // [NEW] Reset renderStage to NONE at end of pass
     commonData.renderStage = ToRenderStage(WorldRenderingPhase::NONE);
@@ -297,9 +266,6 @@ void SkyRenderPass::RenderSkyDome()
     commonData.renderStage = ToRenderStage(WorldRenderingPhase::SKY);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
 
-    MatricesUniforms matUniform = g_theGame->m_player->GetCamera()->GetMatricesUniforms();
-    matUniform.gbufferModelView.SetTranslation3D(Vec3(0.0f, 0.0f, 0.0f));
-
     // ==========================================================================
     // [NEW] Generate sky dome with CPU-side fog blending (Iris-style)
     // ==========================================================================
@@ -314,7 +280,7 @@ void SkyRenderPass::RenderSkyDome()
 
     // [FIX] Draw both hemispheres to form complete sky sphere
     // Upper hemisphere: Sky dome (player looks up to see sky)
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matUniform);
+
     g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
     g_theRendererSubsystem->DrawVertexArray(m_skyDomeVertices);
 }
@@ -332,6 +298,116 @@ void SkyRenderPass::RenderVoidDome()
         g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
         g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
     }
+}
+
+void SkyRenderPass::RenderSun()
+{
+    // ==========================================================================
+    // [REFACTOR] Minecraft Vanilla Sun Rendering Architecture
+    // ==========================================================================
+    // Reference: Minecraft LevelRenderer.java:1548-1558 + position_tex.vsh
+    // Iris CelestialUniforms.java:119-133 getCelestialPosition()
+    //
+    // Architecture:
+    // 1. Standardized quad vertices (-1 to 1, XY plane, Z=0)
+    // 2. CPU calculates complete ModelMatrix with Scale + Translate + Rotation
+    // 3. VS applies simple matrix chain: modelMatrix → gbufferModelView → projection
+    //
+    // Transform Chain (applied order):
+    //   1. Scale(30)            → Quad from 2×2 to 60×60 units
+    //   2. Translate(0, 0, 100) → Move to 100 units distance from camera
+    //   3. CelestialRotation    → Rotate to sky position based on time
+    // ==========================================================================
+
+    // [STEP 1] Set renderStage to SUN
+    commonData.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+
+
+    float skyAngle = g_theGame->m_timeOfDayManager->GetSunAngle();
+
+    // [NEW] Use member variable instead of constexpr (ImGui configurable)
+    float           sunSize      = m_sunSize;
+    constexpr float SUN_DISTANCE = 100.0f;
+
+    Mat44 modelMatrix;
+    modelMatrix.Append(Mat44::MakeTranslation3D(Vec3(SUN_DISTANCE, 0.0f, 0.0f)));
+    modelMatrix.AppendYRotation(-90.f);
+    modelMatrix.Append(Mat44::MakeUniformScale3D(sunSize));
+
+
+    // gbufferModelView: Only remove translation (keep camera rotation)
+    MatricesUniforms matricesUniforms = g_theGame->m_player->GetCamera()->GetMatricesUniforms();
+    Mat44            celestialView    = matricesUniforms.gbufferModelView;
+    celestialView.AppendYRotation(-360 * skyAngle);
+    celestialView.SetTranslation3D(Vec3::ZERO); // Keep sun at "infinite distance"
+    matricesUniforms.gbufferModelView        = celestialView;
+    matricesUniforms.gbufferModelViewInverse = celestialView.GetInverse();
+
+    // [STEP 3] Upload PerObjectUniforms with complete model matrix
+    perObjectData.modelMatrix        = modelMatrix;
+    perObjectData.modelMatrixInverse = modelMatrix.GetInverse();
+
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectData);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matricesUniforms);
+
+
+    // [FIX] Reset colorModulator to white before Sun/Moon rendering
+    // RenderSunsetStrip() sets colorModulator to sunriseColor which may have low alpha
+    celestialData.colorModulator = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
+
+
+    // [STEP 4] Bind sun texture to customImage0
+    g_theRendererSubsystem->SetCustomImage(0, m_sunTexture.get());
+    // [STEP 5] Draw standardized quad (6 vertices, -1 to 1 range)
+    g_theRendererSubsystem->DrawVertexArray(m_sunQuadVertices);
+}
+
+void SkyRenderPass::RenderMoon()
+{
+    commonData.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+
+
+    float skyAngle = g_theGame->m_timeOfDayManager->GetSunAngle();
+
+    // [NEW] Use member variable instead of constexpr (ImGui configurable)
+    float           moonSize      = m_moonSize;
+    constexpr float MOON_DISTANCE = -100.0f;
+
+    Mat44 modelMatrix;
+    modelMatrix.Append(Mat44::MakeTranslation3D(Vec3(MOON_DISTANCE, 0.0f, 0.0f)));
+    modelMatrix.AppendYRotation(90.f);
+    modelMatrix.Append(Mat44::MakeUniformScale3D(moonSize));
+
+    // gbufferModelView: Only remove translation (keep camera rotation)
+    MatricesUniforms matricesUniforms = g_theGame->m_player->GetCamera()->GetMatricesUniforms();
+    Mat44            celestialView    = matricesUniforms.gbufferModelView;
+    celestialView.AppendYRotation(-360 * skyAngle);
+    celestialView.SetTranslation3D(Vec3::ZERO); // Keep sun at "infinite distance"
+    matricesUniforms.gbufferModelView        = celestialView;
+    matricesUniforms.gbufferModelViewInverse = celestialView.GetInverse();
+
+    // [STEP 3] Upload PerObjectUniforms with complete model matrix
+    perObjectData.modelMatrix        = modelMatrix;
+    perObjectData.modelMatrixInverse = modelMatrix.GetInverse();
+
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectData);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matricesUniforms);
+
+    // [STEP 4] Calculate moon phase and bind texture
+    // Reference: Minecraft LevelRenderer.java:1562
+    // moonPhase = dayCount % 8 (0=full moon, 4=new moon, cycles through 8 phases)
+    int moonPhase = g_theGame->m_timeOfDayManager->GetDayCount() % 8;
+
+    // Bind moon phase texture to customImage0
+    g_theRendererSubsystem->SetCustomImage(0, m_moonPhasesAtlas->GetSprite(moonPhase).GetTexture().get());
+
+    m_moonQuadVertices = SkyGeometryHelper::GenerateCelestialQuad(m_moonPhasesAtlas->GetSprite(moonPhase).GetUVBounds());
+
+    // [STEP 5] Draw standardized quad (6 vertices, -1 to 1 range)
+    g_theRendererSubsystem->DrawVertexArray(m_moonQuadVertices);
 }
 
 bool SkyRenderPass::ShouldRenderSunsetStrip(float sunAngle) const

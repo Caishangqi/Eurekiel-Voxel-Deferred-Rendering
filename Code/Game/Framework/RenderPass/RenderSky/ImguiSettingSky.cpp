@@ -49,6 +49,50 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
 
         ImGui::Separator();
 
+        // ==================== Celestial Body Size ====================
+
+        if (ImGui::TreeNode("Celestial Body Size"))
+        {
+            ImGui::TextDisabled("(?) Sun and Moon billboard sizes");
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip(
+                    "Controls the visual size of sun and moon billboards.\n"
+                    "Minecraft defaults: Sun=30, Moon=20\n"
+                    "Larger values = bigger celestial bodies.");
+            }
+
+            float sunSize = skyPass->GetSunSize();
+            if (ImGui::SliderFloat("Sun Size", &sunSize, 5.0f, 100.0f, "%.1f"))
+            {
+                skyPass->SetSunSize(sunSize);
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Sun billboard size (default: 30)");
+            }
+
+            float moonSize = skyPass->GetMoonSize();
+            if (ImGui::SliderFloat("Moon Size", &moonSize, 5.0f, 100.0f, "%.1f"))
+            {
+                skyPass->SetMoonSize(moonSize);
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Moon billboard size (default: 20)");
+            }
+
+            if (ImGui::Button("Reset to Defaults##CelestialSize"))
+            {
+                skyPass->SetSunSize(30.0f);
+                skyPass->SetMoonSize(20.0f);
+            }
+
+            ImGui::TreePop();
+        }
+
+        ImGui::Separator();
+
         // ==================== Sky Phase Colors (5-phase system) ====================
 
         if (ImGui::TreeNode("Sky Dome Phase Colors"))

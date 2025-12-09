@@ -62,13 +62,4 @@ public:
     static void Show();
 
 private:
-    /**
-     * @brief Show Sun & Moon parameters section
-     *
-     * Parameters:
-     * - Sun Size (slider)
-     * - Moon Size (slider)
-     * - Celestial Brightness (slider)
-     */
-    static void ShowSunMoonParameters();
 };

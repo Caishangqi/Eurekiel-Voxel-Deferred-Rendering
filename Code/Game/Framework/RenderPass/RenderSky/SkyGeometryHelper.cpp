@@ -444,3 +444,57 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
     TransformVertexArray3D(vertices, adjust);
     return vertices;
 }
+
+//-----------------------------------------------------------------------------------------------
+std::vector<Vertex> SkyGeometryHelper::GenerateCelestialQuad(const AABB2& uvBounds)
+{
+    // ==========================================================================
+    // [REFACTOR] Standardized Quad Generation - Minecraft Vanilla Architecture
+    // ==========================================================================
+    // Reference: Minecraft vanilla sun/moon vertices from RenderDoc:
+    //   Position: (-1, 0, -1), (1, 0, -1), (1, 0, 1), (1, 0, 1), (-1, 0, 1), (-1, 0, -1)
+    //   - Normalized quad in XZ plane (MC Y-up), Y=0
+    //   - Range: -1 to 1 (standardized, 2×2 units)
+    //   - Scaling and distance offset handled by ModelViewMat on CPU
+    //
+    // Our Coordinate (Z-up):
+    //   - MC XZ plane → Our XY plane
+    //   - Position: (-1, -1, 0), (1, -1, 0), (1, 1, 0), (1, 1, 0), (-1, 1, 0), (-1, -1, 0)
+    //
+    // Transform Chain (CPU calculates modelMatrix):
+    //   1. Scale(size)          → Scale quad to actual size (30 for sun, 20 for moon)
+    //   2. Translate(0, 0, 100) → Move to 100 units distance
+    //   3. CelestialRotation    → Rotate based on time of day
+    //
+    // [NOTE] size parameter kept for API compatibility but not used in vertex data
+    // ==========================================================================
+
+    std::vector<Vertex> vertices;
+    vertices.reserve(6); // 2 triangles = 6 vertices
+
+    // Extract UV coordinates
+    Vec2 uvMin = uvBounds.m_mins;
+    Vec2 uvMax = uvBounds.m_maxs;
+
+    // [CRITICAL] Standardized quad: -1 to 1 in XY plane, Z=0
+    // Matches Minecraft vanilla vertices exactly (after coordinate conversion)
+    constexpr float NORMALIZED_SIZE = 1.0f;
+
+    // Default vertex attributes
+    Rgba8 white = Rgba8::WHITE;
+    Vec3  normal(0.0f, 0.0f, 1.0f); // Face +Z
+    Vec3  tangent(1.0f, 0.0f, 0.0f);
+    Vec3  bitangent(0.0f, 1.0f, 0.0f);
+
+    // Triangle 1: Bottom-Left → Bottom-Right → Top-Right (CCW)
+    vertices.emplace_back(Vec3(-NORMALIZED_SIZE, -NORMALIZED_SIZE, 0.0f), white, Vec2(uvMin.x, uvMax.y), normal, tangent, bitangent);
+    vertices.emplace_back(Vec3(NORMALIZED_SIZE, -NORMALIZED_SIZE, 0.0f), white, Vec2(uvMax.x, uvMax.y), normal, tangent, bitangent);
+    vertices.emplace_back(Vec3(NORMALIZED_SIZE, NORMALIZED_SIZE, 0.0f), white, Vec2(uvMax.x, uvMin.y), normal, tangent, bitangent);
+
+    // Triangle 2: Top-Right → Top-Left → Bottom-Left (CCW)
+    vertices.emplace_back(Vec3(NORMALIZED_SIZE, NORMALIZED_SIZE, 0.0f), white, Vec2(uvMax.x, uvMin.y), normal, tangent, bitangent);
+    vertices.emplace_back(Vec3(-NORMALIZED_SIZE, NORMALIZED_SIZE, 0.0f), white, Vec2(uvMin.x, uvMin.y), normal, tangent, bitangent);
+    vertices.emplace_back(Vec3(-NORMALIZED_SIZE, -NORMALIZED_SIZE, 0.0f), white, Vec2(uvMin.x, uvMax.y), normal, tangent, bitangent);
+
+    return vertices;
+}

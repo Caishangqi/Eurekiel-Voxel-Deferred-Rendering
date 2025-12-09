@@ -40,12 +40,21 @@ public:
     Vec3 GetSkyHorizonColor() const { return m_skyHorizonColor; }
     void SetSkyHorizonColor(const Vec3& color) { m_skyHorizonColor = color; }
 
+    // [NEW] Sun/Moon Size Access for ImGui
+    float GetSunSize() const { return m_sunSize; }
+    void  SetSunSize(float size) { m_sunSize = size; }
+
+    float GetMoonSize() const { return m_moonSize; }
+    void  SetMoonSize(float size) { m_moonSize = size; }
+
 private:
     // [NEW] Sky color rendering methods
     void WriteSkyColorToRT();
     void RenderSunsetStrip();
     void RenderSkyDome();
     void RenderVoidDome();
+    void RenderSun();
+    void RenderMoon();
     bool ShouldRenderSunsetStrip(float sunAngle) const;
 
     // [NEW] Void dome conditional rendering
@@ -68,6 +77,12 @@ private:
     // [NEW] Sunset strip geometry
     std::vector<Vertex> m_sunsetStripVertices;
 
+    // [REFACTOR] Fixed Sun/Moon billboard quad geometry (cached, created in constructor)
+    // CPU-side quad vertices in XY plane (Z=0), rotated by modelMatrix on CPU
+    // Reference: Minecraft vanilla uses fixed quad with 6 vertices (2 triangles)
+    std::vector<Vertex> m_sunQuadVertices; // Sun: 30×30 units, XY plane, Z=0
+    std::vector<Vertex> m_moonQuadVertices; // Moon: 20×20 units, XY plane, Z=0
+
     // [Component 6.4] Sky Rendering Parameters
     bool m_enableVoidGradient = true; // Void gradient toggle
     Vec3 m_skyZenithColor     = Vec3(0.47f, 0.65f, 1.0f); // Sky zenith color (blue)
@@ -75,6 +90,10 @@ private:
 
     // Sun Stripe
     bool m_enableSunStrip = true;
+
+    // [NEW] Celestial Body Size Parameters (ImGui configurable)
+    float m_sunSize  = 30.0f; // Sun billboard size (Minecraft default: 30)
+    float m_moonSize = 20.0f; // Moon billboard size (Minecraft default: 20)
 
     CommonConstantBuffer    commonData;
     CelestialConstantBuffer celestialData;
