@@ -172,23 +172,25 @@ void SkyRenderPass::WriteSkyColorToRT()
 
 void SkyRenderPass::RenderSunsetStrip()
 {
-    // Reference: Minecraft LevelRenderer.java:1480-1545
-    float sunAngle = g_theGame->m_timeOfDayManager->GetSunAngle();
+    // Reference: Minecraft LevelRenderer.java:1520-1550, DimensionSpecialEffects.java:44-60
+    // Minecraft uses timeOfDay (celestialAngle) for all strip calculations
+    float celestialAngle = g_theGame->m_timeOfDayManager->GetCelestialAngle();
 
-    if (!ShouldRenderSunsetStrip(sunAngle))
+    // Get sunrise color (returns null equivalent if not in sunrise/sunset window)
+    Vec4 sunriseColor = SkyColorHelper::CalculateSunriseColor(celestialAngle);
+    if (sunriseColor.w <= 0.0f)
     {
-        return;
+        return; // No strip to render (alpha = 0 means outside sunrise/sunset window)
     }
 
     commonData.renderStage = ToRenderStage(WorldRenderingPhase::SUNSET);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
 
     // Reference: Iris iris_ColorModulator (VanillaTransformer.java:76-79)
-    Vec4 sunriseColor            = SkyColorHelper::CalculateSunriseColor(sunAngle);
     celestialData.colorModulator = sunriseColor;
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
-    m_sunsetStripVertices = SkyGeometryHelper::GenerateSunriseStrip(sunriseColor, sunAngle);
+    m_sunsetStripVertices = SkyGeometryHelper::GenerateSunriseStrip(sunriseColor, celestialAngle);
 
     g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
     g_theRendererSubsystem->DrawVertexArray(m_sunsetStripVertices);

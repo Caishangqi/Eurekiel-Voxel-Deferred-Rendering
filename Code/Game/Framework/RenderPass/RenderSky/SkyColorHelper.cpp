@@ -96,17 +96,14 @@ float SkyColorHelper::CalculateDayFactor(float celestialAngle)
 //-----------------------------------------------------------------------------------------------
 // Calculate sunset/sunrise intensity factor
 // Reference: Minecraft DimensionSpecialEffects.java:44-59 getSunriseColor()
-float SkyColorHelper::CalculateSunsetFactor(float sunAngle)
+// @param celestialAngle timeOfDay value (0.0-1.0), NOT Iris sunAngle
+float SkyColorHelper::CalculateSunsetFactor(float celestialAngle)
 {
-    // [CONVERSION] sunAngle -> celestialAngle
-    float celestialAngle = sunAngle - 0.25f;
-    if (celestialAngle < 0.0f) celestialAngle += 1.0f;
-
     constexpr float TWO_PI = 6.2831855f;
     constexpr float PI     = 3.1415927f;
 
-    // Step 1: i = cos(celestialAngle * 2pi) - 0.0
-    float i = std::cos(celestialAngle * TWO_PI) - 0.0f;
+    // Step 1: i = cos(celestialAngle * 2pi)
+    float i = std::cos(celestialAngle * TWO_PI);
 
     // Step 2: Check sunrise/sunset window [-0.4, 0.4]
     constexpr float WINDOW = 0.4f;
@@ -115,8 +112,8 @@ float SkyColorHelper::CalculateSunsetFactor(float sunAngle)
         return 0.0f; // Outside sunrise/sunset period
     }
 
-    // Step 3: k = (i - 0.0) / 0.4 * 0.5 + 0.5
-    float k = (i - 0.0f) / WINDOW * 0.5f + 0.5f;
+    // Step 3: k = i / 0.4 * 0.5 + 0.5
+    float k = i / WINDOW * 0.5f + 0.5f;
 
     // Step 4: l = 1.0 - (1.0 - sin(k * pi)) * 0.99
     float l = 1.0f - (1.0f - std::sin(k * PI)) * 0.99f;
@@ -324,29 +321,34 @@ Vec3 SkyColorHelper::CalculateFogColor(float celestialAngle, float sunAngle)
 
 //-----------------------------------------------------------------------------------------------
 // Calculate sunrise/sunset glow color using configurable strip colors
-Vec4 SkyColorHelper::CalculateSunriseColor(float sunAngle)
+// Reference: Minecraft DimensionSpecialEffects.java:44-59 getSunriseColor()
+// @param celestialAngle timeOfDay value (0.0-1.0), NOT Iris sunAngle
+Vec4 SkyColorHelper::CalculateSunriseColor(float celestialAngle)
 {
-    float intensity = CalculateSunsetFactor(sunAngle);
+    float intensity = CalculateSunsetFactor(celestialAngle);
 
-    // Early exit if no glow visible
+    // Early exit if no glow visible (equivalent to Minecraft returning null)
     if (intensity < 0.001f)
     {
         return Vec4(0.0f, 0.0f, 0.0f, 0.0f);
     }
 
-    // Determine if we're in sunrise or sunset based on sunAngle
-    float distToSunrise = sunAngle < 0.5f ? sunAngle : (1.0f - sunAngle);
-    float distToSunset  = sunAngle > 0.5f ? (sunAngle - 0.5f) : (0.5f - sunAngle);
+    // Determine if we're in sunrise or sunset based on celestialAngle
+    // Sunrise: celestialAngle near 0.75 (wraps around 0.0/1.0)
+    // Sunset: celestialAngle near 0.25
+    float distToSunrise = std::abs(celestialAngle - 0.75f);
+    if (distToSunrise > 0.5f) distToSunrise = 1.0f - distToSunrise; // Handle wrap-around
+    float distToSunset = std::abs(celestialAngle - 0.25f);
 
     Vec3 stripColor;
     if (distToSunrise < distToSunset)
     {
-        // Closer to sunrise (sunAngle near 0.0 or 1.0)
+        // Closer to sunrise (celestialAngle near 0.75)
         stripColor = s_stripColors.sunriseStrip;
     }
     else
     {
-        // Closer to sunset (sunAngle near 0.5)
+        // Closer to sunset (celestialAngle near 0.25)
         stripColor = s_stripColors.sunsetStrip;
     }
 

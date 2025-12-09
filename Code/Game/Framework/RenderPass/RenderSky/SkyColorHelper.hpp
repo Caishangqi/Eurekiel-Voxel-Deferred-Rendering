@@ -238,14 +238,17 @@ public:
     static Vec3 CalculateFogColor(float celestialAngle, float sunAngle);
 
     /**
-     * @brief Calculate sunrise/sunset glow color based on sunAngle
+     * @brief Calculate sunrise/sunset glow color based on celestialAngle (timeOfDay)
      *
      * Computes the orange glow color and alpha for sunrise/sunset rendering.
+     * Uses Minecraft's exact formula: cos(celestialAngle * 2π) in [-0.4, 0.4] window.
      *
-     * @param sunAngle Current sun angle (0.0 - 1.0), where sunAngle = celestialAngle + 0.25
+     * @param celestialAngle timeOfDay value (0.0-1.0): 0.0=sunrise, 0.25=noon, 0.5=sunset, 0.75=midnight
      * @return Vec4 RGBA color (RGB: orange tint, A: intensity 0.0-1.0)
+     *
+     * @note Reference: Minecraft DimensionSpecialEffects.java:44-60 getSunriseColor()
      */
-    static Vec4 CalculateSunriseColor(float sunAngle);
+    static Vec4 CalculateSunriseColor(float celestialAngle);
 
     //-----------------------------------------------------------------------------------------------
     // Phase color configuration accessors
@@ -305,6 +308,8 @@ private:
 
     /**
      * @brief Calculate sunset/sunrise intensity factor
+     * @param celestialAngle timeOfDay value (0.0-1.0), NOT Iris sunAngle
+     * @note Reference: Minecraft DimensionSpecialEffects.java:44-59 getSunriseColor()
      */
-    static float CalculateSunsetFactor(float sunAngle);
+    static float CalculateSunsetFactor(float celestialAngle);
 };

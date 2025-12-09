@@ -98,19 +98,19 @@ public:
      *
      * [CRITICAL] Matches Minecraft's CPU-side transform approach:
      *   poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
-     *   poseStack.mulPose(Axis.ZP.rotationDegrees(flip));  // 0 or 180 based on sunAngle
+     *   poseStack.mulPose(Axis.ZP.rotationDegrees(flip));  // 0 or 180 based on celestialAngle
      *   poseStack.mulPose(Axis.ZP.rotationDegrees(90.0F));
      *   bufferBuilder.addVertex(matrix4f3, ...);  // CPU transform applied here!
      *
      * @param sunriseColor RGBA color from CalculateSunriseColor() (r, g, b, alpha)
-     * @param sunAngle Current sun angle (0.0-1.0) for flip calculation
+     * @param celestialAngle timeOfDay value (0.0-1.0): 0.0=sunrise, 0.25=noon, 0.5=sunset, 0.75=midnight
      * @return std::vector<Vertex> Vertex array ready for TRIANGLE_LIST rendering (48 vertices)
      *
      * @note Vertex count: 16 triangles * 3 = 48 vertices
      * @note Transform: XP(90) * ZP(flip) * ZP(90) applied on CPU
-     * @note Reference: Minecraft LevelRenderer.java:1527-1548
+     * @note Reference: Minecraft LevelRenderer.java:1527-1548, DimensionSpecialEffects.java:44-60
      */
-    static std::vector<Vertex> GenerateSunriseStrip(const Vec4& sunriseColor, float sunAngle);
+    static std::vector<Vertex> GenerateSunriseStrip(const Vec4& sunriseColor, float celestialAngle);
 
     /**
      * @brief Generate fixed quad for celestial bodies (Minecraft Vanilla style)

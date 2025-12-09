@@ -295,18 +295,18 @@ std::vector<Vertex> SkyGeometryHelper::GenerateCelestialBillboard(
 }
 
 //-----------------------------------------------------------------------------------------------
-std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseColor, float sunAngle)
+std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseColor, float celestialAngle)
 {
     // ==========================================================================
     // [Sunrise/Sunset Strip] - CPU-side Transform using Mat44 (Matching Minecraft)
     // ==========================================================================
     //
     // [CRITICAL] Minecraft applies transforms on CPU, NOT in shader!
-    // Reference: LevelRenderer.java:1527-1548
+    // Reference: LevelRenderer.java:1527-1548, DimensionSpecialEffects.java:44-60
     //
     //   poseStack.pushPose();
     //   poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));        // Step 1
-    //   j = Mth.sin(sunAngle) < 0 ? 180.0F : 0.0F;
+    //   j = Mth.sin(celestialAngle * 2PI) < 0 ? 180.0F : 0.0F;
     //   poseStack.mulPose(Axis.ZP.rotationDegrees(j));            // Step 2 (flip)
     //   poseStack.mulPose(Axis.ZP.rotationDegrees(90.0F));        // Step 3
     //   Matrix4f matrix4f3 = poseStack.last().pose();
@@ -319,6 +319,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
     // [Transform Chain] XP(90) * ZP(flip) * ZP(90):
     //   Combined rotation places strip at horizon, facing sunrise/sunset direction
     //
+    // @param celestialAngle timeOfDay (0.0-1.0): 0.0=sunrise, 0.25=noon, 0.5=sunset, 0.75=midnight
     // ==========================================================================
 
     std::vector<Vertex> vertices;
@@ -331,39 +332,18 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
     constexpr float TWO_PI      = 6.28318530718f;
 
     // ==========================================================================
-    // [STEP 1] Build combined rotation matrix using Mat44
+    // [STEP 1] Calculate flip angle directly from celestialAngle
     // ==========================================================================
-    // Minecraft transform order (column-major, right multiply):
-    //   final = XP(90) * ZP(flip) * ZP(90)
-    //
-    // Using Mat44::Append which is "multiply on right in column notation"
-    // So we build: start with XP(90), append ZP(flip), append ZP(90)
-    // ==========================================================================
-
-    // Calculate flip angle based on sun position
     // Reference: Minecraft LevelRenderer.java:1531
     //   j = Mth.sin(this.level.getSunAngle(f)) < 0.0F ? 180.0F : 0.0F;
     // Note: Minecraft's getSunAngle() returns celestialAngle * 2π (radians)
-    // We need to convert our sunAngle back to celestialAngle first
-    // Iris sunAngle = celestialAngle + 0.25 (when celestialAngle < 0.75)
-    // Iris sunAngle = celestialAngle - 0.75 (when celestialAngle >= 0.75)
-    float celestialAngle;
-    if (sunAngle >= 0.25f)
-    {
-        celestialAngle = sunAngle - 0.25f; // sunAngle in [0.25, 1.0) -> celestialAngle in [0.0, 0.75)
-    }
-    else
-    {
-        celestialAngle = sunAngle + 0.75f; // sunAngle in [0.0, 0.25) -> celestialAngle in [0.75, 1.0)
-    }
-
-    // Minecraft uses sin(celestialAngle * 2π) for flip decision
+    // ==========================================================================
     float sinCelestialAngle = std::sin(celestialAngle * TWO_PI);
     float flipAngle         = (sinCelestialAngle < 0.0f) ? 180.0f : 0.0f;
 
     // [DEBUG] Print transform debug info
-    DebuggerPrintf("[SunsetStrip] sunAngle=%.4f, celestialAngle=%.4f, sin=%.4f, flipAngle=%.1f\n",
-                   sunAngle, celestialAngle, sinCelestialAngle, flipAngle);
+    DebuggerPrintf("[SunsetStrip] celestialAngle=%.4f, sin=%.4f, flipAngle=%.1f\n",
+                   celestialAngle, sinCelestialAngle, flipAngle);
 
     // ==========================================================================
     // Preparing the Geometry same look between Vertex In
