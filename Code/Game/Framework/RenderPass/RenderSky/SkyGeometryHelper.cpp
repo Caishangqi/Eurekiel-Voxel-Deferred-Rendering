@@ -341,11 +341,29 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
     // ==========================================================================
 
     // Calculate flip angle based on sun position
-    float sinSunAngle = std::sin(sunAngle * TWO_PI);
-    float flipAngle   = (sinSunAngle < 0.0f) ? 180.0f : 0.0f;
+    // Reference: Minecraft LevelRenderer.java:1531
+    //   j = Mth.sin(this.level.getSunAngle(f)) < 0.0F ? 180.0F : 0.0F;
+    // Note: Minecraft's getSunAngle() returns celestialAngle * 2π (radians)
+    // We need to convert our sunAngle back to celestialAngle first
+    // Iris sunAngle = celestialAngle + 0.25 (when celestialAngle < 0.75)
+    // Iris sunAngle = celestialAngle - 0.75 (when celestialAngle >= 0.75)
+    float celestialAngle;
+    if (sunAngle >= 0.25f)
+    {
+        celestialAngle = sunAngle - 0.25f; // sunAngle in [0.25, 1.0) -> celestialAngle in [0.0, 0.75)
+    }
+    else
+    {
+        celestialAngle = sunAngle + 0.75f; // sunAngle in [0.0, 0.25) -> celestialAngle in [0.75, 1.0)
+    }
+
+    // Minecraft uses sin(celestialAngle * 2π) for flip decision
+    float sinCelestialAngle = std::sin(celestialAngle * TWO_PI);
+    float flipAngle         = (sinCelestialAngle < 0.0f) ? 180.0f : 0.0f;
 
     // [DEBUG] Print transform debug info
-    DebuggerPrintf("[SunsetStrip] sunAngle=%.4f, sin(sunAngle)=%.4f, flipAngle=%.1f\n", sunAngle, sinSunAngle, flipAngle);
+    DebuggerPrintf("[SunsetStrip] sunAngle=%.4f, celestialAngle=%.4f, sin=%.4f, flipAngle=%.1f\n",
+                   sunAngle, celestialAngle, sinCelestialAngle, flipAngle);
 
     // ==========================================================================
     // Preparing the Geometry same look between Vertex In

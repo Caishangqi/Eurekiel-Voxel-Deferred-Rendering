@@ -297,22 +297,31 @@ void SkyRenderPass::RenderMoon()
 
 bool SkyRenderPass::ShouldRenderSunsetStrip(float sunAngle) const
 {
+    // Reference: Minecraft DimensionSpecialEffects.java:44-60 getSunriseColor()
     // Reference: Iris CelestialUniforms.java:24-32 getSunAngle()
-    // sunAngle 0.0 = sunrise (tick 18000), sunAngle 0.5 = sunset (tick 6000)
-    constexpr float SUNRISE_CENTER = 0.0f;
-    constexpr float SUNSET_CENTER  = 0.5f;
-    constexpr float THRESHOLD      = 0.1f;
-
-    // Handle wrap-around for sunrise (sunAngle near 0.0 or 1.0)
-    float distToSunrise = std::abs(sunAngle - SUNRISE_CENTER);
-    if (distToSunrise > 0.5f)
+    //
+    // Minecraft uses: cos(timeOfDay * 2π) in [-0.4, 0.4] to decide rendering
+    // We use sunAngle which relates to timeOfDay (skyAngle) as:
+    //   sunAngle = timeOfDay + 0.25  (when timeOfDay < 0.75)
+    //   sunAngle = timeOfDay - 0.75  (when timeOfDay >= 0.75)
+    //
+    // Convert sunAngle back to timeOfDay for the cos check:
+    float timeOfDay;
+    if (sunAngle >= 0.25f)
     {
-        distToSunrise = 1.0f - distToSunrise;
+        timeOfDay = sunAngle - 0.25f; // sunAngle in [0.25, 1.0) -> timeOfDay in [0.0, 0.75)
+    }
+    else
+    {
+        timeOfDay = sunAngle + 0.75f; // sunAngle in [0.0, 0.25) -> timeOfDay in [0.75, 1.0)
     }
 
-    float distToSunset = std::abs(sunAngle - SUNSET_CENTER);
+    // Minecraft's condition: cos(timeOfDay * 2π) in [-0.4, 0.4]
+    constexpr float TWO_PI    = 6.28318530718f;
+    constexpr float THRESHOLD = 0.4f;
 
-    return (distToSunrise < THRESHOLD) || (distToSunset < THRESHOLD);
+    float cosValue = cosf(timeOfDay * TWO_PI);
+    return (cosValue >= -THRESHOLD) && (cosValue <= THRESHOLD);
 }
 
 bool SkyRenderPass::ShouldRenderVoidDome() const
