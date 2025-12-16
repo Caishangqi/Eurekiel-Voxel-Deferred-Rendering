@@ -32,7 +32,7 @@ void CloudGeometryHelper::RebuildGeometry(
 {
     // [STEP 1] Clear and reserve space
     existingGeometry->vertices.clear();
-    existingGeometry->vertices.reserve(50000); // Pre-allocate estimated max vertices
+    existingGeometry->vertices.reserve(100000); // Pre-allocate estimated max vertices
 
     int radius = params.radius;
     // [FIX] Use actual params instead of hardcoded defaults

@@ -16,7 +16,7 @@ video:
     renderMode: "fancy"   # fast, fancy
     height: 192.0         # Cloud layer base height (Z-axis)
     thickness: 4.0        # Cloud layer thickness (4 blocks)
-    renderDistance: 32    # Render distance in cells (16 cells = 192 blocks)
+    renderDistance: 128    # Render distance in cells (16 cells = 192 blocks)
     speed: 1.0            # Cloud scroll speed multiplier
     opacity: 0.8          # Cloud opacity (0.0-1.0)
 performance:

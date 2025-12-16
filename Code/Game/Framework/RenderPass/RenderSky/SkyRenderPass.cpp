@@ -28,6 +28,9 @@ SkyRenderPass::SkyRenderPass()
         "gbuffers_skybasic",
         shaderCompileOptions
     );
+    auto testAlpha        = m_skyBasicShader->GetDirectives().GetAlphaTest();
+    auto testRenderTarget = m_skyBasicShader->GetDirectives().GetDrawBuffers();
+
 
     m_skyTexturedShader = g_theRendererSubsystem->CreateShaderProgramFromFiles(
         ".enigma/assets/engine/shaders/program/gbuffers_skytextured.vs.hlsl",

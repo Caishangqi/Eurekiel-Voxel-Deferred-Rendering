@@ -34,6 +34,8 @@
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
 #include <cmath>
 
+#include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
+
 // ========================================
 // Constants (Defaults, overridden by CloudConfig)
 // ========================================

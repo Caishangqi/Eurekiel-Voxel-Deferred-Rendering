@@ -32,21 +32,11 @@
 #include "../include/common_uniforms.hlsl"
 #include "../include/celestial_uniforms.hlsl"
 
-// [RENDERTARGETS] 0
-// Output to colortex0 (sky color)
-
-/**
- * @brief Pixel Shader Output Structure
- * ShaderCodeGenerator reads RENDERTARGETS comment and generates this struct
- */
 struct PSOutput
 {
     float4 Color0 : SV_Target0; // colortex0 (sky color)
 };
 
-/**
- * @brief Minecraft Void Gradient Constants
- */
 static const float MIN_BUILD_HEIGHT  = -64.0; // Minecraft min build height
 static const float CLEAR_COLOR_SCALE = 0.03125; // 1.0 / 32.0
 
@@ -59,6 +49,19 @@ PSOutput main(PSInput input)
 {
     PSOutput output;
     float3   finalColor;
+
+    /*RENDERTARGETS: 0,3,7*/
+    /*BLEND:ADD*/
+    /*DEPTHTEST:GREATER*/
+
+    /*DEPTHWRITE:OFF*/
+    /*ALPHATEST:0.5*/
+    /*CULLFACE:BACK*/
+    /*CULLFACE:FRONT*/
+
+#ifdef DEBUG_VISUALIZE_GBUFFERS
+#endif
+
 
     // ==========================================================================
     // [STEP 1] Determine color based on renderStage

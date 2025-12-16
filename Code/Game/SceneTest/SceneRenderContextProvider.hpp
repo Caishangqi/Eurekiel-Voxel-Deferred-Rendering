@@ -2,7 +2,7 @@
 #include <map>
 #include <memory>
 #include <string>
-#include "Engine/Graphic/Shader/ShaderPack/ShaderProgram.hpp"
+#include "Engine/Graphic/Shader/Program/ShaderProgram.hpp"
 
 class SceneRenderContextProvider
 {

@@ -34,6 +34,8 @@
 #include "Engine/Core/ImGui/ImGuiSubsystemConfig.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystemImGuiContext.hpp"
+#include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
+#include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystemConfiguration.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Gameplay/Game.hpp"
 
@@ -132,6 +134,14 @@ void App::Startup(char*)
     renderConfig.enableBindlessResources = true;
     auto rendererSubsystem               = std::make_unique<RendererSubsystem>(renderConfig);
     GEngine->RegisterSubsystem(std::move(rendererSubsystem));
+
+    // ShaderBundle Subsystem - Register after RendererSubsystem (priority 100 > 80)
+    // ShaderBundleSubsystem depends on RendererSubsystem for shader compilation
+    enigma::graphic::ShaderBundleSubsystemConfiguration bundleConfig;
+    bundleConfig.shaderBundleUserDiscoveryPath = ".enigma/shaderpacks";
+    bundleConfig.shaderBundleEnginePath        = ".enigma/assets/engine/shaders";
+    auto shaderBundleSubsystem                 = std::make_unique<enigma::graphic::ShaderBundleSubsystem>(bundleConfig);
+    GEngine->RegisterSubsystem(std::move(shaderBundleSubsystem));
 
     // Imgui Subsystem
     ImGuiSubsystemConfig imguiConfig;
