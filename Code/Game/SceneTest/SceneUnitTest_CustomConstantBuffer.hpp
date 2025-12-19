@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "SceneUnitTest.hpp"
+#include "Engine/Math/Vec4.hpp"
 
 class Geometry;
 
@@ -11,12 +12,12 @@ namespace enigma::graphic
 #pragma warning(push)
 #pragma warning(disable: 4324)
 
+// [NEW] Test Custom Uniform for multi-draw data independence verification
+// Uses Vec4 color to visually verify Ring Buffer isolation
 struct TestUserCustomUniform
 {
-    alignas(16) float dummySineValue;
-    float             dummyValue1;
-    float             dummyValue2;
-    float             _padding1;
+    Vec4  color; // RGBA color for visual verification
+    float padding[12]; // Padding to 64 bytes (256-byte aligned for CBV)
 };
 
 class SceneUnitTest_CustomConstantBuffer : public SceneUnitTest
@@ -39,8 +40,10 @@ private:
 #pragma endregion RENDER_RESOURCE
 
 #pragma region GAME_OBJECT
-    std::unique_ptr<Geometry> m_cubeC = nullptr; // sprite Atlas Test cube
-    std::unique_ptr<Geometry> m_cubeB = nullptr; // sprite Atlas Test cube
+    // [NEW] Three cubes for RGB multi-draw test (left to right: Red, Green, Blue)
+    std::unique_ptr<Geometry> m_cubeA = nullptr; // Red cube at (-4, 0, 0)
+    std::unique_ptr<Geometry> m_cubeB = nullptr; // Green cube at (0, 0, 0)
+    std::unique_ptr<Geometry> m_cubeC = nullptr; // Blue cube at (4, 0, 0)
 #pragma endregion
 
 #pragma region CUSTOM_CONSTANT_BUFFER

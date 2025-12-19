@@ -39,25 +39,41 @@ SceneUnitTest_CustomConstantBuffer::SceneUnitTest_CustomConstantBuffer()
     sa_testMoon = std::make_shared<SpriteAtlas>("testMoonPhase");
     sa_testMoon->BuildFromGrid(".enigma/assets/engine/textures/environment/moon_phases.png", IntVec2(4, 2));
 
-    /// Prepare scene
+    /// Prepare scene - Three cubes for RGB multi-draw test
+    /// [NEW] Left to right: Red (-4,0,0), Green (0,0,0), Blue (4,0,0)
 
-    m_cubeC             = std::make_unique<Geometry>(g_theGame);
-    AABB3 geoCubeC      = AABB3(Vec3(0, 0, 0), Vec3(2, 2, 2));
-    m_cubeC->m_position = Vec3(0, 0, 0);
-    m_cubeC->m_color    = Rgba8::WHITE;
-    m_cubeC->m_scale    = Vec3(2.0f, 2.0f, 2.0f); // Make CubeB larger to create occlusion for X-Ray test
-    m_cubeC->SetVertices(geoCubeC.GetVertices(Rgba8::WHITE, sa_testMoon->GetSprite(0).GetUVBounds()))->SetIndices(geoCubeC.GetIndices());
+    // [NEW] Red cube at left position
+    m_cubeA             = std::make_unique<Geometry>(g_theGame);
+    AABB3 geoCubeA      = AABB3(Vec3(0, 0, 0), Vec3(2, 2, 2));
+    m_cubeA->m_position = Vec3(-4.0f, 0.0f, 0.0f);
+    m_cubeA->m_color    = Rgba8::WHITE;
+    m_cubeA->m_scale    = Vec3(1.0f, 1.0f, 1.0f);
+    m_cubeA->SetVertices(geoCubeA.GetVertices())->SetIndices(geoCubeA.GetIndices());
 
+    // [NEW] Green cube at center position
     m_cubeB             = std::make_unique<Geometry>(g_theGame);
-    AABB3 geoCubeB      = AABB3(Vec3(0, 0, 0), Vec3(1, 1, 1));
-    m_cubeB->m_position = Vec3(4, 4, 0);
+    AABB3 geoCubeB      = AABB3(Vec3(0, 0, 0), Vec3(2, 2, 2));
+    m_cubeB->m_position = Vec3(0.0f, 0.0f, 0.0f);
     m_cubeB->m_color    = Rgba8::WHITE;
-    m_cubeB->m_scale    = Vec3(2.0f, 2.0f, 2.0f); // Make CubeB larger to create occlusion for X-Ray test
+    m_cubeB->m_scale    = Vec3(1.0f, 1.0f, 1.0f);
     m_cubeB->SetVertices(geoCubeB.GetVertices())->SetIndices(geoCubeB.GetIndices());
 
+    // [NEW] Blue cube at right position
+    m_cubeC             = std::make_unique<Geometry>(g_theGame);
+    AABB3 geoCubeC      = AABB3(Vec3(0, 0, 0), Vec3(2, 2, 2));
+    m_cubeC->m_position = Vec3(4.0f, 0.0f, 0.0f);
+    m_cubeC->m_color    = Rgba8::WHITE;
+    m_cubeC->m_scale    = Vec3(1.0f, 1.0f, 1.0f);
+    m_cubeC->SetVertices(geoCubeC.GetVertices())->SetIndices(geoCubeC.GetIndices());
 
     /// Register Custom Constant Buffer
-    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<TestUserCustomUniform>(50, UpdateFrequency::PerObject);
+    /// [NEW] Slot 42, space=1 (Custom Buffer path via Descriptor Table)
+    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<TestUserCustomUniform>(
+        42, // slot
+        UpdateFrequency::PerObject, // frequency
+        1, // space=1 (Custom)
+        10000 // maxDraws
+    );
 }
 
 SceneUnitTest_CustomConstantBuffer::~SceneUnitTest_CustomConstantBuffer()
@@ -66,8 +82,8 @@ SceneUnitTest_CustomConstantBuffer::~SceneUnitTest_CustomConstantBuffer()
 
 void SceneUnitTest_CustomConstantBuffer::Update()
 {
-    m_userCustomUniform.dummySineValue = sinf(g_theGame->m_timeOfDayManager->GetCloudTime() * 100.f);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer<TestUserCustomUniform>(m_userCustomUniform);
+    // [NEW] Update is now empty - color upload happens per-draw in Render()
+    // This tests Ring Buffer data independence: each draw gets its own color
 }
 
 
@@ -76,11 +92,33 @@ void SceneUnitTest_CustomConstantBuffer::Render()
     std::vector<uint32_t> rtOutputs     = {4, 5, 6, 7};
     int                   depthTexIndex = 0;
 
-    g_theRendererSubsystem->SetCustomImage(0, sa_testMoon->GetSprite(0).GetTexture().get());
-    g_theRendererSubsystem->UseProgram(sp_gBufferTestCustomBuffer, rtOutputs, depthTexIndex);
-    m_cubeC->Render();
+    auto* uniformMgr = g_theRendererSubsystem->GetUniformManager();
+
+    // [NEW] Setup shader and texture
     g_theRendererSubsystem->SetCustomImage(0, tex_testUV.get());
+    g_theRendererSubsystem->UseProgram(sp_gBufferTestCustomBuffer, rtOutputs, depthTexIndex);
+
+    // ========================================
+    // [TEST] Multi-draw data independence verification
+    // Expected: Red cube | Green cube | Blue cube (left to right)
+    // Failure:  Blue cube | Blue cube | Blue cube (Ring Buffer isolation failed)
+    // ========================================
+
+    // [TEST] Draw 1: Red cube at (-4, 0, 0)
+    m_userCustomUniform.color = Vec4(1.0f, 0.0f, 0.0f, 1.0f); // Red
+    uniformMgr->UploadBuffer<TestUserCustomUniform>(m_userCustomUniform);
+    m_cubeA->Render();
+
+    // [TEST] Draw 2: Green cube at (0, 0, 0)
+    m_userCustomUniform.color = Vec4(0.0f, 1.0f, 0.0f, 1.0f); // Green
+    // uniformMgr->UploadBuffer<TestUserCustomUniform>(m_userCustomUniform, 42, 1);
+    uniformMgr->UploadBuffer<TestUserCustomUniform>(m_userCustomUniform);
     m_cubeB->Render();
+
+    // [TEST] Draw 3: Blue cube at (4, 0, 0)
+    m_userCustomUniform.color = Vec4(0.0f, 0.0f, 1.0f, 1.0f); // Blue
+    uniformMgr->UploadBuffer<TestUserCustomUniform>(m_userCustomUniform);
+    m_cubeC->Render();
 
     // [PRESENT] Display result
     // ========================================
