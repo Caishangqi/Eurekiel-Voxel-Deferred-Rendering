@@ -66,13 +66,13 @@ SkyRenderPass::SkyRenderPass()
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CelestialConstantBuffer>(
         9, // slot
         enigma::graphic::UpdateFrequency::PerObject,
-        0, // space=0 (Engine Root CBV)
+        1,
         10000 // maxDraws
     );
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(
         8, // slot
         enigma::graphic::UpdateFrequency::PerObject,
-        0, // space=0 (Engine Root CBV)
+        1,
         10000 // maxDraws
     );
 }

@@ -39,7 +39,7 @@ PSOutput main(PSInput input)
     output.color0 = texColor * input.Color * modelColor * color;
 
     // [TEST] Other RT outputs for debugging
-    output.color1 = color;  // Pure custom buffer color
+    output.color1 = color; // Pure custom buffer color
     output.color2 = input.Color * modelColor;
     output.color3 = float4(1.0, 1.0, 1.0, 1.0);
 
