@@ -71,7 +71,7 @@ SceneUnitTest_CustomConstantBuffer::SceneUnitTest_CustomConstantBuffer()
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<TestUserCustomUniform>(
         42, // slot
         UpdateFrequency::PerObject, // frequency
-        1, // space=1 (Custom)
+        BufferSpace::Custom, // space=1 (Custom)
         10000 // maxDraws
     );
 }

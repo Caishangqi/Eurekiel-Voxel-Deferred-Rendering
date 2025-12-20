@@ -62,17 +62,17 @@ SkyRenderPass::SkyRenderPass()
     m_sunQuadVertices  = SkyGeometryHelper::GenerateCelestialQuad(AABB2::ZERO_TO_ONE);
 
     // Register constant buffers
-    // [FIX] Add space=0 parameter for Engine Root CBV path
+    // [FIX] Use BufferSpace::Custom for Descriptor Table path (space=1)
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CelestialConstantBuffer>(
         9, // slot
         enigma::graphic::UpdateFrequency::PerObject,
-        1,
+        enigma::graphic::BufferSpace::Custom,
         10000 // maxDraws
     );
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(
         8, // slot
         enigma::graphic::UpdateFrequency::PerObject,
-        1,
+        enigma::graphic::BufferSpace::Custom,
         10000 // maxDraws
     );
 }
