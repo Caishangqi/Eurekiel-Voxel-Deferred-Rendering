@@ -51,7 +51,7 @@ private:
     /// Cube 2
     std::shared_ptr<enigma::graphic::D12VertexBuffer> m_cube2VertexBuffer;
     std::shared_ptr<enigma::graphic::D12IndexBuffer>  m_cube2IndexBuffer;
-    std::vector<Vertex>                               m_cube2Vertices;
+    std::vector<Vertex_PCU>                           m_cube2Vertices;
     std::vector<uint32_t>                             m_cube2Indices;
     std::shared_ptr<Geometry>                         m_cube2Geometry;
     enigma::graphic::PerObjectUniforms                m_cube2Uniforms;

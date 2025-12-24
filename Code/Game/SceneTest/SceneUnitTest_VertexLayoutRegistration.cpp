@@ -1,6 +1,7 @@
 ﻿#include "SceneUnitTest_VertexLayoutRegistration.hpp"
 
 #include "Engine/Core/Logger/LoggerSubsystem.hpp"
+#include "Engine/Graphic/Helper/VertexConversionHelper.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCULayout.hpp"
@@ -41,7 +42,7 @@ SceneUnitTest_VertexLayoutRegistration::SceneUnitTest_VertexLayoutRegistration()
     geoCubeA.BuildVertices(m_cube1Vertices, m_cube1Indices);
 
     m_cube1VertexBuffer = D3D12RenderSystem::CreateVertexBuffer(m_cube1Vertices.size() * sizeof(Vertex_PCUTBN), sizeof(Vertex_PCUTBN), m_cube1Vertices.data());
-    m_cube1IndexBuffer  = D3D12RenderSystem::CreateIndexBuffer(m_cube1Indices.size() * sizeof(uint32_t), D12IndexBuffer::IndexFormat::Uint32, m_cube1Indices.data());
+    m_cube1IndexBuffer  = D3D12RenderSystem::CreateIndexBuffer(m_cube1Indices.size() * sizeof(uint32_t), m_cube1Indices.data());
 #pragma endregion
 #pragma region CUBE_2
     m_cube2ShaderProgram = g_theRendererSubsystem->CreateShaderProgramFromFiles(
@@ -58,10 +59,12 @@ SceneUnitTest_VertexLayoutRegistration::SceneUnitTest_VertexLayoutRegistration()
     m_cube2Geometry->m_scale    = Vec3(2.0f, 2.0f, 2.0f);
     m_cube2Uniforms.modelMatrix = m_cube2Geometry->GetModelToWorldTransform();
     m_cube2Geometry->m_color.GetAsFloats(m_cube2Uniforms.modelColor);
-    geoCubeA.BuildVertices(m_cube2Vertices, m_cube2Indices);
+    std::vector<Vertex> tempVertices;
+    geoCubeA.BuildVertices(tempVertices, m_cube2Indices);
+    std::vector<Vertex_PCU> tempVerticesPCU = VertexConversionHelper::ToPCUVector(tempVertices);
 
-    m_cube2VertexBuffer = D3D12RenderSystem::CreateVertexBuffer(m_cube2Vertices.size() * sizeof(Vertex_PCUTBN), sizeof(Vertex_PCUTBN), m_cube2Vertices.data());
-    m_cube2IndexBuffer  = D3D12RenderSystem::CreateIndexBuffer(m_cube2Indices.size() * sizeof(uint32_t), D12IndexBuffer::IndexFormat::Uint32, m_cube2Indices.data());
+    m_cube2VertexBuffer = D3D12RenderSystem::CreateVertexBuffer(tempVerticesPCU.size() * sizeof(Vertex_PCU), sizeof(Vertex_PCU), tempVerticesPCU.data());
+    m_cube2IndexBuffer  = D3D12RenderSystem::CreateIndexBuffer(m_cube2Indices.size() * sizeof(uint32_t), m_cube2Indices.data());
 #pragma endregion
 #pragma region CUBE_3
     m_cube3Geometry             = std::make_unique<Geometry>(g_theGame);
