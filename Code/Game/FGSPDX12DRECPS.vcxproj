@@ -103,7 +103,7 @@
         <Link>
             <SubSystem>Windows</SubSystem>
             <GenerateDebugInformation>true</GenerateDebugInformation>
-            <AdditionalLibraryDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/;$(SolutionDir)../Engine/Code/ThirdParty/DXC/lib/x64;$(SolutionDir)Run</AdditionalLibraryDirectories>
+            <AdditionalLibraryDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/;$(SolutionDir)../Engine/Code/ThirdParty/DXC/lib/x64;$(SolutionDir)Run;$(SolutionDir)Temporary\Engine_$(PlatformShortName)_$(Configuration)\</AdditionalLibraryDirectories>
             <AdditionalDependencies>dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
         </Link>
         <PostBuildEvent>
@@ -135,7 +135,7 @@
             <EnableCOMDATFolding>true</EnableCOMDATFolding>
             <OptimizeReferences>true</OptimizeReferences>
             <GenerateDebugInformation>true</GenerateDebugInformation>
-            <AdditionalLibraryDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/;$(SolutionDir)../Engine/Code/ThirdParty/DXC/lib/x64;$(SolutionDir)Run</AdditionalLibraryDirectories>
+            <AdditionalLibraryDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/;$(SolutionDir)../Engine/Code/ThirdParty/DXC/lib/x64;$(SolutionDir)Run;$(SolutionDir)Temporary\Engine_$(PlatformShortName)_$(Configuration)\</AdditionalLibraryDirectories>
             <AdditionalDependencies>dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
         </Link>
         <PostBuildEvent>
@@ -164,7 +164,7 @@
         <Link>
             <SubSystem>Windows</SubSystem>
             <GenerateDebugInformation>true</GenerateDebugInformation>
-            <AdditionalLibraryDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/;$(SolutionDir)../Engine/Code/ThirdParty/DXC/lib/x64;$(SolutionDir)Run</AdditionalLibraryDirectories>
+            <AdditionalLibraryDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/;$(SolutionDir)../Engine/Code/ThirdParty/DXC/lib/x64;$(SolutionDir)Run;$(SolutionDir)Temporary\Engine_$(PlatformShortName)_$(Configuration)\</AdditionalLibraryDirectories>
             <AdditionalDependencies>dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
         </Link>
         <PostBuildEvent>
@@ -196,7 +196,7 @@
             <EnableCOMDATFolding>true</EnableCOMDATFolding>
             <OptimizeReferences>true</OptimizeReferences>
             <GenerateDebugInformation>true</GenerateDebugInformation>
-            <AdditionalLibraryDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/;$(SolutionDir)../Engine/Code/ThirdParty/DXC/lib/x64;$(SolutionDir)Run</AdditionalLibraryDirectories>
+            <AdditionalLibraryDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/;$(SolutionDir)../Engine/Code/ThirdParty/DXC/lib/x64;$(SolutionDir)Run;$(SolutionDir)Temporary\Engine_$(PlatformShortName)_$(Configuration)\</AdditionalLibraryDirectories>
             <AdditionalDependencies>dxcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
         </Link>
         <PostBuildEvent>
