@@ -166,6 +166,9 @@ void App::Shutdown()
      */
 
     // Destroy the game
+    // reset: Destroy the old one and manage the new/empty one. Clean up and take over.
+    // release: Give up ownership, leave the original pointer, and become empty. Hand over control.
+    m_game.reset();
     g_theGame = nullptr;
 
     // Shutdown Engine subsystems (handles ResourceSubsystem and AudioSubsystem)
