@@ -26,7 +26,7 @@ public:
 
 #pragma region SCENE
     std::unique_ptr<SceneUnitTest> m_scene           = nullptr;
-    bool                           m_enableSceneTest = false;
+    bool                           m_enableSceneTest = true;
 
     void UpdateScene();
     void RenderScene();

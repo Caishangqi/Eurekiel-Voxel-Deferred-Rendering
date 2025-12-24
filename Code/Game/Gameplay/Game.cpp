@@ -20,6 +20,7 @@
 #include "Game/Framework/Imgui/ImguiLeftDebugOverlay.hpp"
 #include "Game/Framework/RenderPass/RenderDebug/DebugRenderPass.hpp"
 #include "Game/SceneTest/SceneUnitTest_CustomConstantBuffer.hpp"
+#include "Game/SceneTest/SceneUnitTest_VertexLayoutRegistration.hpp"
 
 Game::Game()
 {
@@ -42,7 +43,7 @@ Game::Game()
 
     /// Scene (Test Only)
     //m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
-    m_scene = std::make_unique<SceneUnitTest_CustomConstantBuffer>();
+    m_scene = std::make_unique<SceneUnitTest_VertexLayoutRegistration>();
 
     /// Render Passes (Production)
     m_skyRenderPass       = std::make_unique<SkyRenderPass>();
