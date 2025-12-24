@@ -63,7 +63,6 @@ SceneUnitTest_VertexLayoutRegistration::SceneUnitTest_VertexLayoutRegistration()
     m_cube2VertexBuffer = D3D12RenderSystem::CreateVertexBuffer(m_cube2Vertices.size() * sizeof(Vertex_PCUTBN), sizeof(Vertex_PCUTBN), m_cube2Vertices.data());
     m_cube2IndexBuffer  = D3D12RenderSystem::CreateIndexBuffer(m_cube2Indices.size() * sizeof(uint32_t), D12IndexBuffer::IndexFormat::Uint32, m_cube2Indices.data());
 #pragma endregion
-
 #pragma region CUBE_3
     m_cube3Geometry             = std::make_unique<Geometry>(g_theGame);
     AABB3 geoCubeC              = AABB3(Vec3(-1, -1, -1), Vec3(1, 1, 1));
@@ -83,12 +82,12 @@ void SceneUnitTest_VertexLayoutRegistration::Render()
     g_theRendererSubsystem->UseProgram(m_cube1ShaderProgram, {0});
     g_theRendererSubsystem->SetCustomImage(0, m_cubeTexture.get());
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(m_cube1Uniforms);
-    g_theRendererSubsystem->DrawVertexBuffer(m_cube1VertexBuffer, m_cube1IndexBuffer, m_cube1IndexBuffer->GetIndexCount());
+    g_theRendererSubsystem->DrawVertexBuffer(m_cube1VertexBuffer, m_cube1IndexBuffer);
 
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCULayout::Get());
     g_theRendererSubsystem->UseProgram(m_cube2ShaderProgram, {0});
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(m_cube2Uniforms);
-    g_theRendererSubsystem->DrawVertexBuffer(m_cube2VertexBuffer, m_cube2IndexBuffer, m_cube2IndexBuffer->GetIndexCount());
+    g_theRendererSubsystem->DrawVertexBuffer(m_cube2VertexBuffer, m_cube2IndexBuffer);
 
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
     g_theRendererSubsystem->UseProgram(m_cube1ShaderProgram, {0});
