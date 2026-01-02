@@ -15,6 +15,7 @@
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
 #include "Engine/Graphic/Camera/EnigmaCamera.hpp"
 #include "Engine/Core/VertexUtils.hpp"
+#include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCUTBNLayout.hpp"
 
 SkyRenderPass::SkyRenderPass()
 {
@@ -89,16 +90,14 @@ void SkyRenderPass::Execute()
     // Reference: Iris CelestialUniforms.java
     Mat44 gbufferModelView = g_theGame->m_player->GetCamera()->GetWorldToCameraTransform();
 
-    celestialData.celestialAngle            = g_theGame->m_timeOfDayManager->GetCelestialAngle();
-    celestialData.compensatedCelestialAngle = g_theGame->m_timeOfDayManager->GetCompensatedCelestialAngle();
-    celestialData.cloudTime                 = g_theGame->m_timeOfDayManager->GetCloudTime();
+    celestialData.celestialAngle            = g_theGame->m_timeProvider->GetCelestialAngle();
+    celestialData.compensatedCelestialAngle = g_theGame->m_timeProvider->GetCompensatedCelestialAngle();
+    celestialData.cloudTime                 = g_theGame->m_timeProvider->GetCloudTime();
 
-    // Reference: Minecraft ClientLevel.java:681 - daylight factor formula
-    float h                     = cosf(celestialData.celestialAngle * 6.28318530718f) * 2.0f + 0.5f;
-    celestialData.skyBrightness = (h < 0.0f) ? 0.0f : ((h > 1.0f) ? 1.0f : h);
+    celestialData.skyBrightness = g_theGame->m_timeProvider->GetSkyLightMultiplier();
 
-    celestialData.sunPosition    = g_theGame->m_timeOfDayManager->CalculateSunPosition(gbufferModelView);
-    celestialData.moonPosition   = g_theGame->m_timeOfDayManager->CalculateMoonPosition(gbufferModelView);
+    celestialData.sunPosition    = g_theGame->m_timeProvider->CalculateSunPosition(gbufferModelView);
+    celestialData.moonPosition   = g_theGame->m_timeProvider->CalculateMoonPosition(gbufferModelView);
     celestialData.colorModulator = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
@@ -153,6 +152,7 @@ void SkyRenderPass::BeginPass()
     // Sky rendered at maximum depth (1.0) - always behind all geometry
     g_theRendererSubsystem->SetDepthMode(DepthMode::Always);
     g_theRendererSubsystem->SetCustomImage(0, nullptr);
+    g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 }
 
 void SkyRenderPass::EndPass()
@@ -165,8 +165,8 @@ void SkyRenderPass::EndPass()
 void SkyRenderPass::WriteSkyColorToRT()
 {
     // Reference: Minecraft FogRenderer.java:45-150 setupColor()
-    float celestialAngle = g_theGame->m_timeOfDayManager->GetCelestialAngle();
-    float sunAngle       = g_theGame->m_timeOfDayManager->GetSunAngle();
+    float celestialAngle = g_theGame->m_timeProvider->GetCelestialAngle();
+    float sunAngle       = g_theGame->m_timeProvider->GetSunAngle();
 
     Vec3 fogColor = SkyColorHelper::CalculateFogColor(celestialAngle, sunAngle);
 
@@ -184,7 +184,7 @@ void SkyRenderPass::RenderSunsetStrip()
 {
     // Reference: Minecraft LevelRenderer.java:1520-1550, DimensionSpecialEffects.java:44-60
     // Minecraft uses timeOfDay (celestialAngle) for all strip calculations
-    float celestialAngle = g_theGame->m_timeOfDayManager->GetCelestialAngle();
+    float celestialAngle = g_theGame->m_timeProvider->GetCelestialAngle();
 
     // Get sunrise color (returns null equivalent if not in sunrise/sunset window)
     Vec4 sunriseColor = SkyColorHelper::CalculateSunriseColor(celestialAngle);
@@ -212,7 +212,7 @@ void SkyRenderPass::RenderSkyDome()
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
 
     // Generate sky dome with per-vertex fog blending (zenith=skyColor, horizon=fogColor)
-    float celestialAngle = g_theGame->m_timeOfDayManager->GetCelestialAngle();
+    float celestialAngle = g_theGame->m_timeProvider->GetCelestialAngle();
     m_skyDomeVertices    = SkyGeometryHelper::GenerateSkyDiscWithFog(16.0f, celestialAngle);
 
     g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
@@ -237,7 +237,7 @@ void SkyRenderPass::RenderSun()
     commonData.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
 
-    float           skyAngle     = g_theGame->m_timeOfDayManager->GetSunAngle();
+    float           skyAngle     = g_theGame->m_timeProvider->GetSunAngle();
     float           sunSize      = m_sunSize;
     constexpr float SUN_DISTANCE = 100.0f;
 
@@ -275,7 +275,7 @@ void SkyRenderPass::RenderMoon()
     commonData.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
 
-    float           skyAngle      = g_theGame->m_timeOfDayManager->GetSunAngle();
+    float           skyAngle      = g_theGame->m_timeProvider->GetSunAngle();
     float           moonSize      = m_moonSize;
     constexpr float MOON_DISTANCE = -100.0f;
 
@@ -300,7 +300,7 @@ void SkyRenderPass::RenderMoon()
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matricesUniforms);
 
     // Reference: Minecraft LevelRenderer.java:1562 - moon phase calculation
-    int moonPhase = g_theGame->m_timeOfDayManager->GetDayCount() % 8;
+    int moonPhase = g_theGame->m_timeProvider->GetDayCount() % 8;
 
     g_theRendererSubsystem->SetCustomImage(0, m_moonPhasesAtlas->GetSprite(moonPhase).GetTexture().get());
     m_moonQuadVertices = SkyGeometryHelper::GenerateCelestialQuad(m_moonPhasesAtlas->GetSprite(moonPhase).GetUVBounds());

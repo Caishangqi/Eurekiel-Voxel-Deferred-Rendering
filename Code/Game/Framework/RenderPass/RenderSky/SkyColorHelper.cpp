@@ -79,7 +79,7 @@ SkyEasingConfig    SkyColorHelper::s_easingConfig = SkyEasingConfig::GetDefault(
 
 //-----------------------------------------------------------------------------------------------
 // Calculate daylight factor from celestial angle
-// Reference: TimeOfDayManager.cpp:160 CalculateCloudColor()
+// Reference: WorldTimeProvider.cpp CalculateCloudColor()
 // Formula: cos(celestialAngle * 2PI) * 2 + 0.5, clamped to [0, 1]
 float SkyColorHelper::CalculateDayFactor(float celestialAngle)
 {

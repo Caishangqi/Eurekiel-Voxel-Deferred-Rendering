@@ -196,7 +196,7 @@ struct SunriseStripColors
  *
  * All methods are static and the class cannot be instantiated.
  *
- * @note Phase Mapping (based on celestialAngle from TimeOfDayManager::GetCelestialAngle()):
+ * @note Phase Mapping (based on celestialAngle from ITimeProvider::GetCelestialAngle()):
  *       - celestialAngle 0.0   = tick 6000  = 12:00 PM (Noon)
  *       - celestialAngle 0.25  = tick 12000 = 6:00 PM  (Sunset)
  *       - celestialAngle 0.5   = tick 18000 = 12:00 AM (Midnight)
@@ -220,7 +220,7 @@ public:
      * Computes the sky dome color by interpolating between 5 key colors based on celestialAngle.
      * Each phase transition uses a configurable Bezier easing curve for non-linear timing.
      *
-     * @param celestialAngle Current celestial angle (0.0 - 1.0), from TimeOfDayManager
+     * @param celestialAngle Current celestial angle (0.0 - 1.0), from ITimeProvider
      * @return Vec3 RGB color values (0.0 - 1.0 range)
      */
     static Vec3 CalculateSkyColor(float celestialAngle);
@@ -279,7 +279,7 @@ public:
      *
      * This function implements Iris-style CPU fog blending.
      *
-     * @param celestialAngle Current celestial angle (0.0 - 1.0), from TimeOfDayManager
+     * @param celestialAngle Current celestial angle (0.0 - 1.0), from ITimeProvider
      * @param elevationAngle Elevation angle in degrees: 90 = zenith, 0 = horizon
      * @return Vec3 RGB color blended between skyColor and fogColor
      */

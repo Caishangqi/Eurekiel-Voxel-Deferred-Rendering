@@ -54,7 +54,7 @@ public:
      * to fogColor at the horizon.
      *
      * @param centerZ Z-coordinate of the center vertex (typically +16.0 for sky dome)
-     * @param celestialAngle Current celestial angle (0.0 - 1.0) from TimeOfDayManager
+     * @param celestialAngle Current celestial angle (0.0 - 1.0) from ITimeProvider
      * @return std::vector<Vertex> Vertex array with fog-blended colors
      *
      * @note Center vertex (zenith): uses pure skyColor
