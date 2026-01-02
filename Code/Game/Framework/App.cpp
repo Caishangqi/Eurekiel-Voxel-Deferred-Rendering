@@ -74,10 +74,9 @@ void App::Startup(char*)
         enigma::core::Engine::CreateInstance();
     }
 
-
-    // ========================================================================
-    // Initialize the core engine system (minimum set)
-    // ========================================================================
+    // Create and register RegisterSubsystem first (needed for block registry)
+    auto registerSubsystem = std::make_unique<RegisterSubsystem>();
+    GEngine->RegisterSubsystem(std::move(registerSubsystem));
 
     // Create and register LoggerSubsystem first (highest priority)
     auto logger = std::make_unique<LoggerSubsystem>();
@@ -89,10 +88,15 @@ void App::Startup(char*)
     resourceConfig.enableHotReload  = false;
     resourceConfig.logResourceLoads = false;
     resourceConfig.printScanResults = false;
-    resourceConfig.AddNamespace("simpleminer", ""); // Add custom namespaces
+    resourceConfig.AddNamespace("engine", "");
+    resourceConfig.AddNamespace("simpleminer", "");
 
     auto resourceSubsystem = std::make_unique<enigma::resource::ResourceSubsystem>(resourceConfig);
     GEngine->RegisterSubsystem(std::move(resourceSubsystem));
+
+    // Create ModelSubsystem (depends on ResourceSubsystem and RenderSubsystem)
+    auto modelSubsystem = std::make_unique<enigma::model::ModelSubsystem>();
+    GEngine->RegisterSubsystem(std::move(modelSubsystem));
 
     // Event system - required, other systems rely on event communication
     EventSystemConfig eventConfig;
@@ -104,6 +108,17 @@ void App::Startup(char*)
     // Input system - for testing controls
     InputSystemConfig inputConfig;
     g_theInput = new InputSystem(inputConfig);
+
+    // Create and register ScheduleSubsystem (Phase 2: YAML-driven)
+    ScheduleConfig scheduleConfig;
+    // Try to load from YAML config file
+    if (!scheduleConfig.LoadFromFile(".enigma/config/engine/schedule.yml"))
+    {
+        // Fallback to default configuration if file not found
+        scheduleConfig = ScheduleConfig::GetDefaultConfig();
+    }
+    auto scheduleSubsystem = std::make_unique<ScheduleSubsystem>(scheduleConfig);
+    GEngine->RegisterSubsystem(std::move(scheduleSubsystem));
 
     // Window system - render target
     WindowConfig windowConfig;
@@ -153,7 +168,7 @@ void App::Startup(char*)
 
     GEngine->Startup();
 
-    g_theLogger->SetGlobalLogLevel(LogLevel::DEBUG);
+    g_theLogger->SetGlobalLogLevel(LogLevel::ERROR_);
 
     m_game    = std::make_unique<Game>();
     g_theGame = m_game.get();
