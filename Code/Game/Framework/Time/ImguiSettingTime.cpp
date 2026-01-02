@@ -1,7 +1,15 @@
 ﻿#include "ImguiSettingTime.hpp"
-#include "TimeOfDayManager.hpp"
 #include "Engine/Core/StringUtils.hpp"
 #include "ThirdParty/imgui/imgui.h"
+
+// Minecraft Official Time Constants (from TimeCommand.java:17-24)
+namespace
+{
+    constexpr int TICK_DAY      = 1000; // Morning (sun just risen)
+    constexpr int TICK_NOON     = 6000; // Noon (sun at zenith)
+    constexpr int TICK_NIGHT    = 13000; // Night begins
+    constexpr int TICK_MIDNIGHT = 18000; // Midnight (moon at zenith)
+}
 
 /**
  * Show - Render time system debug UI
@@ -9,17 +17,17 @@
  * Implementation Notes:
  * - Uses ImGui::CollapsingHeader for collapsible section
  * - ImGui::Text for read-only parameter display
- * - Future: Add SliderInt/SliderFloat for interactive debugging
+ * - SliderInt/SliderFloat for interactive debugging
  *
  * Reference:
  * - imgui_demo.cpp:434 (CollapsingHeader example)
  * - imgui_demo.cpp:955 (SliderInt example)
  */
-void ImguiSettingTime::Show(TimeOfDayManager* timeManager)
+void ImguiSettingTime::Show(enigma::voxel::ITimeProvider* timeProvider)
 {
-    if (!timeManager)
+    if (!timeProvider)
     {
-        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "[ERROR] TimeOfDayManager is null");
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "[ERROR] ITimeProvider is null");
         return;
     }
 
@@ -33,23 +41,23 @@ void ImguiSettingTime::Show(TimeOfDayManager* timeManager)
         // ==================== Read-Only Parameter Display ====================
         ImGui::SeparatorText("Time Info");
         // Current Tick (0-23999)
-        int currentTick = timeManager->GetCurrentTick();
+        int currentTick = timeProvider->GetCurrentTick();
         ImGui::Text("Current Tick: %d / 24000", currentTick);
 
         // Day Count
-        int dayCount = timeManager->GetDayCount();
+        int dayCount = timeProvider->GetDayCount();
         ImGui::Text("Day Count: %d", dayCount);
 
         // Celestial Angle (0.0-1.0)
-        float celestialAngle = timeManager->GetCelestialAngle();
+        float celestialAngle = timeProvider->GetCelestialAngle();
         ImGui::Text("Celestial Angle: %.3f", celestialAngle);
 
         // Compensated Celestial Angle (celestialAngle + 0.25)
-        float compensatedAngle = timeManager->GetCompensatedCelestialAngle();
+        float compensatedAngle = timeProvider->GetCompensatedCelestialAngle();
         ImGui::Text("Compensated Angle: %.3f", compensatedAngle);
 
         // Cloud Time (tick * 0.03)
-        float cloudTime = timeManager->GetCloudTime();
+        float cloudTime = timeProvider->GetCloudTime();
         ImGui::Text("Cloud Time: %.2f", cloudTime);
 
         // ==================== Time Phase Display (Helper Info) ====================
@@ -83,42 +91,42 @@ void ImguiSettingTime::Show(TimeOfDayManager* timeManager)
         static float timeScale = 1.0f;
         if (ImGui::SliderFloat("Time Speed", &timeScale, 0.0f, 100.0f, "%.1f"))
         {
-            timeManager->SetTimeScale(timeScale);
+            timeProvider->SetTimeScale(timeScale);
         }
 
-        // [NEW] Current Tick Slider - directly set time of day
+        // Current Tick Slider - directly set time of day
         static int tickValue = 0;
-        tickValue            = timeManager->GetCurrentTick(); // Sync with actual value
+        tickValue            = timeProvider->GetCurrentTick(); // Sync with actual value
         if (ImGui::SliderInt("Current Tick", &tickValue, 0, 23999))
         {
-            timeManager->SetCurrentTick(tickValue);
+            timeProvider->SetCurrentTick(tickValue);
         }
         // Quick preset buttons for common times (Minecraft official time points)
         if (ImGui::Button("Day (1000)"))
         {
-            timeManager->SetCurrentTick(TimeOfDayManager::TICK_DAY);
+            timeProvider->SetCurrentTick(TICK_DAY);
         }
         ImGui::SameLine();
         if (ImGui::Button("Noon (6000)"))
         {
-            timeManager->SetCurrentTick(TimeOfDayManager::TICK_NOON);
+            timeProvider->SetCurrentTick(TICK_NOON);
         }
         ImGui::SameLine();
         if (ImGui::Button("Night (13000)"))
         {
-            timeManager->SetCurrentTick(TimeOfDayManager::TICK_NIGHT);
+            timeProvider->SetCurrentTick(TICK_NIGHT);
         }
         ImGui::SameLine();
         if (ImGui::Button("Midnight (18000)"))
         {
-            timeManager->SetCurrentTick(TimeOfDayManager::TICK_MIDNIGHT);
+            timeProvider->SetCurrentTick(TICK_MIDNIGHT);
         }
         ImGui::Separator();
         if (ImGui::Button("Reset"))
         {
             timeScale = 1.0f;
             tickValue = (int)0.f;
-            timeManager->SetTimeScale(timeScale);
+            timeProvider->SetTimeScale(timeScale);
         }
 
         ImGui::Unindent();

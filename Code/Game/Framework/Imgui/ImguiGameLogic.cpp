@@ -15,7 +15,7 @@
 void ImguiGameLogic::Show()
 {
     // [MODULE 1] Time System
-    ImguiSettingTime::Show(g_theGame->m_timeOfDayManager.get());
+    ImguiSettingTime::Show(g_theGame->m_timeProvider.get());
 
     // [FUTURE] Add more game logic modules here
     // - Gameplay Parameters

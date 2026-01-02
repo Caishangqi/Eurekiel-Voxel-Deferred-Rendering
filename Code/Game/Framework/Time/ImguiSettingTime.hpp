@@ -1,10 +1,8 @@
 ﻿#pragma once
-
-// Forward declaration
-class TimeOfDayManager;
+#include "Engine/Voxel/Time/ITimeProvider.hpp"
 
 /**
- * ImguiSettingTime - Static ImGui interface for TimeOfDayManager debugging
+ * ImguiSettingTime - Static ImGui interface for ITimeProvider debugging
  *
  * Purpose:
  * - Display time system parameters (tick, celestial angles, cloud time)
@@ -13,14 +11,14 @@ class TimeOfDayManager;
  *
  * Design Pattern:
  * - Static-only class (no instantiation)
- * - Stateless UI rendering (reads from TimeOfDayManager directly)
+ * - Stateless UI rendering (reads from ITimeProvider directly)
  * - Follows ImGui immediate mode paradigm
  *
  * Usage:
  * // In Game::RenderImGui():
  * if (ImGui::Begin("Game Settings"))
  * {
- *     ImguiSettingTime::Show(m_timeOfDayManager);
+ *     ImguiSettingTime::Show(m_timeProvider);
  * }
  * ImGui::End();
  *
@@ -40,7 +38,7 @@ public:
      * Show - Render time system debug UI in a CollapsingHeader
      *
      * Parameters:
-     * - timeManager: TimeOfDayManager instance to display/modify
+     * - timeProvider: ITimeProvider instance to display/modify
      *
      * UI Layout:
      * - CollapsingHeader: "Time System"
@@ -49,8 +47,8 @@ public:
      *   - Text: Celestial Angle (read-only display)
      *   - Text: Compensated Celestial Angle (read-only display)
      *   - Text: Cloud Time (read-only display)
-     *   - [Future] SliderInt: Tick override (for debugging)
-     *   - [Future] SliderFloat: Time speed multiplier (for debugging)
+     *   - SliderInt: Tick override (for debugging)
+     *   - SliderFloat: Time speed multiplier (for debugging)
      */
-    static void Show(TimeOfDayManager* timeManager);
+    static void Show(enigma::voxel::ITimeProvider* timeProvider);
 };
