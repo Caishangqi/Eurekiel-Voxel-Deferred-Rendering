@@ -35,6 +35,7 @@
 #include <cmath>
 
 #include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
+#include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCUTBNLayout.hpp"
 
 // ========================================
 // Constants (Defaults, overridden by CloudConfig)
@@ -91,7 +92,7 @@ void CloudRenderPass::Execute()
 
     // Get cloud animation time (includes tickDelta and CLOUD_TIME_SCALE)
     // Apply speed multiplier from config
-    float cloudTime = g_theGame->m_timeOfDayManager->GetCloudTime() * config.speed;
+    float cloudTime = g_theGame->m_timeProvider->GetCloudTime() * config.speed;
 
     // World coordinates with cloud scrolling offset
     float worldX = cameraPos.x + cloudTime;
@@ -151,7 +152,7 @@ void CloudRenderPass::Execute()
         Mat44 modelMatrix = Mat44::MakeTranslation3D(Vec3(translateX, translateY, translateZ));
 
         // Calculate cloud color based on time of day
-        Vec3 cloudColor = g_theGame->m_timeOfDayManager->CalculateCloudColor(0.0f, 0.0f);
+        Vec3 cloudColor = g_theGame->m_timeProvider->CalculateCloudColor(0.0f, 0.0f);
 
         // Upload uniforms
         PerObjectUniforms perObjectUniform;
@@ -181,6 +182,7 @@ void CloudRenderPass::BeginPass()
     g_theRendererSubsystem->SetDepthMode(DepthMode::Less);
     g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::CullBack());
+    g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 }
 
 /// Restore default render states
