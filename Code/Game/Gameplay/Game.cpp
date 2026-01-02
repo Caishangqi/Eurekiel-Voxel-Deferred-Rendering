@@ -11,16 +11,23 @@
 #include "Game/Framework/RenderPass/RenderComposite/CompositeRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderFinal/FinalRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderSky/SkyRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderTerrain/TerrainRenderPass.hpp"
 #include "Game/SceneTest/SceneUnitTest_SpriteAtlas.hpp"
 #include "Game/SceneTest/SceneUnitTest_StencilXRay.hpp"
 
 // [Task 18] ImGui Integration
 #include "Engine/Core/ImGui/ImGuiSubsystem.hpp"
+#include "Engine/Core/LogCategory/PredefinedCategories.hpp"
+#include "Engine/Core/Logger/LoggerAPI.hpp"
+#include "Engine/Model/ModelSubsystem.hpp"
+#include "Engine/Registry/Block/BlockRegistry.hpp"
+#include "Engine/Voxel/Builtin/DefaultBlock.hpp"
 #include "Game/Framework/Imgui/ImguiGameSettings.hpp"
 #include "Game/Framework/Imgui/ImguiLeftDebugOverlay.hpp"
 #include "Game/Framework/RenderPass/RenderDebug/DebugRenderPass.hpp"
 #include "Game/SceneTest/SceneUnitTest_CustomConstantBuffer.hpp"
 #include "Game/SceneTest/SceneUnitTest_VertexLayoutRegistration.hpp"
+#include "Generator/SimpleMinerGenerator.hpp"
 
 Game::Game()
 {
@@ -33,8 +40,8 @@ Game::Game()
     m_gameClock = std::make_unique<Clock>(Clock::GetSystemClock());
     m_gameClock->Unpause();
 
-    /// Prepare TimeOfDayManager
-    m_timeOfDayManager = std::make_unique<TimeOfDayManager>(m_gameClock.get());
+    /// Prepare WorldTimeProvider (replaces TimeOfDayManager)
+    m_timeProvider = std::make_unique<enigma::voxel::WorldTimeProvider>();
 
     /// Prepare player
     m_player                = std::make_unique<PlayerCharacter>(this);
@@ -43,10 +50,12 @@ Game::Game()
 
     /// Scene (Test Only)
     //m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
-    m_scene = std::make_unique<SceneUnitTest_VertexLayoutRegistration>();
+    //m_scene = std::make_unique<SceneUnitTest_VertexLayoutRegistration>();
+    m_scene = std::make_unique<SceneUnitTest_CustomConstantBuffer>();
 
     /// Render Passes (Production)
     m_skyRenderPass       = std::make_unique<SkyRenderPass>();
+    m_terrainRenderPass   = std::make_unique<TerrainRenderPass>();
     m_cloudRenderPass     = std::make_unique<CloudRenderPass>();
     m_compositeRenderPass = std::make_unique<CompositeRenderPass>();
     m_finalRenderPass     = std::make_unique<FinalRenderPass>();
@@ -54,6 +63,22 @@ Game::Game()
     /// Render Passes (Debug)
     m_debugRenderPass = std::make_unique<DebugRenderPass>();
 
+    /// Block Registration Phase - MUST happen before World creation
+    RegisterBlocks();
+
+    // This applies blockstate rotations from JSON files
+    auto* modelSubsystem = GEngine->GetSubsystem<enigma::model::ModelSubsystem>();
+    if (modelSubsystem)
+    {
+        modelSubsystem->CompileAllBlockModels();
+    }
+
+    /// World Generator and World Creation
+    using namespace enigma::voxel;
+
+    auto generator = std::make_unique<SimpleMinerGenerator>();
+    m_world        = std::make_unique<World>("world", 6693073380, std::move(generator));
+    m_world->SetChunkActivationRange(settings.GetInt("video.simulationDistance", 6));
 
     /// Register ImGUI
     g_theImGui->RegisterWindow("GameSetting", [this]()
@@ -69,15 +94,28 @@ Game::Game()
 
 Game::~Game()
 {
+    // Save and close world before cleanup
+    if (m_world)
+    {
+        LogInfo(LogGame, "Saving world before game shutdown...");
+        m_world->SaveWorld();
+        LogInfo(LogGame, "Initiating graceful shutdown...");
+        m_world->PrepareShutdown(); // Stop new tasks
+        m_world->WaitForPendingTasks(); // Wait for completion
+        LogInfo(LogGame, "Closing world...");
+        m_world->CloseWorld();
+        m_world.reset();
+    }
 }
 
 void Game::Update()
 {
+    if (!m_enableSceneTest) UpdateWorld();
     /// Update InputActions
     ProcessInputAction(m_gameClock->GetDeltaSeconds());
     /// Update Player locomotion
     m_player->Update(m_gameClock->GetDeltaSeconds());
-    m_timeOfDayManager->Update();
+    m_timeProvider->Update(m_gameClock->GetDeltaSeconds());
 
 #ifdef SCENE_TEST
     UpdateScene();
@@ -116,9 +154,10 @@ void Game::RenderWorld()
     // Renders sky void gradient and sun/moon billboards to colortex0
     m_skyRenderPass->Execute();
 
-    // [STEP 3] Terrain/Scene Rendering (Middle layer, normal depth)
-    // Renders opaque geometry (blocks, entities) to colortex0
-
+    // [STEP 3] Terrain Rendering (G-Buffer deferred, normal depth)
+    // Writes colortex0 (Albedo), colortex1 (Lightmap), colortex2 (Normal)
+    // EndPass copies depthtex0 -> depthtex1 (noTranslucents)
+    m_terrainRenderPass->Execute();
 
     // [STEP 4] Cloud Rendering (Must render AFTER terrain, alpha blending)
     // Renders translucent clouds to colortex0 with alpha blending
@@ -151,6 +190,34 @@ void Game::ProcessInputAction(float deltaSeconds)
 
 void Game::HandleESC()
 {
+}
+
+void Game::RegisterBlocks()
+{
+    using namespace enigma::registry::block;
+
+    LogInfo(LogGame, "Starting block registration phase...");
+
+    std::filesystem::path dataPath      = ".enigma\\data";
+    std::string           namespaceName = "simpleminer";
+
+    BlockRegistry::LoadNamespaceBlocks(dataPath.string(), namespaceName);
+    AIR = BlockRegistry::GetBlock("simpleminer", "air");
+    LogInfo(LogGame, "Block registration completed!");
+}
+
+void Game::UpdateWorld()
+{
+    if (m_world)
+    {
+        // Sync player position to world and chunk manager for intelligent chunk loading
+        if (m_player)
+        {
+            m_world->SetPlayerPosition(m_player->m_position);
+        }
+
+        m_world->Update(Clock::GetSystemClock().GetDeltaSeconds());
+    }
 }
 
 void Game::UpdateScene()
