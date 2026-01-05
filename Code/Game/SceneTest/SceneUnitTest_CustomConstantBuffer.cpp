@@ -111,7 +111,6 @@ void SceneUnitTest_CustomConstantBuffer::Render()
 
     // [TEST] Draw 2: Green cube at (0, 0, 0)
     m_userCustomUniform.color = Vec4(0.0f, 1.0f, 0.0f, 1.0f); // Green
-    // uniformMgr->UploadBuffer<TestUserCustomUniform>(m_userCustomUniform, 42, 1);
     uniformMgr->UploadBuffer<TestUserCustomUniform>(m_userCustomUniform);
     m_cubeB->Render();
 

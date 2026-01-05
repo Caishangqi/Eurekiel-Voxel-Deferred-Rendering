@@ -13,9 +13,9 @@
 #include "Game/Gameplay/Game.hpp"
 #include "Engine/Math/Mat44.hpp"
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
-#include "Engine/Graphic/Camera/EnigmaCamera.hpp"
 #include "Engine/Core/VertexUtils.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCUTBNLayout.hpp"
+#include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
 
 SkyRenderPass::SkyRenderPass()
 {
@@ -88,7 +88,8 @@ void SkyRenderPass::Execute()
 
     // Upload CelestialConstantBuffer
     // Reference: Iris CelestialUniforms.java
-    Mat44 gbufferModelView = g_theGame->m_player->GetCamera()->GetWorldToCameraTransform();
+    // [REFACTOR] Use GetViewMatrix() instead of deprecated GetWorldToCameraTransform()
+    Mat44 gbufferModelView = g_theGame->m_player->GetCamera()->GetViewMatrix();
 
     celestialData.celestialAngle            = g_theGame->m_timeProvider->GetCelestialAngle();
     celestialData.compensatedCelestialAngle = g_theGame->m_timeProvider->GetCompensatedCelestialAngle();
@@ -96,8 +97,16 @@ void SkyRenderPass::Execute()
 
     celestialData.skyBrightness = g_theGame->m_timeProvider->GetSkyLightMultiplier();
 
-    celestialData.sunPosition    = g_theGame->m_timeProvider->CalculateSunPosition(gbufferModelView);
-    celestialData.moonPosition   = g_theGame->m_timeProvider->CalculateMoonPosition(gbufferModelView);
+    celestialData.sunPosition  = g_theGame->m_timeProvider->CalculateSunPosition(gbufferModelView);
+    celestialData.moonPosition = g_theGame->m_timeProvider->CalculateMoonPosition(gbufferModelView);
+
+    // [NEW] Shadow-related uniforms - Reference: Iris CelestialUniforms.java:34-42, 93-95
+    celestialData.shadowAngle         = g_theGame->m_timeProvider->GetShadowAngle();
+    celestialData.shadowLightPosition = g_theGame->m_timeProvider->CalculateShadowLightPosition(gbufferModelView);
+
+    // [NEW] Up direction vector - Reference: Iris CelestialUniforms.java:44-58
+    celestialData.upPosition = g_theGame->m_timeProvider->CalculateUpPosition(gbufferModelView);
+
     celestialData.colorModulator = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
@@ -122,8 +131,10 @@ void SkyRenderPass::Execute()
     g_theRendererSubsystem->UseProgram(m_skyBasicShader, rtOutputs, depthTexIndex);
 
     {
-        MatricesUniforms matUniform = g_theGame->m_player->GetCamera()->GetMatricesUniforms();
-        matUniform.gbufferModelView.SetTranslation3D(Vec3(0.0f, 0.0f, 0.0f));
+        // [REFACTOR] Use UpdateMatrixUniforms() instead of deprecated GetMatricesUniforms()
+        MatricesUniforms matUniform;
+        g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matUniform);
+        matUniform.gbufferView.SetTranslation3D(Vec3(0.0f, 0.0f, 0.0f));
         g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matUniform);
     }
 
@@ -139,7 +150,12 @@ void SkyRenderPass::Execute()
     RenderMoon();
 
     // Restore normal camera matrices after celestial rendering
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(g_theGame->m_player->GetCamera()->GetMatricesUniforms());
+    // [REFACTOR] Use UpdateMatrixUniforms() instead of deprecated GetMatricesUniforms()
+    {
+        MatricesUniforms restoredUniforms;
+        g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(restoredUniforms);
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(restoredUniforms);
+    }
 
     commonData.renderStage = ToRenderStage(WorldRenderingPhase::NONE);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
@@ -248,12 +264,14 @@ void SkyRenderPass::RenderSun()
     modelMatrix.Append(Mat44::MakeUniformScale3D(sunSize));
 
     // Celestial view: camera rotation + time rotation, no translation
-    MatricesUniforms matricesUniforms = g_theGame->m_player->GetCamera()->GetMatricesUniforms();
-    Mat44            celestialView    = matricesUniforms.gbufferModelView;
+    // [REFACTOR] Use UpdateMatrixUniforms() instead of deprecated GetMatricesUniforms()
+    MatricesUniforms matricesUniforms;
+    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matricesUniforms);
+    Mat44 celestialView = matricesUniforms.gbufferView;
     celestialView.AppendYRotation(-360 * skyAngle);
     celestialView.SetTranslation3D(Vec3::ZERO);
-    matricesUniforms.gbufferModelView        = celestialView;
-    matricesUniforms.gbufferModelViewInverse = celestialView.GetInverse();
+    matricesUniforms.gbufferView        = celestialView;
+    matricesUniforms.gbufferViewInverse = celestialView.GetInverse();
 
     perObjectData.modelMatrix        = modelMatrix;
     perObjectData.modelMatrixInverse = modelMatrix.GetInverse();
@@ -286,12 +304,14 @@ void SkyRenderPass::RenderMoon()
     modelMatrix.Append(Mat44::MakeUniformScale3D(moonSize));
 
     // Celestial view: camera rotation + time rotation, no translation
-    MatricesUniforms matricesUniforms = g_theGame->m_player->GetCamera()->GetMatricesUniforms();
-    Mat44            celestialView    = matricesUniforms.gbufferModelView;
+    // [REFACTOR] Use UpdateMatrixUniforms() instead of deprecated GetMatricesUniforms()
+    MatricesUniforms matricesUniforms;
+    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matricesUniforms);
+    Mat44 celestialView = matricesUniforms.gbufferView;
     celestialView.AppendYRotation(-360 * skyAngle);
     celestialView.SetTranslation3D(Vec3::ZERO);
-    matricesUniforms.gbufferModelView        = celestialView;
-    matricesUniforms.gbufferModelViewInverse = celestialView.GetInverse();
+    matricesUniforms.gbufferView        = celestialView;
+    matricesUniforms.gbufferViewInverse = celestialView.GetInverse();
 
     perObjectData.modelMatrix        = modelMatrix;
     perObjectData.modelMatrixInverse = modelMatrix.GetInverse();

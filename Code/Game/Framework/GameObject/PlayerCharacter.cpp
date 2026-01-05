@@ -9,21 +9,21 @@ using namespace enigma::graphic;
 
 PlayerCharacter::PlayerCharacter(Game* parent) : GameObject(parent)
 {
-    // [FIX] 创建正确的相机配置
-    CameraCreateInfo cameraInfo;
-    cameraInfo.mode = CameraMode::Perspective;
+    // [REFACTOR] Use PerspectiveCamera instead of deprecated EnigmaCamera
+    // Parameters: position, orientation, fov, aspectRatio, nearPlane, farPlane
+    constexpr float DEFAULT_FOV          = 90.0f;
+    constexpr float DEFAULT_ASPECT_RATIO = 16.0f / 9.0f;
+    constexpr float DEFAULT_NEAR_PLANE   = 0.1f;
+    constexpr float DEFAULT_FAR_PLANE    = 1000.0f;
 
-    // [FIX] 设置初始位置（与旧API Player.cpp一致）
-    cameraInfo.position = Vec3(0.0f, 0.0f, 0.0f);
-
-    // [FIX] Set CameraToRenderTransform (game coordinate system → DirectX coordinate system)
-    // Old API: ndcMatrix.SetIJK3D(Vec3(0,0,1), Vec3(-1,0,0), Vec3(0,1,0))
-    Mat44 cameraToRender;
-    cameraToRender.SetIJK3D(Vec3(0, 0, 1), Vec3(-1, 0, 0), Vec3(0, 1, 0));
-    cameraInfo.cameraToRenderTransform = cameraToRender;
-
-    // [FIX] 使用配置创建相机
-    m_camera = std::make_unique<EnigmaCamera>(cameraInfo);
+    m_camera = std::make_unique<PerspectiveCamera>(
+        Vec3::ZERO, // Initial position
+        EulerAngles(), // Initial orientation
+        DEFAULT_FOV,
+        DEFAULT_ASPECT_RATIO,
+        DEFAULT_NEAR_PLANE,
+        DEFAULT_FAR_PLANE
+    );
 }
 
 PlayerCharacter::~PlayerCharacter()
@@ -48,7 +48,7 @@ Mat44 PlayerCharacter::GetModelToWorldTransform() const
     return GameObject::GetModelToWorldTransform();
 }
 
-enigma::graphic::EnigmaCamera* PlayerCharacter::GetCamera() const
+enigma::graphic::PerspectiveCamera* PlayerCharacter::GetCamera() const
 {
     return m_camera.get();
 }

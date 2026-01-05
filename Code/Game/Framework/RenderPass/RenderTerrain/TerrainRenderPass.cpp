@@ -7,6 +7,7 @@
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/VertexLayoutRegistry.hpp"
+#include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Resource/ResourceSubsystem.hpp"
@@ -94,7 +95,9 @@ void TerrainRenderPass::BeginPass()
     // Set depth mode: write enabled for terrain
     g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled);
 
-    MatricesUniforms matricesUniforms = g_theGame->m_player->GetCamera()->GetMatricesUniforms();
+    // [REFACTOR] Use UpdateMatrixUniforms() instead of deprecated GetMatricesUniforms()
+    MatricesUniforms matricesUniforms;
+    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matricesUniforms);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matricesUniforms);
 }
 
