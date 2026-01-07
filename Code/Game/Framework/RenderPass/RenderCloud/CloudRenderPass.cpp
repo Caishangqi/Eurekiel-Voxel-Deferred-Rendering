@@ -35,6 +35,7 @@
 #include <cmath>
 
 #include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
+#include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCUTBNLayout.hpp"
 
 // ========================================
@@ -166,9 +167,10 @@ void CloudRenderPass::Execute()
 
         // Render
         g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
-        std::vector<uint32_t> rtOutputs     = {0};
-        int                   depthTexIndex = 0;
-        g_theRendererSubsystem->UseProgram(m_cloudsShader, rtOutputs, depthTexIndex);
+        // [REFACTOR] Pair-based RT binding
+        g_theRendererSubsystem->UseProgram(m_cloudsShader, {
+                                               {RTType::ColorTex, 0}, {RTType::DepthTex, 0}
+                                           });
         g_theRendererSubsystem->DrawVertexArray(m_geometry->vertices);
     }
 
