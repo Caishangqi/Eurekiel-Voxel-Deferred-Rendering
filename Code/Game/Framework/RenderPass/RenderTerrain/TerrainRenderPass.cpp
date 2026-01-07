@@ -5,6 +5,7 @@
 #include "Engine/Core/Logger/LoggerSubsystem.hpp"
 #include "Engine/Graphic/Core/DX12/D3D12RenderSystem.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
+#include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/VertexLayoutRegistry.hpp"
 #include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
@@ -85,11 +86,10 @@ void TerrainRenderPass::BeginPass()
     // Reference: SceneUnitTest_VertexLayoutRegistration.cpp:83
     g_theRendererSubsystem->SetVertexLayout(TerrainVertexLayout::Get());
 
-    // Set shader program with draw buffers (colortex0, colortex1, colortex2)
+    // [REFACTOR] Pair-based RT binding
     if (m_shaderProgram)
     {
-        auto drawBuffers = m_shaderProgram->GetDirectives().GetDrawBuffers();
-        g_theRendererSubsystem->UseProgram(m_shaderProgram, {0, 1, 2});
+        g_theRendererSubsystem->UseProgram(m_shaderProgram, {{RTType::ColorTex, 0}, {RTType::ColorTex, 1}, {RTType::ColorTex, 2}, {RTType::DepthTex, 0}});
     }
 
     // Set depth mode: write enabled for terrain
@@ -105,6 +105,6 @@ void TerrainRenderPass::EndPass()
 {
     // Copy depth: depthtex0 -> depthtex1 (noTranslucents)
     // Reference: design.md - CopyDepth(0, 1) after terrain pass
-    g_theRendererSubsystem->CopyDepth(0, 1);
+    g_theRendererSubsystem->GetProvider(RTType::DepthTex)->Copy(0, 1);
     LogDebug(LogRenderer, "TerrainRenderPass: Depth copied depthtex0 -> depthtex1");
 }
