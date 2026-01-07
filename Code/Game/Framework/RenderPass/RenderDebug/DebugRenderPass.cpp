@@ -3,6 +3,7 @@
 #include "Engine/Core/VertexUtils.hpp"
 #include "Engine/Graphic/Helper/VertexConversionHelper.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
+#include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCUTBNLayout.hpp"
 #include "Engine/Math/Sphere.hpp"
 #include "Game/GameCommon.hpp"
@@ -76,7 +77,10 @@ void DebugRenderPass::BeginPass()
     g_theRendererSubsystem->SetDepthMode(DepthMode::Disabled);
     g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
     g_theRendererSubsystem->SetCustomImage(0, nullptr);
-    g_theRendererSubsystem->UseProgram(sp_debugShader, {0}, 0);
+    // [REFACTOR] Pair-based RT binding
+    g_theRendererSubsystem->UseProgram(sp_debugShader, {
+                                           {RTType::ColorTex, 0}, {RTType::DepthTex, 0}
+                                       });
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 
     m_player = g_theGame->m_player.get();
