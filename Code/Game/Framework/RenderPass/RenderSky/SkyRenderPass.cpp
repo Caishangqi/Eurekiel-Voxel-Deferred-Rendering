@@ -2,6 +2,7 @@
 #include "SkyGeometryHelper.hpp"
 #include "SkyColorHelper.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
+#include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
 #include "Game/GameCommon.hpp"
 #include "Engine/Graphic/Sprite/SpriteAtlas.hpp"
@@ -125,10 +126,8 @@ void SkyRenderPass::Execute()
 
     WriteSkyColorToRT();
 
-    // Draw sky basic (sky sphere)
-    std::vector<uint32_t> rtOutputs     = {0};
-    int                   depthTexIndex = 0;
-    g_theRendererSubsystem->UseProgram(m_skyBasicShader, rtOutputs, depthTexIndex);
+    // [REFACTOR] Pair-based RT binding
+    g_theRendererSubsystem->UseProgram(m_skyBasicShader, {{RTType::ColorTex, 0}, {RTType::DepthTex, 0}});
 
     {
         // [REFACTOR] Use UpdateMatrixUniforms() instead of deprecated GetMatricesUniforms()
@@ -144,7 +143,10 @@ void SkyRenderPass::Execute()
 
     // Draw sky textured (sun/moon)
     g_theRendererSubsystem->SetBlendMode(BlendMode::Additive);
-    g_theRendererSubsystem->UseProgram(m_skyTexturedShader, rtOutputs, depthTexIndex);
+    // [REFACTOR] Pair-based RT binding
+    g_theRendererSubsystem->UseProgram(m_skyTexturedShader, {
+                                           {RTType::ColorTex, 0}, {RTType::DepthTex, 0}
+                                       });
 
     RenderSun();
     RenderMoon();
@@ -193,7 +195,7 @@ void SkyRenderPass::WriteSkyColorToRT()
         255
     );
 
-    g_theRendererSubsystem->ClearRenderTarget(0, fogColorRgba8);
+    g_theRendererSubsystem->ClearRenderTarget(RTType::ColorTex, 0, fogColorRgba8);
 }
 
 void SkyRenderPass::RenderSunsetStrip()
