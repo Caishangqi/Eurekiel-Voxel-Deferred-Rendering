@@ -1,6 +1,7 @@
 ﻿#include "SceneUnitTest_StencilXRay.hpp"
 
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
+#include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Sprite/Sprite.hpp"
 #include "Engine/Graphic/Sprite/SpriteAtlas.hpp"
 #include "Engine/Math/AABB3.hpp"
@@ -93,9 +94,6 @@ void SceneUnitTest_StencilXRay::Update()
 //----------------------------------------------------------------------------------------------------------------------
 void SceneUnitTest_StencilXRay::Render()
 {
-    std::vector<uint32_t> rtOutputs     = {4, 5, 6, 7};
-    int                   depthTexIndex = 0;
-
     // ========================================
     // [PASS 1] Mark entire CubeA projection area (stencil=1)
     // ========================================
@@ -107,7 +105,12 @@ void SceneUnitTest_StencilXRay::Render()
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::MarkAlways());
     g_theRendererSubsystem->SetStencilRefValue(1);
     g_theRendererSubsystem->SetDepthMode(DepthMode::Disabled); // [CRITICAL] Disable depth to mark entire projection
-    g_theRendererSubsystem->UseProgram(sp_gBufferBasic, rtOutputs, depthTexIndex);
+    // [REFACTOR] Pair-based RT binding
+    g_theRendererSubsystem->UseProgram(sp_gBufferBasic, {
+                                           {RTType::ColorTex, 4}, {RTType::ColorTex, 5},
+                                           {RTType::ColorTex, 6}, {RTType::ColorTex, 7},
+                                           {RTType::DepthTex, 0}
+                                       });
     m_cubeA->Render();
 
     // ========================================

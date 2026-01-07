@@ -1,6 +1,7 @@
 ﻿#include "SceneUnitTest_SpriteAtlas.hpp"
 
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
+#include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Sprite/Sprite.hpp"
 #include "Engine/Graphic/Sprite/SpriteAtlas.hpp"
 #include "Engine/Math/AABB3.hpp"
@@ -62,11 +63,13 @@ void SceneUnitTest_SpriteAtlas::Update()
 
 void SceneUnitTest_SpriteAtlas::Render()
 {
-    std::vector<uint32_t> rtOutputs     = {4, 5, 6, 7};
-    int                   depthTexIndex = 0;
-
+    // [REFACTOR] Pair-based RT binding
     g_theRendererSubsystem->SetCustomImage(0, sa_testMoon->GetSprite(0).GetTexture().get());
-    g_theRendererSubsystem->UseProgram(sp_gBufferBasic, rtOutputs, depthTexIndex);
+    g_theRendererSubsystem->UseProgram(sp_gBufferBasic, {
+                                           {RTType::ColorTex, 4}, {RTType::ColorTex, 5},
+                                           {RTType::ColorTex, 6}, {RTType::ColorTex, 7},
+                                           {RTType::DepthTex, 0}
+                                       });
     m_cubeC->Render();
     g_theRendererSubsystem->SetCustomImage(0, tex_testUV.get());
     m_cubeB->Render();

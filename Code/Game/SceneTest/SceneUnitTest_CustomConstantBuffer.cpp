@@ -2,6 +2,7 @@
 
 #include "Engine/Core/EngineCommon.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
+#include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Graphic/Sprite/Sprite.hpp"
 #include "Engine/Graphic/Sprite/SpriteAtlas.hpp"
@@ -89,14 +90,15 @@ void SceneUnitTest_CustomConstantBuffer::Update()
 
 void SceneUnitTest_CustomConstantBuffer::Render()
 {
-    std::vector<uint32_t> rtOutputs     = {4, 5, 6, 7};
-    int                   depthTexIndex = 0;
-
     auto* uniformMgr = g_theRendererSubsystem->GetUniformManager();
 
-    // [NEW] Setup shader and texture
+    // [REFACTOR] Setup shader and texture with pair-based RT binding
     g_theRendererSubsystem->SetCustomImage(0, tex_testUV.get());
-    g_theRendererSubsystem->UseProgram(sp_gBufferTestCustomBuffer, rtOutputs, depthTexIndex);
+    g_theRendererSubsystem->UseProgram(sp_gBufferTestCustomBuffer, {
+                                           {RTType::ColorTex, 4}, {RTType::ColorTex, 5},
+                                           {RTType::ColorTex, 6}, {RTType::ColorTex, 7},
+                                           {RTType::DepthTex, 0}
+                                       });
 
     // ========================================
     // [TEST] Multi-draw data independence verification

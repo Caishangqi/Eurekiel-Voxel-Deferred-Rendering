@@ -3,6 +3,7 @@
 #include "Engine/Core/Logger/LoggerSubsystem.hpp"
 #include "Engine/Graphic/Helper/VertexConversionHelper.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
+#include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCULayout.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCUTBNLayout.hpp"
@@ -82,18 +83,19 @@ SceneUnitTest_VertexLayoutRegistration::~SceneUnitTest_VertexLayoutRegistration(
 
 void SceneUnitTest_VertexLayoutRegistration::Render()
 {
-    g_theRendererSubsystem->UseProgram(m_cube1ShaderProgram, {0});
+    // [REFACTOR] Pair-based RT binding
+    g_theRendererSubsystem->UseProgram(m_cube1ShaderProgram, {{RTType::ColorTex, 0}});
     g_theRendererSubsystem->SetCustomImage(0, m_cubeTexture.get());
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(m_cube1Uniforms);
     g_theRendererSubsystem->DrawVertexBuffer(m_cube1VertexBuffer, m_cube1IndexBuffer);
 
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCULayout::Get());
-    g_theRendererSubsystem->UseProgram(m_cube2ShaderProgram, {0});
+    g_theRendererSubsystem->UseProgram(m_cube2ShaderProgram, {{RTType::ColorTex, 0}});
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(m_cube2Uniforms);
     g_theRendererSubsystem->DrawVertexBuffer(m_cube2VertexBuffer, m_cube2IndexBuffer);
 
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
-    g_theRendererSubsystem->UseProgram(m_cube1ShaderProgram, {0});
+    g_theRendererSubsystem->UseProgram(m_cube1ShaderProgram, {{RTType::ColorTex, 0}});
     m_cube3Geometry->Render();
     g_theRendererSubsystem->PresentRenderTarget(0, RTType::ColorTex);
 }
