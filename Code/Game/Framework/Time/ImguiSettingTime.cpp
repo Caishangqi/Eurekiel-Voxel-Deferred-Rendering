@@ -1,5 +1,8 @@
 ﻿#include "ImguiSettingTime.hpp"
 #include "Engine/Core/StringUtils.hpp"
+#include "Game/GameCommon.hpp"
+#include "Game/Framework/RenderPass/ShadowRenderPass/ShadowRenderPass.hpp"
+#include "Game/Gameplay/Game.hpp"
 #include "ThirdParty/imgui/imgui.h"
 
 // Minecraft Official Time Constants (from TimeCommand.java:17-24)
@@ -42,6 +45,7 @@ void ImguiSettingTime::Show(enigma::voxel::ITimeProvider* timeProvider)
         ImGui::SeparatorText("Time Info");
         // Current Tick (0-23999)
         int currentTick = timeProvider->GetCurrentTick();
+
         ImGui::Text("Current Tick: %d / 24000", currentTick);
 
         // Day Count
@@ -55,6 +59,15 @@ void ImguiSettingTime::Show(enigma::voxel::ITimeProvider* timeProvider)
         // Compensated Celestial Angle (celestialAngle + 0.25)
         float compensatedAngle = timeProvider->GetCompensatedCelestialAngle();
         ImGui::Text("Compensated Angle: %.3f", compensatedAngle);
+
+        float shadowAngle = timeProvider->GetShadowAngle();
+        ImGui::Text("Shadow Angle: %.3f", shadowAngle);
+
+        float sunAngle = timeProvider->GetSunAngle();
+        ImGui::Text("Sun Angle: %.3f", sunAngle);
+
+        Vec3 lightDirection = dynamic_cast<ShadowRenderPass*>(g_theGame->m_shadowRenderPass.get())->m_lightDirection;
+        ImGui::Text("Light Direction: %.3f %.3f %.3f", lightDirection.x, lightDirection.y, lightDirection.z);
 
         // Cloud Time (tick * 0.03)
         float cloudTime = timeProvider->GetCloudTime();
