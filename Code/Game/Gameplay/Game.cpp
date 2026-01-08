@@ -25,6 +25,7 @@
 #include "Game/Framework/Imgui/ImguiGameSettings.hpp"
 #include "Game/Framework/Imgui/ImguiLeftDebugOverlay.hpp"
 #include "Game/Framework/RenderPass/RenderDebug/DebugRenderPass.hpp"
+#include "Game/Framework/RenderPass/ShadowRenderPass/ShadowRenderPass.hpp"
 #include "Game/SceneTest/SceneUnitTest_CustomConstantBuffer.hpp"
 #include "Game/SceneTest/SceneUnitTest_VertexLayoutRegistration.hpp"
 #include "Generator/SimpleMinerGenerator.hpp"
@@ -49,11 +50,12 @@ Game::Game()
     m_player->m_orientation = EulerAngles(0, 0, 0);
 
     /// Scene (Test Only)
-    //m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
+    m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
     //m_scene = std::make_unique<SceneUnitTest_VertexLayoutRegistration>();
-    m_scene = std::make_unique<SceneUnitTest_CustomConstantBuffer>();
+    //m_scene = std::make_unique<SceneUnitTest_CustomConstantBuffer>();
 
     /// Render Passes (Production)
+    m_shadowRenderPass    = std::make_unique<ShadowRenderPass>();
     m_skyRenderPass       = std::make_unique<SkyRenderPass>();
     m_terrainRenderPass   = std::make_unique<TerrainRenderPass>();
     m_cloudRenderPass     = std::make_unique<CloudRenderPass>();
@@ -148,6 +150,8 @@ void Game::RenderWorld()
     // [Task 19] Deferred Rendering Pipeline Integration
     // Render Order: Sky → Terrain → Cloud → Final (Skip Composite)
     // ========================================
+
+    m_shadowRenderPass->Execute();
 
 
     // [STEP 2] Sky Rendering (Must render FIRST, depth = 1.0)

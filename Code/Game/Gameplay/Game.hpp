@@ -34,6 +34,7 @@ public:
 #pragma region RENDER_PASSES
 
 public:
+    std::unique_ptr<SceneRenderPass> m_shadowRenderPass  = nullptr;
     std::unique_ptr<SceneRenderPass> m_skyRenderPass     = nullptr;
     std::unique_ptr<SceneRenderPass> m_terrainRenderPass = nullptr; // [NEW] Terrain G-Buffer pass
     std::unique_ptr<SceneRenderPass> m_cloudRenderPass   = nullptr;
