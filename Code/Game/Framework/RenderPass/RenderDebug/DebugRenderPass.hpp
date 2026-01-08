@@ -25,9 +25,10 @@ protected:
     void EndPass() override;
 
 private:
-    Geometry* center     = nullptr;
-    Geometry* center_xyz = nullptr;
-    Geometry* gridPlane  = nullptr;
+    Geometry* center         = nullptr;
+    Geometry* lightDirection = nullptr;
+    Geometry* center_xyz     = nullptr;
+    Geometry* gridPlane      = nullptr;
 
     std::shared_ptr<enigma::graphic::ShaderProgram> sp_debugShader = nullptr;
 

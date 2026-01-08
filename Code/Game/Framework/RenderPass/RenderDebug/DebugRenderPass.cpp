@@ -8,6 +8,7 @@
 #include "Engine/Math/Sphere.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Framework/GameObject/Geometry.hpp"
+#include "Game/Framework/RenderPass/ShadowRenderPass/ShadowRenderPass.hpp"
 #include "Game/Gameplay/Game.hpp"
 
 DebugRenderPass::DebugRenderPass()
@@ -57,6 +58,16 @@ DebugRenderPass::DebugRenderPass()
             "Test UV Texture"
         );
     }
+
+    {
+        lightDirection             = new Geometry(g_theGame);
+        lightDirection->m_position = Vec3(0, 0, 0);
+        lightDirection->m_color    = Rgba8::WHITE;
+        lightDirection->m_scale    = Vec3(0.25f, 0.25f, 0.25f);
+        std::vector<Vertex_PCU> verts;
+        AddVertsForArrow3D(verts, Vec3::ZERO, Vec3(-1, 0, 0), 0.02f, 0.1f, Rgba8::ORANGE, 32);
+        lightDirection->SetVertices(VertexConversionHelper::ToPCUTBNVector(verts));
+    }
 }
 
 DebugRenderPass::~DebugRenderPass()
@@ -101,9 +112,12 @@ void DebugRenderPass::RenderCursor()
     playerOrientation.GetAsVectors_IFwd_JLeft_KUp(playerForward, playerLeft, playerUp);
 
 
-    center_xyz->m_position = m_player->m_position + playerForward * 3.0f;
-    center->m_position     = m_player->m_position + playerForward * 3.0f;
+    center_xyz->m_position        = m_player->m_position + playerForward * 3.0f;
+    lightDirection->m_position    = m_player->m_position + playerForward * 3.0f;
+    lightDirection->m_orientation = dynamic_cast<ShadowRenderPass*>(g_theGame->m_shadowRenderPass.get())->m_lightDirectionEulerAngles;
+    center->m_position            = m_player->m_position + playerForward * 3.0f;
     center_xyz->Render();
+    lightDirection->Render();
     center->Render();
 }
 
