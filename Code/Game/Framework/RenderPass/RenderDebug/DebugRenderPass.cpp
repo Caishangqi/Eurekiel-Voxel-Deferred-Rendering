@@ -8,7 +8,7 @@
 #include "Engine/Math/Sphere.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Framework/GameObject/Geometry.hpp"
-#include "Game/Framework/RenderPass/ShadowRenderPass/ShadowRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderShadow/ShadowRenderPass.hpp"
 #include "Game/Gameplay/Game.hpp"
 
 DebugRenderPass::DebugRenderPass()
