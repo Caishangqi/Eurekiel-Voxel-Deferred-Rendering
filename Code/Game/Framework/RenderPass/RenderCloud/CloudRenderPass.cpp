@@ -168,9 +168,7 @@ void CloudRenderPass::Execute()
         // Render
         g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
         // [REFACTOR] Pair-based RT binding
-        g_theRendererSubsystem->UseProgram(m_cloudsShader, {
-                                               {RTType::ColorTex, 0}, {RTType::DepthTex, 0}
-                                           });
+        g_theRendererSubsystem->UseProgram(m_cloudsShader, {{RTType::ColorTex, 0}, {RTType::ColorTex, 3}, {RTType::DepthTex, 0}});
         g_theRendererSubsystem->DrawVertexArray(m_geometry->vertices);
     }
 
@@ -181,7 +179,7 @@ void CloudRenderPass::Execute()
 /// Uses GL_LESS depth (not LEQUAL) to prevent Z-fighting on semi-transparent faces
 void CloudRenderPass::BeginPass()
 {
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Less);
+    g_theRendererSubsystem->SetDepthMode(DepthMode::ReadOnly);
     g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::CullBack());
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
