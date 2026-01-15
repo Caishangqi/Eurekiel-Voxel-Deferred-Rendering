@@ -168,7 +168,7 @@ void SkyRenderPass::Execute()
 void SkyRenderPass::BeginPass()
 {
     // Sky rendered at maximum depth (1.0) - always behind all geometry
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Always);
+    g_theRendererSubsystem->SetDepthMode(DepthMode::Disabled);
     g_theRendererSubsystem->SetCustomImage(0, nullptr);
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 }
