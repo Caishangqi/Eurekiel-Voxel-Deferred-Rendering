@@ -25,7 +25,7 @@
 #include "Game/Framework/Imgui/ImguiGameSettings.hpp"
 #include "Game/Framework/Imgui/ImguiLeftDebugOverlay.hpp"
 #include "Game/Framework/RenderPass/RenderDebug/DebugRenderPass.hpp"
-#include "Game/Framework/RenderPass/ShadowRenderPass/ShadowRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderShadow/ShadowRenderPass.hpp"
 #include "Game/SceneTest/SceneUnitTest_CustomConstantBuffer.hpp"
 #include "Game/SceneTest/SceneUnitTest_VertexLayoutRegistration.hpp"
 #include "Generator/SimpleMinerGenerator.hpp"
@@ -152,8 +152,6 @@ void Game::RenderWorld()
     // ========================================
 
     m_shadowRenderPass->Execute();
-
-
     // [STEP 2] Sky Rendering (Must render FIRST, depth = 1.0)
     // Renders sky void gradient and sun/moon billboards to colortex0
     m_skyRenderPass->Execute();
@@ -167,10 +165,10 @@ void Game::RenderWorld()
     // Renders translucent clouds to colortex0 with alpha blending
     m_cloudRenderPass->Execute();
 
-    // [STEP 5] Final Pass (Skip Composite, RT Flipper not tested yet)
+    m_compositeRenderPass->Execute();
+
+    // [STEP 5] Final Pass
     // Samples colortex0 and outputs to backbuffer
-    // TODO: Implement Composite Pass when RT Flipper mechanism is tested
-    // m_compositeRenderPass->Execute(); // [DISABLED] RT Flipper未测试
     m_finalRenderPass->Execute();
 }
 

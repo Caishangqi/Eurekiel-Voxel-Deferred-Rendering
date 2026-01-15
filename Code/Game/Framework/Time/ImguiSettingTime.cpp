@@ -1,7 +1,7 @@
 ﻿#include "ImguiSettingTime.hpp"
 #include "Engine/Core/StringUtils.hpp"
 #include "Game/GameCommon.hpp"
-#include "Game/Framework/RenderPass/ShadowRenderPass/ShadowRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderShadow/ShadowRenderPass.hpp"
 #include "Game/Gameplay/Game.hpp"
 #include "ThirdParty/imgui/imgui.h"
 
