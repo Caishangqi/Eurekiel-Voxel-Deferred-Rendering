@@ -58,16 +58,10 @@ void CompositeRenderPass::BeginPass()
     // D3D12 Rule: Cannot read (SRV) and write (DSV) same resource simultaneously
     // [REFACTOR] Use D12DepthTexture::TransitionToShaderResource() per OCP
     auto* depthProvider = static_cast<enigma::graphic::DepthTextureProvider*>(g_theRendererSubsystem->GetProvider(RTType::DepthTex));
-    if (depthProvider)
-    {
-        auto depthTex = depthProvider->GetDepthTexture(0);
-        if (depthTex)
-        {
-            depthTex->TransitionToShaderResource();
-        }
-    }
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::Disabled());
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled);
+    depthProvider->GetDepthTexture(0)->TransitionToShaderResource();
+    depthProvider->GetDepthTexture(1)->TransitionToShaderResource();
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
     if (m_shaderProgram)
     {
@@ -82,12 +76,6 @@ void CompositeRenderPass::EndPass()
     // [FIX] Transition depthtex0 back to DEPTH_WRITE for subsequent passes
     // [REFACTOR] Use D12DepthTexture::TransitionToDepthWrite() per OCP
     auto* depthProvider = static_cast<enigma::graphic::DepthTextureProvider*>(g_theRendererSubsystem->GetProvider(RTType::DepthTex));
-    if (depthProvider)
-    {
-        auto depthTex = depthProvider->GetDepthTexture(0);
-        if (depthTex)
-        {
-            depthTex->TransitionToDepthWrite();
-        }
-    }
+    depthProvider->GetDepthTexture(0)->TransitionToDepthWrite();
+    depthProvider->GetDepthTexture(1)->TransitionToDepthWrite();
 }
