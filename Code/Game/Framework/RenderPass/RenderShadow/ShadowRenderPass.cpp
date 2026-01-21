@@ -92,7 +92,7 @@ void ShadowRenderPass::BeginPass()
     }
 
     // [NEW] Set depth mode for shadow pass
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled);
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
 
     // [NEW] Set block atlas for alpha testing
     if (m_blockAtlasTexture)

@@ -85,8 +85,8 @@ void DebugRenderPass::Execute()
 void DebugRenderPass::BeginPass()
 {
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::Disabled());
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Disabled);
-    g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::Disabled());
+    g_theRendererSubsystem->SetBlendConfig(BlendConfig::Alpha());
     g_theRendererSubsystem->SetCustomImage(0, nullptr);
     // [REFACTOR] Pair-based RT binding
     g_theRendererSubsystem->UseProgram(sp_debugShader, {

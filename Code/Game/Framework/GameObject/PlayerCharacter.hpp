@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "GameObject.hpp"
+#include "Engine/Graphic/Camera/OrthographicCamera.hpp"
 #include "Engine/Graphic/Camera/PerspectiveCamera.hpp"
 
 class PlayerCharacter : public GameObject

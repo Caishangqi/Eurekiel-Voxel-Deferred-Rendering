@@ -104,7 +104,7 @@ void SceneUnitTest_StencilXRay::Render()
     // Result: Entire CubeA projection area has stencil=1 (both visible and occluded regions)
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::MarkAlways());
     g_theRendererSubsystem->SetStencilRefValue(1);
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Disabled); // [CRITICAL] Disable depth to mark entire projection
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::Disabled()); // [CRITICAL] Disable depth to mark entire projection
     // [REFACTOR] Pair-based RT binding
     g_theRendererSubsystem->UseProgram(sp_gBufferBasic, {
                                            {RTType::ColorTex, 4}, {RTType::ColorTex, 5},
@@ -126,7 +126,7 @@ void SceneUnitTest_StencilXRay::Render()
     g_theRendererSubsystem->SetCustomImage(0, tex_testCaizii.get());
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::MarkAlways());
     g_theRendererSubsystem->SetStencilRefValue(2);
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled); // [CRITICAL] Enable depth to mark only visible pixels
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled()); // [CRITICAL] Enable depth to mark only visible pixels
     m_cubeA->Render();
 
     // ========================================
@@ -140,7 +140,7 @@ void SceneUnitTest_StencilXRay::Render()
 
     g_theRendererSubsystem->SetCustomImage(0, tex_testUV.get());
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::Disabled());
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled);
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
     m_cubeB->Render();
 
     // ========================================
@@ -162,7 +162,7 @@ void SceneUnitTest_StencilXRay::Render()
     g_theRendererSubsystem->SetCustomImage(0, nullptr);
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::TestNotEqual());
     g_theRendererSubsystem->SetStencilRefValue(2); // [CORRECT] Test for stencil != 2 (filter visible, keep occluded)
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Disabled); // [CRITICAL] Disable depth for X-Ray effect
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::Disabled()); // [CRITICAL] Disable depth for X-Ray effect
 
     // [OUTLINE EFFECT] Save original transform and color
     Vec3  originalScale    = m_cubeA->m_scale;

@@ -166,7 +166,7 @@ void CloudRenderPass::Execute()
         g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniform);
 
         // Render
-        g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
+        g_theRendererSubsystem->SetBlendConfig(BlendConfig::Alpha());
         // [REFACTOR] Pair-based RT binding
         g_theRendererSubsystem->UseProgram(m_cloudsShader, {{RTType::ColorTex, 0}, {RTType::ColorTex, 3}, {RTType::DepthTex, 0}});
         g_theRendererSubsystem->DrawVertexArray(m_geometry->vertices);
@@ -179,8 +179,8 @@ void CloudRenderPass::Execute()
 /// Uses GL_LESS depth (not LEQUAL) to prevent Z-fighting on semi-transparent faces
 void CloudRenderPass::BeginPass()
 {
-    g_theRendererSubsystem->SetDepthMode(DepthMode::ReadOnly);
-    g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::ReadOnly());
+    g_theRendererSubsystem->SetBlendConfig(BlendConfig::Alpha());
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::CullBack());
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 }
@@ -188,9 +188,9 @@ void CloudRenderPass::BeginPass()
 /// Restore default render states
 void CloudRenderPass::EndPass()
 {
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled);
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::Disabled());
-    g_theRendererSubsystem->SetBlendMode(BlendMode::Opaque);
+    g_theRendererSubsystem->SetBlendConfig(BlendConfig::Opaque());
 }
 
 /// Load clouds.png and create CloudTextureData for CPU-side geometry generation

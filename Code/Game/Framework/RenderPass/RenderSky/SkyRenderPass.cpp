@@ -142,7 +142,7 @@ void SkyRenderPass::Execute()
     RenderSunsetStrip();
 
     // Draw sky textured (sun/moon)
-    g_theRendererSubsystem->SetBlendMode(BlendMode::Additive);
+    g_theRendererSubsystem->SetBlendConfig(BlendConfig::Additive());
     // [REFACTOR] Pair-based RT binding
     g_theRendererSubsystem->UseProgram(m_skyTexturedShader, {
                                            {RTType::ColorTex, 0}, {RTType::DepthTex, 0}
@@ -168,16 +168,16 @@ void SkyRenderPass::Execute()
 void SkyRenderPass::BeginPass()
 {
     // Sky rendered at maximum depth (1.0) - always behind all geometry
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Disabled);
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::Disabled());
     g_theRendererSubsystem->SetCustomImage(0, nullptr);
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 }
 
 void SkyRenderPass::EndPass()
 {
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled);
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::Disabled());
-    g_theRendererSubsystem->SetBlendMode(BlendMode::Opaque);
+    g_theRendererSubsystem->SetBlendConfig(BlendConfig::Opaque());
 }
 
 void SkyRenderPass::WriteSkyColorToRT()
@@ -220,7 +220,7 @@ void SkyRenderPass::RenderSunsetStrip()
 
     m_sunsetStripVertices = SkyGeometryHelper::GenerateSunriseStrip(sunriseColor, celestialAngle);
 
-    g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
+    g_theRendererSubsystem->SetBlendConfig(BlendConfig::Alpha());
     g_theRendererSubsystem->DrawVertexArray(m_sunsetStripVertices);
 }
 
@@ -233,7 +233,7 @@ void SkyRenderPass::RenderSkyDome()
     float celestialAngle = g_theGame->m_timeProvider->GetCelestialAngle();
     m_skyDomeVertices    = SkyGeometryHelper::GenerateSkyDiscWithFog(16.0f, celestialAngle);
 
-    g_theRendererSubsystem->SetBlendMode(BlendMode::Alpha);
+    g_theRendererSubsystem->SetBlendConfig(BlendConfig::Alpha());
     g_theRendererSubsystem->DrawVertexArray(m_skyDomeVertices);
 }
 
