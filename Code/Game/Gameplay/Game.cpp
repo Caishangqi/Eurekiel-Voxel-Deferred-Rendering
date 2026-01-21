@@ -12,6 +12,8 @@
 #include "Game/Framework/RenderPass/RenderFinal/FinalRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderSky/SkyRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderTerrain/TerrainRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderTerrainCutout/TerrainCutoutRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderTerrainTranslucent/TerrainTranslucentRenderPass.hpp"
 #include "Game/SceneTest/SceneUnitTest_SpriteAtlas.hpp"
 #include "Game/SceneTest/SceneUnitTest_StencilXRay.hpp"
 
@@ -21,6 +23,7 @@
 #include "Engine/Core/Logger/LoggerAPI.hpp"
 #include "Engine/Model/ModelSubsystem.hpp"
 #include "Engine/Registry/Block/BlockRegistry.hpp"
+#include "Engine/Registry/Core/GameData.hpp"
 #include "Engine/Voxel/Builtin/DefaultBlock.hpp"
 #include "Game/Framework/Imgui/ImguiGameSettings.hpp"
 #include "Game/Framework/Imgui/ImguiLeftDebugOverlay.hpp"
@@ -46,8 +49,8 @@ Game::Game()
 
     /// Prepare player
     m_player                = std::make_unique<PlayerCharacter>(this);
-    m_player->m_position    = Vec3(0, 0, 64);
-    m_player->m_orientation = EulerAngles(0, 0, 0);
+    m_player->m_position    = Vec3(-20, 0, 86);
+    m_player->m_orientation = EulerAngles(-60, 24, 0);
 
     /// Scene (Test Only)
     m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
@@ -55,18 +58,25 @@ Game::Game()
     //m_scene = std::make_unique<SceneUnitTest_CustomConstantBuffer>();
 
     /// Render Passes (Production)
-    m_shadowRenderPass    = std::make_unique<ShadowRenderPass>();
-    m_skyRenderPass       = std::make_unique<SkyRenderPass>();
-    m_terrainRenderPass   = std::make_unique<TerrainRenderPass>();
-    m_cloudRenderPass     = std::make_unique<CloudRenderPass>();
-    m_compositeRenderPass = std::make_unique<CompositeRenderPass>();
-    m_finalRenderPass     = std::make_unique<FinalRenderPass>();
+    m_shadowRenderPass             = std::make_unique<ShadowRenderPass>();
+    m_skyRenderPass                = std::make_unique<SkyRenderPass>();
+    m_terrainRenderPass            = std::make_unique<TerrainRenderPass>();
+    m_terrainCutoutRenderPass      = std::make_unique<TerrainCutoutRenderPass>(); // [NEW] Cutout terrain (leaves, grass)
+    m_terrainTranslucentRenderPass = std::make_unique<TerrainTranslucentRenderPass>(); // [NEW] Translucent terrain (water)
+    m_cloudRenderPass              = std::make_unique<CloudRenderPass>();
+    m_compositeRenderPass          = std::make_unique<CompositeRenderPass>();
+    m_finalRenderPass              = std::make_unique<FinalRenderPass>();
 
     /// Render Passes (Debug)
     m_debugRenderPass = std::make_unique<DebugRenderPass>();
 
     /// Block Registration Phase - MUST happen before World creation
+    /// [NeoForge Pattern] Registration → Freeze → Compile
     RegisterBlocks();
+
+    // [NEW] Freeze all registries after registration completes
+    // Reference: NeoForge GameData.java:65-76
+    enigma::registry::GameData::FreezeData();
 
     // This applies blockstate rotations from JSON files
     auto* modelSubsystem = GEngine->GetSubsystem<enigma::model::ModelSubsystem>();
@@ -158,8 +168,17 @@ void Game::RenderWorld()
 
     // [STEP 3] Terrain Rendering (G-Buffer deferred, normal depth)
     // Writes colortex0 (Albedo), colortex1 (Lightmap), colortex2 (Normal)
-    // EndPass copies depthtex0 -> depthtex1 (noTranslucents)
     m_terrainRenderPass->Execute();
+
+    // [STEP 3.1] Terrain Cutout Rendering (leaves, grass, flowers)
+    // Alpha-tested blocks with threshold 0.1 (Iris ONE_TENTH_ALPHA)
+    // Same G-Buffer output as solid terrain
+    m_terrainCutoutRenderPass->Execute();
+
+    // [STEP 3.5] Translucent Terrain Rendering (Water, Ice, etc.)
+    // Renders translucent terrain blocks with alpha blending
+    // Uses depthtex1 for depth testing, writes to colortex0
+    m_terrainTranslucentRenderPass->Execute();
 
     // [STEP 4] Cloud Rendering (Must render AFTER terrain, alpha blending)
     // Renders translucent clouds to colortex0 with alpha blending

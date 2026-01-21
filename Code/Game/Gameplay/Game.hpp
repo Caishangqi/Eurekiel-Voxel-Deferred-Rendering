@@ -5,6 +5,7 @@
 #include "Engine/Voxel/World/World.hpp"
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderTerrainTranslucent/TerrainTranslucentRenderPass.hpp"
 #include "Engine/Voxel/Time/WorldTimeProvider.hpp"
 #include "Game/SceneTest/SceneUnitTest.hpp"
 
@@ -34,10 +35,12 @@ public:
 #pragma region RENDER_PASSES
 
 public:
-    std::unique_ptr<SceneRenderPass> m_shadowRenderPass  = nullptr;
-    std::unique_ptr<SceneRenderPass> m_skyRenderPass     = nullptr;
-    std::unique_ptr<SceneRenderPass> m_terrainRenderPass = nullptr; // [NEW] Terrain G-Buffer pass
-    std::unique_ptr<SceneRenderPass> m_cloudRenderPass   = nullptr;
+    std::unique_ptr<SceneRenderPass> m_shadowRenderPass             = nullptr;
+    std::unique_ptr<SceneRenderPass> m_skyRenderPass                = nullptr;
+    std::unique_ptr<SceneRenderPass> m_terrainRenderPass            = nullptr; // Terrain G-Buffer pass (solid)
+    std::unique_ptr<SceneRenderPass> m_terrainCutoutRenderPass      = nullptr; // Terrain Cutout pass (leaves, grass)
+    std::unique_ptr<SceneRenderPass> m_terrainTranslucentRenderPass = nullptr; // Translucent terrain (water)
+    std::unique_ptr<SceneRenderPass> m_cloudRenderPass              = nullptr;
 
     std::unique_ptr<SceneRenderPass> m_compositeRenderPass = nullptr;
     std::unique_ptr<SceneRenderPass> m_finalRenderPass     = nullptr;
