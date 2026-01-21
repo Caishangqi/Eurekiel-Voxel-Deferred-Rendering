@@ -4,7 +4,6 @@
 #include "Engine/Audio/AudioSubsystem.hpp"
 #include "Engine/Core/Clock.hpp"
 #include "Engine/Core/EngineCommon.hpp"
-#include "Engine/Core/EventSystem.hpp"
 #include "Engine/Core/Rgba8.hpp"
 #include "Engine/Core/Engine.hpp"
 #include "Engine/Input/InputSystem.hpp"
@@ -27,6 +26,7 @@
 // Console system integration
 #include "Engine/Core/Console/ConsoleSubsystem.hpp"
 #include "Engine/Registry/Core/RegisterSubsystem.hpp"
+#include "Engine/Core/Event/EventSubsystem.hpp"
 
 // Window configuration parser
 #include "WindowConfigParser.hpp"
@@ -82,6 +82,11 @@ void App::Startup(char*)
     auto logger = std::make_unique<LoggerSubsystem>();
     GEngine->RegisterSubsystem(std::move(logger));
 
+    // Create and register EventSubsystem (priority 10 - must start before ShaderBundleSubsystem)
+    enigma::event::EventSubsystemConfig eventConfig;
+    auto                                eventSubsystem = std::make_unique<enigma::event::EventSubsystem>(eventConfig);
+    GEngine->RegisterSubsystem(std::move(eventSubsystem));
+
     // Create ResourceSubsystem with configuration
     enigma::resource::ResourceConfig resourceConfig;
     resourceConfig.baseAssetPath    = ".enigma/assets";
@@ -97,13 +102,6 @@ void App::Startup(char*)
     // Create ModelSubsystem (depends on ResourceSubsystem and RenderSubsystem)
     auto modelSubsystem = std::make_unique<enigma::model::ModelSubsystem>();
     GEngine->RegisterSubsystem(std::move(modelSubsystem));
-
-    // Event system - required, other systems rely on event communication
-    EventSystemConfig eventConfig;
-    g_theEventSystem = new EventSystem(eventConfig);
-
-    // Subscribe to key events - window closing event
-    g_theEventSystem->SubscribeEventCallbackFunction("WindowCloseEvent", WindowCloseEvent);
 
     // Input system - for testing controls
     InputSystemConfig inputConfig;
@@ -128,12 +126,6 @@ void App::Startup(char*)
     windowConfig.m_resolution  = IntVec2(1920, 1080);
     windowConfig.m_inputSystem = g_theInput;
     g_theWindow                = new Window(windowConfig);
-
-    //Start the event system
-    g_theEventSystem->Startup();
-
-    //Start the input system
-    g_theInput->Startup();
 
     // Start the window system - create the actual Win32 window
     g_theWindow->Startup();
@@ -167,6 +159,8 @@ void App::Startup(char*)
     GEngine->RegisterSubsystem(std::move(imguiSubsystem));
 
     GEngine->Startup();
+    //Start the input system
+    g_theInput->Startup();
 
     g_theLogger->SetGlobalLogLevel(LogLevel::ERROR_);
 
@@ -196,16 +190,12 @@ void App::Shutdown()
     DebugRenderSystemShutdown();
     g_theWindow->Shutdown();
     g_theInput->Shutdown();
-    g_theEventSystem->Shutdown();
 
     delete g_theWindow;
     g_theWindow = nullptr;
 
     delete g_theInput;
     g_theInput = nullptr;
-
-    delete g_theEventSystem;
-    g_theEventSystem = nullptr;
 
     // Destroy Engine instance
     Engine::DestroyInstance();
@@ -277,7 +267,6 @@ void App::BeginFrame()
     Clock::TickSystemClock();
     GEngine->BeginFrame();
     g_theInput->BeginFrame();
-    g_theEventSystem->BeginFrame();
 }
 
 void App::Update()
