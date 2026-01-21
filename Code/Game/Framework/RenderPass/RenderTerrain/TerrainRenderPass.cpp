@@ -93,7 +93,7 @@ void TerrainRenderPass::BeginPass()
     }
 
     // Set depth mode: write enabled for terrain
-    g_theRendererSubsystem->SetDepthMode(DepthMode::Enabled);
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
 
     // [REFACTOR] Use UpdateMatrixUniforms() instead of deprecated GetMatricesUniforms()
     MatricesUniforms matricesUniforms;
@@ -103,8 +103,7 @@ void TerrainRenderPass::BeginPass()
 
 void TerrainRenderPass::EndPass()
 {
-    // Copy depth: depthtex0 -> depthtex1 (noTranslucents)
-    // Reference: design.md - CopyDepth(0, 1) after terrain pass
-    g_theRendererSubsystem->GetProvider(RTType::DepthTex)->Copy(0, 1);
-    LogDebug(LogRenderer, "TerrainRenderPass: Depth copied depthtex0 -> depthtex1");
+    // [NOTE] Depth copy moved to TerrainCutoutRenderPass::EndPass()
+    // depthtex1 should contain Solid + Cutout depth (noTranslucents)
+    // Reference: Iris pipeline - depth copy happens after all opaque terrain
 }
