@@ -21,9 +21,10 @@
 #include "Engine/Core/ImGui/ImGuiSubsystem.hpp"
 #include "Engine/Core/LogCategory/PredefinedCategories.hpp"
 #include "Engine/Core/Logger/LoggerAPI.hpp"
+#include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Model/ModelSubsystem.hpp"
 #include "Engine/Registry/Block/BlockRegistry.hpp"
-#include "Engine/Registry/Core/GameData.hpp"
+#include "Engine/Registry/Core/RegisterSubsystem.hpp"
 #include "Engine/Voxel/Builtin/DefaultBlock.hpp"
 #include "Game/Framework/Imgui/ImguiGameSettings.hpp"
 #include "Game/Framework/Imgui/ImguiLeftDebugOverlay.hpp"
@@ -76,7 +77,11 @@ Game::Game()
 
     // [NEW] Freeze all registries after registration completes
     // Reference: NeoForge GameData.java:65-76
-    enigma::registry::GameData::FreezeData();
+    auto* registerSubsystem = GEngine->GetSubsystem<enigma::core::RegisterSubsystem>();
+    if (registerSubsystem)
+    {
+        registerSubsystem->FreezeAllRegistries();
+    }
 
     // This applies blockstate rotations from JSON files
     auto* modelSubsystem = GEngine->GetSubsystem<enigma::model::ModelSubsystem>();
@@ -102,6 +107,10 @@ Game::Game()
     {
         ImguiLeftDebugOverlay::ShowWindow(&m_showGameSettings);
     });
+
+    /// Prepare Uniforms
+    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<FogUniforms>(2, UpdateFrequency::PerFrame, BufferSpace::Custom);
+    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(8, UpdateFrequency::PerObject, BufferSpace::Custom);
 }
 
 Game::~Game()

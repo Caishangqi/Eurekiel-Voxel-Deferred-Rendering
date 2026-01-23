@@ -7,6 +7,8 @@
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderTerrainTranslucent/TerrainTranslucentRenderPass.hpp"
 #include "Engine/Voxel/Time/WorldTimeProvider.hpp"
+#include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
+#include "Game/Framework/RenderPass/ConstantBuffer/FogUniforms.hpp"
 #include "Game/SceneTest/SceneUnitTest.hpp"
 
 namespace enigma::graphic
@@ -89,3 +91,8 @@ public:
     void                  UpdateWorld();
 #pragma endregion
 };
+
+#pragma region CONSTANT_BUFFER
+static CommonConstantBuffer COMMON_UNIFORM;
+static FogUniforms          FOG_UNIFORM;
+#pragma endregion

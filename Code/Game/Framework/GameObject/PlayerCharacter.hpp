@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "GameObject.hpp"
 #include "Engine/Graphic/Camera/OrthographicCamera.hpp"
 #include "Engine/Graphic/Camera/PerspectiveCamera.hpp"
@@ -19,6 +19,7 @@ public:
 private:
     void HandleInputAction(float deltaSeconds);
     void UpdateCamera(float deltaSeconds);
+    void UpdatePlayerStatus(float deltaSeconds);
 
 private:
     // [REFACTOR] Use PerspectiveCamera instead of deprecated EnigmaCamera

@@ -131,7 +131,6 @@ void TerrainTranslucentRenderPass::Execute()
 void TerrainTranslucentRenderPass::BeginPass()
 {
     // Copy depth texture before rendering translucent objects
-    // depthtex0 (opaque depth) -> depthtex1 (for translucent depth testing)
     g_theRendererSubsystem->GetProvider(RTType::DepthTex)->Copy(0, 1);
 
     // Save current render states for restoration

@@ -264,6 +264,8 @@
         <ClInclude Include="Framework\Imgui\ImguiSceneRendering.hpp"/>
         <ClInclude Include="Framework\RenderPass\ConstantBuffer\CelestialConstantBuffer.hpp"/>
         <ClInclude Include="Framework\RenderPass\ConstantBuffer\CommonConstantBuffer.hpp"/>
+        <ClInclude Include="Framework\RenderPass\ConstantBuffer\FogUniforms.hpp"/>
+        <!-- REMOVED: PlayerStatusUniforms.hpp merged into CommonConstantBuffer.hpp (2026-01-22) -->
         <ClInclude Include="Framework\RenderPass\RenderCloud\CloudConfigParser.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderCloud\CloudGeometryHelper.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderCloud\CloudRenderPass.hpp"/>

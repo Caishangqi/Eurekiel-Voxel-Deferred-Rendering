@@ -71,12 +71,6 @@ SkyRenderPass::SkyRenderPass()
         enigma::graphic::BufferSpace::Custom,
         10000 // maxDraws
     );
-    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(
-        8, // slot
-        enigma::graphic::UpdateFrequency::PerObject,
-        enigma::graphic::BufferSpace::Custom,
-        10000 // maxDraws
-    );
 }
 
 SkyRenderPass::~SkyRenderPass()
@@ -113,16 +107,14 @@ void SkyRenderPass::Execute()
 
     // Upload CommonConstantBuffer
     // Reference: Iris CommonUniforms.java
-    commonData.skyColor         = SkyColorHelper::CalculateSkyColor(celestialData.celestialAngle);
-    commonData.fogColor         = SkyColorHelper::CalculateFogColor(celestialData.celestialAngle, celestialData.compensatedCelestialAngle);
-    commonData.rainStrength     = 0.0f;
-    commonData.wetness          = 0.0f;
-    commonData.thunderStrength  = 0.0f;
-    commonData.screenBrightness = 1.0f;
-    commonData.nightVision      = 0.0f;
-    commonData.blindness        = 0.0f;
-    commonData.darknessFactor   = 0.0f;
-    commonData.renderStage      = ToRenderStage(WorldRenderingPhase::NONE);
+    COMMON_UNIFORM.skyColor         = SkyColorHelper::CalculateSkyColor(celestialData.celestialAngle);
+    COMMON_UNIFORM.rainStrength     = 0.0f;
+    COMMON_UNIFORM.wetness          = 0.0f;
+    COMMON_UNIFORM.screenBrightness = 1.0f;
+    COMMON_UNIFORM.nightVision      = 0.0f;
+    COMMON_UNIFORM.blindness        = 0.0f;
+    COMMON_UNIFORM.darknessFactor   = 0.0f;
+    COMMON_UNIFORM.renderStage      = ToRenderStage(WorldRenderingPhase::NONE);
 
     WriteSkyColorToRT();
 
@@ -159,8 +151,8 @@ void SkyRenderPass::Execute()
         g_theRendererSubsystem->GetUniformManager()->UploadBuffer(restoredUniforms);
     }
 
-    commonData.renderStage = ToRenderStage(WorldRenderingPhase::NONE);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::NONE);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 
     EndPass();
 }
@@ -211,8 +203,8 @@ void SkyRenderPass::RenderSunsetStrip()
         return; // No strip to render (alpha = 0 means outside sunrise/sunset window)
     }
 
-    commonData.renderStage = ToRenderStage(WorldRenderingPhase::SUNSET);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::SUNSET);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 
     // Reference: Iris iris_ColorModulator (VanillaTransformer.java:76-79)
     celestialData.colorModulator = sunriseColor;
@@ -226,8 +218,8 @@ void SkyRenderPass::RenderSunsetStrip()
 
 void SkyRenderPass::RenderSkyDome()
 {
-    commonData.renderStage = ToRenderStage(WorldRenderingPhase::SKY);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::SKY);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 
     // Generate sky dome with per-vertex fog blending (zenith=skyColor, horizon=fogColor)
     float celestialAngle = g_theGame->m_timeProvider->GetCelestialAngle();
@@ -242,8 +234,8 @@ void SkyRenderPass::RenderVoidDome()
     // Reference: Minecraft LevelRenderer.java:1599-1607
     if (ShouldRenderVoidDome())
     {
-        commonData.renderStage = ToRenderStage(WorldRenderingPhase::SKY_VOID);
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+        COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::SKY_VOID);
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
         g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
     }
 }
@@ -252,8 +244,8 @@ void SkyRenderPass::RenderSun()
 {
     // Reference: Minecraft LevelRenderer.java:1548-1558
     // Reference: Iris CelestialUniforms.java:119-133
-    commonData.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 
     float           skyAngle     = g_theGame->m_timeProvider->GetSunAngle();
     float           sunSize      = m_sunSize;
@@ -292,8 +284,8 @@ void SkyRenderPass::RenderSun()
 void SkyRenderPass::RenderMoon()
 {
     // Reference: Minecraft LevelRenderer.java:1559-1580
-    commonData.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 
     float           skyAngle      = g_theGame->m_timeProvider->GetSunAngle();
     float           moonSize      = m_moonSize;

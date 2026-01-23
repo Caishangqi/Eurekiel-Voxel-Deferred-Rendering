@@ -2,40 +2,45 @@
 #include "Engine/Math/Vec3.hpp"
 
 // =============================================================================
-// CommonConstantBuffer - Common Uniforms Constant Buffer
+// CommonConstantBuffer - Iris CommonUniforms Compatible Constant Buffer
 // =============================================================================
 //
 // [Purpose]
-//   Provides common rendering data to shaders (sky color, fog color, render stage, etc.)
-//   Mirrors Iris CommonUniforms for Minecraft compatibility
+//   Provides common rendering data to shaders, strictly matching Iris CommonUniforms.java
+//   Reference: Iris CommonUniforms.java generalCommonUniforms() (lines 130-171)
 //
 // [Shader Side Declaration]
-//   Corresponds to HLSL: cbuffer CommonUniforms : register(b16, space1)
+//   Corresponds to HLSL: cbuffer CommonUniforms : register(b8, space1)
 //   File location: F:/p4/Personal/SD/Engine/.enigma/assets/engine/shaders/include/common_uniforms.hlsl
 //
-// [Registration and Usage]
-//   // Register in SkyRenderPass constructor
-//   g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(
-//       16,  // Slot >= 15 (user-defined area)
-//       UpdateFrequency::PerFrame  // Update once per frame
-//   );
-//
-//   // Upload data in SkyRenderPass::Execute()
-//   CommonConstantBuffer commonData;
-//   commonData.skyColor = CalculateSkyColor();
-//   commonData.fogColor = CalculateFogColor();
-//   commonData.renderStage = ToRenderStage(WorldRenderingPhase::SKY);
-//   g_theRendererSubsystem->GetUniformManager()->UploadBuffer(commonData);
+// [Iris CommonUniforms.java Variable Mapping]
+//   Line 136: hideGUI          -> hideGUI
+//   Line 137: isRightHanded    -> isRightHanded
+//   Line 138: isEyeInWater     -> isEyeInWater (0=air, 1=water, 2=lava, 3=powder_snow)
+//   Line 139: blindness        -> blindness
+//   Line 140: darknessFactor   -> darknessFactor
+//   Line 141: darknessLightFactor -> darknessLightFactor
+//   Line 142: nightVision      -> nightVision
+//   Line 143: is_sneaking      -> is_sneaking
+//   Line 144: is_sprinting     -> is_sprinting
+//   Line 145: is_hurt          -> is_hurt
+//   Line 146: is_invisible     -> is_invisible
+//   Line 147: is_burning       -> is_burning
+//   Line 148: is_on_ground     -> is_on_ground
+//   Line 151: screenBrightness -> screenBrightness
+//   Line 158: playerMood       -> playerMood
+//   Line 159: constantMood     -> constantMood
+//   Line 160: eyeBrightness    -> eyeBrightnessX, eyeBrightnessY
+//   Line 161: eyeBrightnessSmooth -> eyeBrightnessSmoothX, eyeBrightnessSmoothY
+//   Line 165: rainStrength     -> rainStrength
+//   Line 166: wetness          -> wetness
+//   Line 167: skyColor         -> skyColor
+//   Line 108: renderStage      -> renderStage (from addDynamicUniforms)
 //
 // [Alignment Requirements]
-//   - Each field must be 16-byte aligned (HLSL cbuffer specification)
-//   - Vec3 requires padding (Vec3 = 12 bytes, needs padding to 16 bytes)
-//   - int/float fields grouped in 16-byte blocks
-//
-// [Reference]
-//   - Iris CommonUniforms.java - skyColor, fogColor, rainStrength, wetness, renderStage
-//   - Iris WorldRenderingPhase.java - renderStage enum values
-//   - CelestialConstantBuffer.hpp - Alignment example
+//   - HLSL cbuffer requires 16-byte alignment for each row
+//   - Vec3 = 12 bytes, needs padding to 16 bytes
+//   - int/float fields grouped in 16-byte blocks (4 fields per row)
 //
 // =============================================================================
 
@@ -44,94 +49,167 @@
 
 struct CommonConstantBuffer
 {
-    // ==================== Sky Color (16 bytes) ====================
+    // ==================== Row 0: Sky Color (16 bytes) ====================
+    // Iris CommonUniforms.java:167 - skyColor
     // CPU-calculated sky color based on time, weather, dimension
-    // Source: Minecraft ClientLevel.getSkyColor(position, tickDelta)
     alignas(16) Vec3 skyColor;
-    float            _padding1; // Pad to 16 bytes
+    float            _pad0;
 
-    // ==================== Fog Color (16 bytes) ====================
-    // CPU-calculated fog color, used for horizon blending
-    // Source: Minecraft FogRenderer.setupColor()
-    alignas(16) Vec3 fogColor;
-    float            _padding2; // Pad to 16 bytes
+    // ==================== Row 1: Player State Flags (16 bytes) ====================
+    // Iris CommonUniforms.java:136-137, 138
+    alignas(16) int hideGUI; // Line 136: GUI hidden (F1 toggle)
+    int             isRightHanded; // Line 137: Main hand is RIGHT
+    int             isEyeInWater; // Line 138: 0=air, 1=water, 2=lava, 3=powder_snow
+    int             _pad1;
 
-    // ==================== Weather Parameters (16 bytes) ====================
-    alignas(16) float rainStrength; // Rain intensity (0.0-1.0)
-    float             wetness; // Wetness factor (smoothed rainStrength)
-    float             thunderStrength; // Thunder intensity (0.0-1.0)
-    float             _padding3; // Pad to 16 bytes
+    // ==================== Row 2: Player Visual Effects (16 bytes) ====================
+    // Iris CommonUniforms.java:139-142
+    alignas(16) float blindness; // Line 139: Blindness effect (0.0-1.0)
+    float             darknessFactor; // Line 140: Darkness effect (0.0-1.0)
+    float             darknessLightFactor; // Line 141: Darkness light factor (0.0-1.0)
+    float             nightVision; // Line 142: Night vision effect (0.0-1.0)
 
-    // ==================== Player State (16 bytes) ====================
-    alignas(16) float screenBrightness; // Gamma setting (0.0-1.0)
-    float             nightVision; // Night vision effect (0.0-1.0)
-    float             blindness; // Blindness effect (0.0-1.0)
-    float             darknessFactor; // Darkness effect (0.0-1.0)
+    // ==================== Row 3: Player Action Flags (16 bytes) ====================
+    // Iris CommonUniforms.java:143-146
+    alignas(16) int is_sneaking; // Line 143: Player is crouching
+    int             is_sprinting; // Line 144: Player is sprinting
+    int             is_hurt; // Line 145: Player hurtTime > 0
+    int             is_invisible; // Line 146: Player is invisible
 
-    // ==================== Fog Parameters (16 bytes) ====================
-    // [NEW] Fog distance parameters for shader fog calculations
-    // Source: Minecraft Fog cbuffer (fog.glsl)
-    // Note: These are provided for future shader use, CPU skyColor already includes fog blending
-    alignas(16) float fogStart; // Fog start distance (FogEnvironmentalStart)
-    float             fogEnd; // Fog end distance (FogEnvironmentalEnd)
-    float             fogSkyEnd; // Sky-specific fog end distance (FogSkyEnd)
-    float             fogCloudsEnd; // Clouds-specific fog end distance (FogCloudsEnd)
+    // ==================== Row 4: Player Action Flags 2 (16 bytes) ====================
+    // Iris CommonUniforms.java:147-148, 151
+    alignas(16) int is_burning; // Line 147: Player is on fire
+    int             is_on_ground; // Line 148: Player is on ground
+    float           screenBrightness; // Line 151: Gamma setting (0.0+)
+    float           _pad2;
 
-    // ==================== Render Stage (16 bytes) ====================
+    // ==================== Row 5: Player Mood (16 bytes) ====================
+    // Iris CommonUniforms.java:158-159
+    alignas(16) float playerMood; // Line 158: Player mood (0.0-1.0)
+    float             constantMood; // Line 159: Constant mood baseline (0.0-1.0)
+    float             _pad3;
+    float             _pad4;
+
+    // ==================== Row 6: Eye Brightness (16 bytes) ====================
+    // Iris CommonUniforms.java:160-161
+    // eyeBrightness: x = block light * 16, y = sky light * 16 (range 0-240)
+    alignas(16) int eyeBrightnessX; // Line 160: Block light
+    int             eyeBrightnessY; // Line 160: Sky light
+    int             eyeBrightnessSmoothX; // Line 161: Smoothed block light
+    int             eyeBrightnessSmoothY; // Line 161: Smoothed sky light
+
+    // ==================== Row 7: Weather (16 bytes) ====================
+    // Iris CommonUniforms.java:165-166
+    alignas(16) float rainStrength; // Line 165: Rain intensity (0.0-1.0)
+    float             wetness; // Line 166: Wetness factor (smoothed rainStrength)
+    float             _pad5;
+    float             _pad6;
+
+    // ==================== Row 8: Render Stage (16 bytes) ====================
+    // Iris CommonUniforms.java:108 (addDynamicUniforms)
     // Current rendering phase for shader program differentiation
-    // Source: Iris CommonUniforms.java:108 - uniform1i("renderStage", ...)
-    // Values: WorldRenderingPhase enum ordinal (0=NONE, 1=SKY, 2=SUNSET, etc.)
     alignas(16) int renderStage; // WorldRenderingPhase ordinal
-    int             _padding4[3]; // Pad to 16 bytes
+    int             _pad7[3];
+
+    // ==================== Default Constructor ====================
+    CommonConstantBuffer()
+        : skyColor(0.47f, 0.65f, 1.0f) // Default blue sky
+          , _pad0(0.0f)
+          // Row 1: Player State Flags
+          , hideGUI(0)
+          , isRightHanded(1) // Default right-handed
+          , isEyeInWater(0) // Default in air
+          , _pad1(0)
+          // Row 2: Visual Effects
+          , blindness(0.0f)
+          , darknessFactor(0.0f)
+          , darknessLightFactor(0.0f)
+          , nightVision(0.0f)
+          // Row 3: Action Flags
+          , is_sneaking(0)
+          , is_sprinting(0)
+          , is_hurt(0)
+          , is_invisible(0)
+          // Row 4: Action Flags 2
+          , is_burning(0)
+          , is_on_ground(1) // Default on ground
+          , screenBrightness(1.0f)
+          , _pad2(0.0f)
+          // Row 5: Mood
+          , playerMood(0.5f)
+          , constantMood(0.5f)
+          , _pad3(0.0f)
+          , _pad4(0.0f)
+          // Row 6: Eye Brightness
+          , eyeBrightnessX(0)
+          , eyeBrightnessY(240) // Default full sky light
+          , eyeBrightnessSmoothX(0)
+          , eyeBrightnessSmoothY(240)
+          // Row 7: Weather
+          , rainStrength(0.0f)
+          , wetness(0.0f)
+          , _pad5(0.0f)
+          , _pad6(0.0f)
+          // Row 8: Render Stage
+          , renderStage(0)
+          , _pad7{0, 0, 0}
+    {
+    }
 };
 
 #pragma warning(pop)
 
+// Compile-time validation: 9 rows * 16 bytes = 144 bytes
+static_assert(sizeof(CommonConstantBuffer) == 144,
+              "CommonConstantBuffer size mismatch - expected 144 bytes (9 rows * 16 bytes)");
+
 // =============================================================================
-// [IMPORTANT] C++ struct to HLSL cbuffer field mapping (96 bytes total)
+// [HLSL Mapping Reference]
 // =============================================================================
 //
-// C++ Side (CommonConstantBuffer):
-//   - Vec3 skyColor                  -> HLSL: float3 skyColor
-//   - float _padding1                -> HLSL: (auto-padded, no declaration needed)
-//   - Vec3 fogColor                  -> HLSL: float3 fogColor
-//   - float _padding2                -> HLSL: (auto-padded, no declaration needed)
-//   - float rainStrength             -> HLSL: float rainStrength
-//   - float wetness                  -> HLSL: float wetness
-//   - float thunderStrength          -> HLSL: float thunderStrength
-//   - float _padding3                -> HLSL: (auto-padded, no declaration needed)
-//   - float screenBrightness         -> HLSL: float screenBrightness
-//   - float nightVision              -> HLSL: float nightVision
-//   - float blindness                -> HLSL: float blindness
-//   - float darknessFactor           -> HLSL: float darknessFactor
-//   - float fogStart                 -> HLSL: float fogStart     [NEW]
-//   - float fogEnd                   -> HLSL: float fogEnd       [NEW]
-//   - float fogSkyEnd                -> HLSL: float fogSkyEnd    [NEW]
-//   - float fogCloudsEnd             -> HLSL: float fogCloudsEnd [NEW]
-//   - int renderStage                -> HLSL: int renderStage
-//   - int _padding4[3]               -> HLSL: (auto-padded, no declaration needed)
+// cbuffer CommonUniforms : register(b8, space1)
+// {
+//     // Row 0: Sky Color
+//     float3 skyColor;
 //
-// HLSL Side (common_uniforms.hlsl):
-//   cbuffer CommonUniforms : register(b8)
-//   {
-//       float3 skyColor;
-//       float3 fogColor;
-//       float  rainStrength;
-//       float  wetness;
-//       float  thunderStrength;
-//       float  screenBrightness;
-//       float  nightVision;
-//       float  blindness;
-//       float  darknessFactor;
-//       float  fogStart;     // [NEW] Fog start distance
-//       float  fogEnd;       // [NEW] Fog end distance
-//       float  fogSkyEnd;    // [NEW] Sky-specific fog end
-//       float  fogCloudsEnd; // [NEW] Clouds-specific fog end
-//       int    renderStage;  // Use RENDER_STAGE_* macros
-//   };
+//     // Row 1: Player State Flags
+//     int hideGUI;
+//     int isRightHanded;
+//     int isEyeInWater;
 //
-// HLSL Macros Available:
-//   RENDER_STAGE_SKY (1), RENDER_STAGE_SUNSET (2), RENDER_STAGE_SUN (4), etc.
-//   See common_uniforms.hlsl for full list
+//     // Row 2: Visual Effects
+//     float blindness;
+//     float darknessFactor;
+//     float darknessLightFactor;
+//     float nightVision;
+//
+//     // Row 3: Action Flags
+//     int is_sneaking;
+//     int is_sprinting;
+//     int is_hurt;
+//     int is_invisible;
+//
+//     // Row 4: Action Flags 2
+//     int is_burning;
+//     int is_on_ground;
+//     float screenBrightness;
+//
+//     // Row 5: Mood
+//     float playerMood;
+//     float constantMood;
+//
+//     // Row 6: Eye Brightness
+//     int eyeBrightnessX;
+//     int eyeBrightnessY;
+//     int eyeBrightnessSmoothX;
+//     int eyeBrightnessSmoothY;
+//
+//     // Row 7: Weather
+//     float rainStrength;
+//     float wetness;
+//
+//     // Row 8: Render Stage
+//     int renderStage;
+// };
 //
 // =============================================================================

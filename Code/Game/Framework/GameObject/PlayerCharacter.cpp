@@ -1,10 +1,12 @@
-﻿#include "PlayerCharacter.hpp"
+#include "PlayerCharacter.hpp"
 
 #include "Engine/Core/EngineCommon.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
+#include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Input/InputSystem.hpp"
 #include "Engine/Math/MathUtils.hpp"
 #include "Game/GameCommon.hpp"
+#include "Game/Gameplay/Game.hpp"
 using namespace enigma::graphic;
 
 PlayerCharacter::PlayerCharacter(Game* parent) : GameObject(parent)
@@ -35,6 +37,7 @@ void PlayerCharacter::Update(float deltaSeconds)
     GameObject::Update(deltaSeconds);
     HandleInputAction(deltaSeconds);
     UpdateCamera(deltaSeconds);
+    UpdatePlayerStatus(deltaSeconds);
 }
 
 void PlayerCharacter::Render() const
@@ -88,4 +91,25 @@ void PlayerCharacter::UpdateCamera(float deltaSeconds)
     UNUSED(deltaSeconds)
     m_camera->SetOrientation(m_orientation);
     m_camera->SetPosition(m_position);
+}
+
+void PlayerCharacter::UpdatePlayerStatus(float deltaSeconds)
+{
+    UNUSED(deltaSeconds)
+    auto world = g_theGame->GetWorld();
+    if (world)
+    {
+        auto blockState = world->GetBlockState(enigma::voxel::BlockPos((int32_t)m_position.x, (int32_t)m_position.y, (int32_t)m_position.z));
+        if (!blockState->GetFluidState().IsEmpty())
+        {
+            // [REFACTOR] Use global COMMON_UNIFORM instead of m_playerStatusUniform
+            COMMON_UNIFORM.isEyeInWater = 1;
+        }
+        else
+        {
+            COMMON_UNIFORM.isEyeInWater = 0;
+        }
+    }
+    // [REFACTOR] COMMON_UNIFORM is uploaded in RenderPass, not here
+    // The upload happens in the appropriate RenderPass that needs this data
 }

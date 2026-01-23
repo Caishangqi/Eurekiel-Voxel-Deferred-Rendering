@@ -95,7 +95,6 @@ private:
     float m_sunSize  = 30.0f; // Sun billboard size (Minecraft default: 30)
     float m_moonSize = 20.0f; // Moon billboard size (Minecraft default: 20)
 
-    CommonConstantBuffer    commonData;
     CelestialConstantBuffer celestialData;
     enigma::graphic::PerObjectUniforms perObjectData;
 };

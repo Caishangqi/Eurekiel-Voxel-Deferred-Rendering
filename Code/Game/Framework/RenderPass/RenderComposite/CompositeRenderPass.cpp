@@ -9,6 +9,7 @@
 #include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Graphic/Target/DepthTextureProvider.hpp"
+#include "Game/Gameplay/Game.hpp"
 
 CompositeRenderPass::CompositeRenderPass()
 {

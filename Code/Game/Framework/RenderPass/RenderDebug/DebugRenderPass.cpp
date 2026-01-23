@@ -5,6 +5,8 @@
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCUTBNLayout.hpp"
+#include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
+#include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Math/Sphere.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Framework/GameObject/Geometry.hpp"
@@ -95,6 +97,9 @@ void DebugRenderPass::BeginPass()
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 
     m_player = g_theGame->m_player.get();
+    MatricesUniforms playerMatricesUniform;
+    m_player->GetCamera()->UpdateMatrixUniforms(playerMatricesUniform);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(playerMatricesUniform);
 }
 
 void DebugRenderPass::EndPass()
@@ -117,7 +122,7 @@ void DebugRenderPass::RenderCursor()
     lightDirection->m_orientation = dynamic_cast<ShadowRenderPass*>(g_theGame->m_shadowRenderPass.get())->m_lightDirectionEulerAngles;
     center->m_position            = m_player->m_position + playerForward * 3.0f;
     center_xyz->Render();
-    lightDirection->Render();
+    //lightDirection->Render();
     center->Render();
 }
 
