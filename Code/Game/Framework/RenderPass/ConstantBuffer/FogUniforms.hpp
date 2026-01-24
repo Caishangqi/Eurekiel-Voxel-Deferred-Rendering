@@ -70,13 +70,12 @@ struct FogUniforms
     //   1  = cylinder
     int fogShape;
 
-    // ==================== Default Constructor ====================
     FogUniforms()
-        : fogColor(0.5f, 0.6f, 0.7f) // Default gray-blue fog
-          , fogDensity(0.0f)
+        : fogColor(0.16f, 0.28f, 0.51f)
+          , fogDensity(0.05f)
           , fogStart(0.0f)
           , fogEnd(192.0f) // Default render distance
-          , fogMode(9729) // GL_LINEAR
+          , fogMode(2048) // GL_LINEAR
           , fogShape(0) // Sphere
     {
     }

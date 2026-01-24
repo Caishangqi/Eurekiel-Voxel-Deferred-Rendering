@@ -229,6 +229,7 @@
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudTextureData.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\ImguiSettingCloud.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderComposite\CompositeRenderPass.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderComposite\ImguiSettingComposite.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderDebug\DebugRenderPass.cpp" />
         <ClCompile Include="Framework\RenderPass\RenderFinal\FinalRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderShadow\ShadowRenderPass.cpp"/>
@@ -272,6 +273,7 @@
         <ClInclude Include="Framework\RenderPass\RenderCloud\CloudTextureData.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderCloud\ImguiSettingCloud.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderComposite\CompositeRenderPass.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderComposite\ImguiSettingComposite.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderDebug\DebugRenderPass.hpp" />
         <ClInclude Include="Framework\RenderPass\RenderFinal\FinalRenderPass.hpp" />
         <ClInclude Include="Framework\RenderPass\RenderShadow\ShadowRenderPass.hpp"/>
