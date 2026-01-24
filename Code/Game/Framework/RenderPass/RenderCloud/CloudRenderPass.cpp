@@ -37,6 +37,7 @@
 #include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
 #include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCUTBNLayout.hpp"
+#include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
 
 // ========================================
 // Constants (Defaults, overridden by CloudConfig)
@@ -183,6 +184,14 @@ void CloudRenderPass::BeginPass()
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Alpha());
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::CullBack());
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
+
+    // Save the near and far for cloud
+    auto camera  = g_theGame->m_player->GetCamera();
+    m_cachedFar  = camera->GetFarPlane();
+    m_cachedNear = camera->GetNearPlane();
+    camera->SetNearFar(0.01f, 1000.f);
+    auto matrixUniform = camera->GetMatrixUniforms();
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matrixUniform);
 }
 
 /// Restore default render states
@@ -191,6 +200,12 @@ void CloudRenderPass::EndPass()
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::Disabled());
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Opaque());
+
+    // Restore the near and far
+    auto camera = g_theGame->m_player->GetCamera();
+    camera->SetNearFar(m_cachedNear, m_cachedFar);
+    auto matrixUniform = camera->GetMatrixUniforms();
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matrixUniform);
 }
 
 /// Load clouds.png and create CloudTextureData for CPU-side geometry generation

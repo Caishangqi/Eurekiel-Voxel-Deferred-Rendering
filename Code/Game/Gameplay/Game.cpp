@@ -34,6 +34,11 @@
 #include "Game/SceneTest/SceneUnitTest_VertexLayoutRegistration.hpp"
 #include "Generator/SimpleMinerGenerator.hpp"
 
+
+CommonConstantBuffer COMMON_UNIFORM = CommonConstantBuffer();
+FogUniforms          FOG_UNIFORM    = FogUniforms();
+
+
 Game::Game()
 {
     /// Set the game state

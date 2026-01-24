@@ -91,8 +91,7 @@ public:
     void                  UpdateWorld();
 #pragma endregion
 };
-
 #pragma region CONSTANT_BUFFER
-static CommonConstantBuffer COMMON_UNIFORM;
-static FogUniforms          FOG_UNIFORM;
+extern CommonConstantBuffer COMMON_UNIFORM;
+extern FogUniforms          FOG_UNIFORM;
 #pragma endregion

@@ -11,6 +11,7 @@
 #include "Game/Framework/RenderPass/RenderCloud/CloudRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderSky/ImguiSettingSky.hpp"
 #include "Game/Framework/RenderPass/RenderSky/SkyRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderComposite/ImguiSettingComposite.hpp"
 #include "Game/Gameplay/Game.hpp"
 #include "ThirdParty/imgui/imgui.h"
 
@@ -32,6 +33,9 @@ void ImguiSceneRendering::Show()
     }
 
     ImguiSettingSky::Show(dynamic_cast<SkyRenderPass*>(g_theGame->m_skyRenderPass.get()));
+
+    // [MODULE 3] Composite Settings (Underwater Fog)
+    ImguiSettingComposite::Show();
 
     // [FUTURE] Add more rendering modules here
     // - Terrain Rendering

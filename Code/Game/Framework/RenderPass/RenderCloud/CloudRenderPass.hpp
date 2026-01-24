@@ -278,4 +278,7 @@ private:
     CloudStatus m_renderMode;
 
     std::unique_ptr<CloudConfigParser> m_configParser;
+
+    float m_cachedNear = 0.f;
+    float m_cachedFar  = 0.f;
 };
