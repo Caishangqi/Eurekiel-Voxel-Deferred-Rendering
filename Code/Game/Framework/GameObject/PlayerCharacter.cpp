@@ -6,6 +6,7 @@
 #include "Engine/Input/InputSystem.hpp"
 #include "Engine/Math/MathUtils.hpp"
 #include "Game/GameCommon.hpp"
+#include "Game/Framework/App.hpp"
 #include "Game/Gameplay/Game.hpp"
 using namespace enigma::graphic;
 
@@ -15,8 +16,8 @@ PlayerCharacter::PlayerCharacter(Game* parent) : GameObject(parent)
     // Parameters: position, orientation, fov, aspectRatio, nearPlane, farPlane
     constexpr float DEFAULT_FOV          = 90.0f;
     constexpr float DEFAULT_ASPECT_RATIO = 16.0f / 9.0f;
-    constexpr float DEFAULT_NEAR_PLANE   = 0.1f;
-    constexpr float DEFAULT_FAR_PLANE    = 1000.0f;
+    constexpr float DEFAULT_NEAR_PLANE   = 0.01f;
+    float           DEFAULT_FAR_PLANE    = (float)(settings.GetInt("video.simulationDistance", 6) + 2) * enigma::voxel::Chunk::CHUNK_SIZE_X;
 
     m_camera = std::make_unique<PerspectiveCamera>(
         Vec3::ZERO, // Initial position
@@ -99,7 +100,7 @@ void PlayerCharacter::UpdatePlayerStatus(float deltaSeconds)
     auto world = g_theGame->GetWorld();
     if (world)
     {
-        auto blockState = world->GetBlockState(enigma::voxel::BlockPos((int32_t)m_position.x, (int32_t)m_position.y, (int32_t)m_position.z));
+        enigma::voxel::BlockState* blockState = world->GetBlockState(enigma::voxel::BlockPos((int32_t)m_position.x, (int32_t)m_position.y, (int32_t)m_position.z));
         if (!blockState->GetFluidState().IsEmpty())
         {
             // [REFACTOR] Use global COMMON_UNIFORM instead of m_playerStatusUniform
