@@ -1,0 +1,30 @@
+# Enigma ShaderBundle Development
+# ================================
+
+# @engine symlink (created by setup script, should not be committed)
+shaders/@engine/
+
+# IDE files
+.idea/
+.vs/
+*.user
+*.suo
+
+# Build artifacts
+*.dxil
+*.cso
+*.pdb
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Backup files
+*.bak
+*~
