@@ -142,12 +142,9 @@ void App::Startup(char*)
     auto rendererSubsystem               = std::make_unique<RendererSubsystem>(renderConfig);
     GEngine->RegisterSubsystem(std::move(rendererSubsystem));
 
-    // ShaderBundle Subsystem - Register after RendererSubsystem (priority 100 > 80)
-    // ShaderBundleSubsystem depends on RendererSubsystem for shader compilation
-    enigma::graphic::ShaderBundleSubsystemConfiguration bundleConfig;
-    bundleConfig.shaderBundleUserDiscoveryPath = ".enigma/shaderpacks";
-    bundleConfig.shaderBundleEnginePath        = ".enigma/assets/engine/shaders";
-    auto shaderBundleSubsystem                 = std::make_unique<enigma::graphic::ShaderBundleSubsystem>(bundleConfig);
+    // ShaderBundleSubsystem registration, we manually load from YAML.
+    auto bundleConfig          = enigma::graphic::ShaderBundleSubsystemConfiguration::LoadFromYaml(".enigma/config/engine/shaderbundle.yml");
+    auto shaderBundleSubsystem = std::make_unique<enigma::graphic::ShaderBundleSubsystem>(std::move(bundleConfig));
     GEngine->RegisterSubsystem(std::move(shaderBundleSubsystem));
 
     // Imgui Subsystem
