@@ -19,13 +19,6 @@ CompositeRenderPass::CompositeRenderPass()
     enigma::graphic::ShaderCompileOptions shaderCompileOptions;
     shaderCompileOptions.enableDebugInfo = true;
 
-    m_shaderProgram = g_theRendererSubsystem->CreateShaderProgramFromFiles(
-        ".enigma/assets/engine/shaders/program/composite.vs.hlsl",
-        ".enigma/assets/engine/shaders/program/composite.ps.hlsl",
-        "composite",
-        shaderCompileOptions
-    );
-
     m_shaderPrograms = g_theShaderBundleSubsystem->GetCurrentShaderBundle()->GetPrograms("composite.*");
 
     /// Fullquads vertex buffer
@@ -53,9 +46,9 @@ void CompositeRenderPass::Execute()
     BeginPass();
     for (auto program : m_shaderPrograms)
     {
-        if (m_shaderProgram)
+        if (program)
         {
-            g_theRendererSubsystem->UseProgram(m_shaderProgram, {{RTType::ColorTex, 0}});
+            g_theRendererSubsystem->UseProgram(program, {{RTType::ColorTex, 0}});
             g_theRendererSubsystem->DrawVertexBuffer(m_fullQuadsVertexBuffer);
         }
     }
@@ -73,7 +66,6 @@ void CompositeRenderPass::OnShaderBundleLoaded(enigma::graphic::ShaderBundle* ne
 void CompositeRenderPass::OnShaderBundleUnloaded()
 {
     m_shaderPrograms.clear();
-    m_shaderPrograms.push_back(m_shaderProgram);
 }
 
 void CompositeRenderPass::BeginPass()

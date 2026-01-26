@@ -25,7 +25,6 @@ protected:
     void EndPass() override;
 
 private:
-    std::shared_ptr<enigma::graphic::ShaderProgram>              m_shaderProgram = nullptr;
     std::vector<std::shared_ptr<enigma::graphic::ShaderProgram>> m_shaderPrograms;
     std::shared_ptr<enigma::graphic::D12VertexBuffer>            m_fullQuadsVertexBuffer = nullptr;
 };
