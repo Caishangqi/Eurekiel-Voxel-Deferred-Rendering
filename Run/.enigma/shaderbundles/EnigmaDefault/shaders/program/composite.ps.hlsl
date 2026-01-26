@@ -42,6 +42,8 @@ PSOutput main(PSInput input)
 {
     PSOutput output;
 
+    /* RENDERTARGETS: 0 */
+
     // [STEP 1] Sample depth textures
     // [IMPORTANT] Use sampler1 (Point filtering) for depth textures!
     // Depth values must NOT be interpolated - use Point sampling only.

@@ -40,6 +40,8 @@ struct PSOutput
 
 PSOutput main(PSInput input)
 {
+    /* RENDERTARGETS: 0 */
+
     PSOutput output;
 
     // [STEP 1] Sample depth textures

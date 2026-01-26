@@ -9,6 +9,7 @@
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Graphic/Target/DepthTextureProvider.hpp"
 #include "Game/GameCommon.hpp"
+#include "Game/Framework/RenderPass/RenderPassHelper.hpp"
 #include "Game/Gameplay/Game.hpp"
 
 CompositeRenderPass::CompositeRenderPass()
@@ -27,7 +28,8 @@ void CompositeRenderPass::Execute()
     {
         if (program)
         {
-            g_theRendererSubsystem->UseProgram(program, {{RTType::ColorTex, 0}});
+            auto rts = RenderPassHelper::GetRenderTargetColorFromIndex(program->GetDirectives().GetDrawBuffers(), RTType::ColorTex);
+            g_theRendererSubsystem->UseProgram(program, rts);
             FullQuadsRenderer::DrawFullQuads();
         }
     }

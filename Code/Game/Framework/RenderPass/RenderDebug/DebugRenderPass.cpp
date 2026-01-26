@@ -91,9 +91,7 @@ void DebugRenderPass::BeginPass()
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Alpha());
     g_theRendererSubsystem->SetCustomImage(0, nullptr);
     // [REFACTOR] Pair-based RT binding
-    g_theRendererSubsystem->UseProgram(sp_debugShader, {
-                                           {RTType::ColorTex, 0}, {RTType::DepthTex, 0}
-                                       });
+    g_theRendererSubsystem->UseProgram(sp_debugShader, {{RTType::ColorTex, 0}, {RTType::DepthTex, 0}});
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 
     m_player = g_theGame->m_player.get();
@@ -122,7 +120,7 @@ void DebugRenderPass::RenderCursor()
     lightDirection->m_orientation = dynamic_cast<ShadowRenderPass*>(g_theGame->m_shadowRenderPass.get())->m_lightDirectionEulerAngles;
     center->m_position            = m_player->m_position + playerForward * 3.0f;
     center_xyz->Render();
-    //lightDirection->Render();
+    lightDirection->Render();
     center->Render();
 }
 
