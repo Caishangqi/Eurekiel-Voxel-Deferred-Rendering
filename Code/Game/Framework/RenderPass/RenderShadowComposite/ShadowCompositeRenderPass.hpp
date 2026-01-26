@@ -1,20 +1,11 @@
 ﻿#pragma once
-#include <memory>
-
-#include "Engine/Graphic/Camera/OrthographicCamera.hpp"
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
 
-namespace enigma::graphic
-{
-    class D12VertexBuffer;
-    class ShaderProgram;
-}
-
-class CompositeRenderPass : public SceneRenderPass
+class ShadowCompositeRenderPass : public SceneRenderPass
 {
 public:
-    CompositeRenderPass();
-    ~CompositeRenderPass() override;
+    ~ShadowCompositeRenderPass() override;
+    ShadowCompositeRenderPass();
     void Execute() override;
 
 protected:
