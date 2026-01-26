@@ -18,6 +18,8 @@
 
 #include "Engine/Core/LogCategory/PredefinedCategories.hpp"
 #include "Engine/Core/Logger/LoggerAPI.hpp"
+#include "Engine/Graphic/Bundle/ShaderBundle.hpp"
+#include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
 #include "Engine/Graphic/Core/DX12/D3D12RenderSystem.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Target/RTTypes.hpp"
@@ -39,15 +41,8 @@ TerrainCutoutRenderPass::TerrainCutoutRenderPass()
 {
     // Load gbuffers_terrain_cutout shaders
     // Fallback chain: gbuffers_terrain_cutout -> gbuffers_terrain
-    ShaderCompileOptions shaderCompileOptions;
-    shaderCompileOptions.enableDebugInfo = true;
 
-    m_shaderProgram = g_theRendererSubsystem->CreateShaderProgramFromFiles(
-        ".enigma/assets/engine/shaders/program/gbuffers_terrain_cutout.vs.hlsl",
-        ".enigma/assets/engine/shaders/program/gbuffers_terrain_cutout.ps.hlsl",
-        "gbuffers_terrain_cutout",
-        shaderCompileOptions
-    );
+    m_shaderProgram = g_theShaderBundleSubsystem->GetCurrentShaderBundle()->GetProgram("gbuffers_terrain_cutout");
 
     // Get atlas image and create GPU texture
     // [NOTE] Shared with TerrainRenderPass - consider caching in ResourceSubsystem
@@ -108,6 +103,19 @@ void TerrainCutoutRenderPass::Execute()
     }
 
     EndPass();
+}
+
+void TerrainCutoutRenderPass::OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle)
+{
+    if (newBundle)
+    {
+        m_shaderProgram = newBundle->GetProgram("gbuffers_terrain_cutout");
+    }
+}
+
+void TerrainCutoutRenderPass::OnShaderBundleUnloaded()
+{
+    m_shaderProgram = nullptr;
 }
 
 void TerrainCutoutRenderPass::BeginPass()

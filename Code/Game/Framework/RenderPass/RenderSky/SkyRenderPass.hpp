@@ -29,6 +29,10 @@ protected:
     void BeginPass() override;
     void EndPass() override;
 
+    // ShaderBundle event callbacks
+    void OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle) override;
+    void OnShaderBundleUnloaded() override;
+
 public:
     // [Component 6.4] Parameter Access for ImGui
     bool IsVoidGradientEnabled() const { return m_enableVoidGradient; }

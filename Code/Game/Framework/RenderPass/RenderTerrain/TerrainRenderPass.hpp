@@ -21,9 +21,10 @@ public:
 protected:
     void BeginPass() override;
     void EndPass() override;
+    void OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle) override;
+    void OnShaderBundleUnloaded() override;
 
 private:
     std::shared_ptr<enigma::graphic::ShaderProgram> m_shaderProgram     = nullptr;
     std::shared_ptr<enigma::graphic::D12Texture>    m_blockAtlasTexture = nullptr;
-    bool                                            m_shadersLoaded     = false;
 };

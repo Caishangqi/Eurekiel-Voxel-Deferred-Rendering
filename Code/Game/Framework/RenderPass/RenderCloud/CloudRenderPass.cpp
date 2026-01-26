@@ -57,12 +57,7 @@ CloudRenderPass::CloudRenderPass()
     enigma::graphic::ShaderCompileOptions shaderCompileOptions;
     shaderCompileOptions.enableDebugInfo = true;
 
-    m_cloudsShader = g_theRendererSubsystem->CreateShaderProgramFromFiles(
-        ".enigma/assets/engine/shaders/program/gbuffers_clouds.vs.hlsl",
-        ".enigma/assets/engine/shaders/program/gbuffers_clouds.ps.hlsl",
-        "gbuffers_clouds",
-        shaderCompileOptions
-    );
+    m_cloudsShader = g_theShaderBundleSubsystem->GetCurrentShaderBundle()->GetProgram("gbuffers_clouds");
 
     // Load clouds.png and create CloudTextureData
     LoadCloudTexture();
@@ -174,6 +169,19 @@ void CloudRenderPass::Execute()
     }
 
     EndPass();
+}
+
+void CloudRenderPass::OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle)
+{
+    if (newBundle)
+    {
+        m_cloudsShader = newBundle->GetProgram("gbuffers_clouds");
+    }
+}
+
+void CloudRenderPass::OnShaderBundleUnloaded()
+{
+    m_cloudsShader = nullptr;
 }
 
 /// Setup render states for cloud rendering

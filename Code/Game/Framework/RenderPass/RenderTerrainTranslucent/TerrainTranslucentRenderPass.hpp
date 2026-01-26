@@ -54,6 +54,9 @@ public:
     void Execute() override;
 
 protected:
+    void OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle) override;
+    void OnShaderBundleUnloaded() override;
+
     void BeginPass() override;
     void EndPass() override;
 
@@ -64,8 +67,7 @@ private:
 
 private:
     // Shader programs (water with terrain fallback)
-    std::shared_ptr<enigma::graphic::ShaderProgram> m_waterShader    = nullptr;
-    std::shared_ptr<enigma::graphic::ShaderProgram> m_fallbackShader = nullptr;
+    std::shared_ptr<enigma::graphic::ShaderProgram> m_waterShader = nullptr;
 
     // Block atlas texture (shared resource, same as TerrainRenderPass)
     std::shared_ptr<enigma::graphic::D12Texture> m_blockAtlasTexture = nullptr;

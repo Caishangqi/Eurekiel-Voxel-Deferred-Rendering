@@ -1,6 +1,8 @@
 ﻿#include "CompositeRenderPass.hpp"
 
 #include "Engine/Core/VertexUtils.hpp"
+#include "Engine/Graphic/Bundle/ShaderBundle.hpp"
+#include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
 #include "Engine/Graphic/Helper/VertexConversionHelper.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCUTBNLayout.hpp"
@@ -23,6 +25,8 @@ CompositeRenderPass::CompositeRenderPass()
         "composite",
         shaderCompileOptions
     );
+
+    m_shaderPrograms = g_theShaderBundleSubsystem->GetCurrentShaderBundle()->GetPrograms("composite.*");
 
     /// Fullquads vertex buffer
     std::vector<Vertex_PCU> verts;
@@ -47,8 +51,29 @@ CompositeRenderPass::~CompositeRenderPass()
 void CompositeRenderPass::Execute()
 {
     BeginPass();
-    g_theRendererSubsystem->DrawVertexBuffer(m_fullQuadsVertexBuffer);
+    for (auto program : m_shaderPrograms)
+    {
+        if (m_shaderProgram)
+        {
+            g_theRendererSubsystem->UseProgram(m_shaderProgram, {{RTType::ColorTex, 0}});
+            g_theRendererSubsystem->DrawVertexBuffer(m_fullQuadsVertexBuffer);
+        }
+    }
     EndPass();
+}
+
+void CompositeRenderPass::OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle)
+{
+    if (newBundle)
+    {
+        m_shaderPrograms = newBundle->GetPrograms("composite.*");
+    }
+}
+
+void CompositeRenderPass::OnShaderBundleUnloaded()
+{
+    m_shaderPrograms.clear();
+    m_shaderPrograms.push_back(m_shaderProgram);
 }
 
 void CompositeRenderPass::BeginPass()
@@ -62,10 +87,6 @@ void CompositeRenderPass::BeginPass()
     depthProvider->GetDepthTexture(0)->TransitionToShaderResource();
     depthProvider->GetDepthTexture(1)->TransitionToShaderResource();
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
-    if (m_shaderProgram)
-    {
-        g_theRendererSubsystem->UseProgram(m_shaderProgram, {{RTType::ColorTex, 0}});
-    }
     auto matrixUniform = g_theGame->m_player->GetCamera()->GetMatrixUniforms();
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matrixUniform);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(FOG_UNIFORM);

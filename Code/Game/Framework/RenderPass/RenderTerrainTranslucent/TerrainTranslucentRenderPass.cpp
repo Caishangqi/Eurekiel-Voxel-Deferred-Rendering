@@ -16,6 +16,9 @@
  */
 
 #include "TerrainTranslucentRenderPass.hpp"
+
+#include "Engine/Graphic/Bundle/ShaderBundle.hpp"
+#include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Gameplay/Game.hpp"
 #include "Engine/Graphic/Core/DX12/D3D12RenderSystem.hpp"
@@ -38,20 +41,7 @@ TerrainTranslucentRenderPass::TerrainTranslucentRenderPass()
     shaderCompileOptions.enableDebugInfo = true;
 
     // Load gbuffers_water shader (primary)
-    m_waterShader = g_theRendererSubsystem->CreateShaderProgramFromFiles(
-        ".enigma/assets/engine/shaders/program/gbuffers_water.vs.hlsl",
-        ".enigma/assets/engine/shaders/program/gbuffers_water.ps.hlsl",
-        "gbuffers_water",
-        shaderCompileOptions
-    );
-
-    // Load gbuffers_terrain shader (fallback)
-    m_fallbackShader = g_theRendererSubsystem->CreateShaderProgramFromFiles(
-        ".enigma/assets/engine/shaders/program/gbuffers_terrain.vs.hlsl",
-        ".enigma/assets/engine/shaders/program/gbuffers_terrain.ps.hlsl",
-        "gbuffers_terrain_translucent_fallback",
-        shaderCompileOptions
-    );
+    m_waterShader = g_theShaderBundleSubsystem->GetCurrentShaderBundle()->GetProgram("gbuffers_water");
 
     // Load block atlas texture (same as TerrainRenderPass)
     const Image* atlasImage = g_theResource->GetAtlas("blocks")->GetAtlasImage();
@@ -75,13 +65,6 @@ void TerrainTranslucentRenderPass::Execute()
     // Get world from game
     enigma::voxel::World* world = g_theGame ? g_theGame->GetWorld() : nullptr;
     if (!world)
-    {
-        return;
-    }
-
-    // Select shader (water with terrain fallback)
-    auto activeShader = m_waterShader ? m_waterShader : m_fallbackShader;
-    if (!activeShader)
     {
         return;
     }
@@ -128,6 +111,19 @@ void TerrainTranslucentRenderPass::Execute()
     EndPass();
 }
 
+void TerrainTranslucentRenderPass::OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle)
+{
+    if (newBundle)
+    {
+        m_waterShader = newBundle->GetProgram("gbuffers_water");
+    }
+}
+
+void TerrainTranslucentRenderPass::OnShaderBundleUnloaded()
+{
+    m_waterShader = nullptr;
+}
+
 void TerrainTranslucentRenderPass::BeginPass()
 {
     // Copy depth texture before rendering translucent objects
@@ -140,17 +136,7 @@ void TerrainTranslucentRenderPass::BeginPass()
     // Set TerrainVertexLayout (same as TerrainRenderPass)
     g_theRendererSubsystem->SetVertexLayout(TerrainVertexLayout::Get());
 
-    // Bind shader with render targets
-    auto activeShader = m_waterShader ? m_waterShader : m_fallbackShader;
-    if (activeShader)
-    {
-        g_theRendererSubsystem->UseProgram(activeShader, {
-                                               {RTType::ColorTex, 0},
-                                               {RTType::ColorTex, 1},
-                                               {RTType::ColorTex, 2},
-                                               {RTType::DepthTex, 0}
-                                           });
-    }
+    g_theRendererSubsystem->UseProgram(m_waterShader, {{RTType::ColorTex, 0}, {RTType::ColorTex, 1}, {RTType::ColorTex, 2}, {RTType::DepthTex, 0}});
 
     // Upload matrices uniforms
     MatricesUniforms matricesUniforms;

@@ -3,6 +3,8 @@
 #include "Engine/Core/LogCategory/PredefinedCategories.hpp"
 #include "Engine/Core/Logger/LoggerAPI.hpp"
 #include "Engine/Core/Logger/LoggerSubsystem.hpp"
+#include "Engine/Graphic/Bundle/ShaderBundle.hpp"
+#include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
 #include "Engine/Graphic/Core/DX12/D3D12RenderSystem.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Target/RTTypes.hpp"
@@ -26,12 +28,7 @@ TerrainRenderPass::TerrainRenderPass()
     ShaderCompileOptions shaderCompileOptions;
     shaderCompileOptions.enableDebugInfo = true;
 
-    m_shaderProgram = g_theRendererSubsystem->CreateShaderProgramFromFiles(
-        ".enigma/assets/engine/shaders/program/gbuffers_terrain.vs.hlsl",
-        ".enigma/assets/engine/shaders/program/gbuffers_terrain.ps.hlsl",
-        "gbuffers_terrain",
-        shaderCompileOptions
-    );
+    m_shaderProgram = g_theShaderBundleSubsystem->GetCurrentShaderBundle()->GetProgram("gbuffers_terrain");
 
     // Get atlas image and create GPU texture (const_cast safe: CreateTexture2D only reads data)
     const Image* atlasImage = g_theResource->GetAtlas("blocks")->GetAtlasImage();
@@ -106,4 +103,17 @@ void TerrainRenderPass::EndPass()
     // [NOTE] Depth copy moved to TerrainCutoutRenderPass::EndPass()
     // depthtex1 should contain Solid + Cutout depth (noTranslucents)
     // Reference: Iris pipeline - depth copy happens after all opaque terrain
+}
+
+void TerrainRenderPass::OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle)
+{
+    if (newBundle)
+    {
+        m_shaderProgram = newBundle->GetProgram("gbuffers_terrain");
+    }
+}
+
+void TerrainRenderPass::OnShaderBundleUnloaded()
+{
+    m_shaderProgram = nullptr;
 }

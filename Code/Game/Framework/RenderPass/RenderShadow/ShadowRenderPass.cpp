@@ -19,6 +19,9 @@
 #include "Engine/Math/EulerAngles.hpp"
 #include <cmath>
 
+#include "Engine/Graphic/Bundle/ShaderBundle.hpp"
+#include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
+
 using namespace enigma::graphic;
 
 // ============================================================================
@@ -31,12 +34,7 @@ ShadowRenderPass::ShadowRenderPass()
     ShaderCompileOptions shaderCompileOptions;
     shaderCompileOptions.enableDebugInfo = true;
 
-    m_shadowProgram = g_theRendererSubsystem->CreateShaderProgramFromFiles(
-        ".enigma/assets/engine/shaders/program/shadow.vs.hlsl",
-        ".enigma/assets/engine/shaders/program/shadow.ps.hlsl",
-        "shadow",
-        shaderCompileOptions
-    );
+    m_shadowProgram = g_theShaderBundleSubsystem->GetCurrentShaderBundle()->GetProgram("shadow");
 
     // [NEW] Get atlas image for alpha testing in shadow pass
     const Image* atlasImage = g_theResource->GetAtlas("blocks")->GetAtlasImage();
@@ -78,6 +76,19 @@ void ShadowRenderPass::Execute()
     RenderShadowMap();
 
     EndPass();
+}
+
+void ShadowRenderPass::OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle)
+{
+    if (newBundle)
+    {
+        m_shadowProgram = newBundle->GetProgram("shadow");
+    }
+}
+
+void ShadowRenderPass::OnShaderBundleUnloaded()
+{
+    m_shadowProgram = nullptr;
 }
 
 void ShadowRenderPass::BeginPass()

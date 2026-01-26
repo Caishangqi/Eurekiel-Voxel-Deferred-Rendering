@@ -18,10 +18,14 @@ public:
     void Execute() override;
 
 protected:
+    void OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle) override;
+    void OnShaderBundleUnloaded() override;
+
     void BeginPass() override;
     void EndPass() override;
 
 private:
-    std::shared_ptr<enigma::graphic::ShaderProgram>   m_shaderProgram         = nullptr;
-    std::shared_ptr<enigma::graphic::D12VertexBuffer> m_fullQuadsVertexBuffer = nullptr;
+    std::shared_ptr<enigma::graphic::ShaderProgram>              m_shaderProgram = nullptr;
+    std::vector<std::shared_ptr<enigma::graphic::ShaderProgram>> m_shaderPrograms;
+    std::shared_ptr<enigma::graphic::D12VertexBuffer>            m_fullQuadsVertexBuffer = nullptr;
 };

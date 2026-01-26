@@ -17,29 +17,15 @@
 #include "Engine/Core/VertexUtils.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCUTBNLayout.hpp"
 #include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
+#include "Engine/Graphic/Bundle/ShaderBundle.hpp"
+#include "Engine/Core/Logger/LoggerAPI.hpp"
+#include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
 
 SkyRenderPass::SkyRenderPass()
 {
-    // Load shaders
-    enigma::graphic::ShaderCompileOptions shaderCompileOptions;
-    shaderCompileOptions.enableDebugInfo = true;
-
-    m_skyBasicShader = g_theRendererSubsystem->CreateShaderProgramFromFiles(
-        ".enigma/assets/engine/shaders/program/gbuffers_skybasic.vs.hlsl",
-        ".enigma/assets/engine/shaders/program/gbuffers_skybasic.ps.hlsl",
-        "gbuffers_skybasic",
-        shaderCompileOptions
-    );
-    auto testAlpha        = m_skyBasicShader->GetDirectives().GetAlphaTest();
-    auto testRenderTarget = m_skyBasicShader->GetDirectives().GetDrawBuffers();
-
-
-    m_skyTexturedShader = g_theRendererSubsystem->CreateShaderProgramFromFiles(
-        ".enigma/assets/engine/shaders/program/gbuffers_skytextured.vs.hlsl",
-        ".enigma/assets/engine/shaders/program/gbuffers_skytextured.ps.hlsl",
-        "gbuffers_skytextured",
-        shaderCompileOptions
-    );
+    // Shaders loaded via OnShaderBundleLoaded event callback
+    m_skyBasicShader    = g_theShaderBundleSubsystem->GetCurrentShaderBundle()->GetProgram("gbuffers_skybasic");
+    m_skyTexturedShader = g_theShaderBundleSubsystem->GetCurrentShaderBundle()->GetProgram("gbuffers_skytextured");
 
     // Load textures
     m_sunTexture = g_theRendererSubsystem->CreateTexture2D(
@@ -77,8 +63,30 @@ SkyRenderPass::~SkyRenderPass()
 {
 }
 
+void SkyRenderPass::OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle)
+{
+    if (!newBundle)
+    {
+        return;
+    }
+    m_skyBasicShader    = newBundle->GetProgram("gbuffers_skybasic");
+    m_skyTexturedShader = newBundle->GetProgram("gbuffers_skytextured");
+}
+
+void SkyRenderPass::OnShaderBundleUnloaded()
+{
+    m_skyBasicShader    = nullptr;
+    m_skyTexturedShader = nullptr;
+}
+
 void SkyRenderPass::Execute()
 {
+    // Skip rendering if shaders not loaded
+    if (!m_skyBasicShader || !m_skyTexturedShader)
+    {
+        return;
+    }
+
     BeginPass();
 
     // Upload CelestialConstantBuffer
