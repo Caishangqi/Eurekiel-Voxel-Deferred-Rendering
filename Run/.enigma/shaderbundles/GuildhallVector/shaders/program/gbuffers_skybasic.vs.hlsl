@@ -1,5 +1,5 @@
 /**
- * @file gbuffers_skybasic.vs.hlsl
+* @file gbuffers_skybasic.vs.hlsl
  * @brief Sky with Void Gradient - Vertex Shader (Minecraft Style)
  * @date 2025-11-28
  *
@@ -19,7 +19,8 @@
  * 5. Far plane override: z = 1.0
  */
 
-#include "../@engine/core/core.hlsl"
+#include "../../@engine/core/core.hlsl"
+
 // [RENDERTARGETS] 0
 // Output to colortex0 (sky color)
 
