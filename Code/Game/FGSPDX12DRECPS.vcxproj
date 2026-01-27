@@ -333,6 +333,7 @@
         <ClCompile Include="Framework\RenderPass\RenderSky\SkyColorHelper.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderSky\SkyGeometryHelper.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderSky\SkyRenderPass.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderSky\StarGeometryHelper.cpp" />
         <ClCompile Include="Framework\RenderPass\RenderTerrainCutout\TerrainCutoutRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderTerrainTranslucent\TerrainTranslucentRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderTerrain\TerrainRenderPass.cpp"/>
@@ -379,6 +380,7 @@
         <ClInclude Include="Framework\RenderPass\RenderSky\SkyColorHelper.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderSky\SkyGeometryHelper.hpp" />
         <ClInclude Include="Framework\RenderPass\RenderSky\SkyRenderPass.hpp" />
+        <ClInclude Include="Framework\RenderPass\RenderSky\StarGeometryHelper.hpp" />
         <ClInclude Include="Framework\RenderPass\RenderTerrainCutout\TerrainCutoutRenderPass.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderTerrainTranslucent\TerrainTranslucentRenderPass.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderTerrain\TerrainRenderPass.hpp"/>

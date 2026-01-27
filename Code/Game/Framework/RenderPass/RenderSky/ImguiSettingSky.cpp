@@ -93,6 +93,77 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
 
         ImGui::Separator();
 
+        // ==================== Star Rendering ====================
+
+        if (ImGui::TreeNode("Star Rendering"))
+        {
+            ImGui::TextDisabled("(?) Star field rendering parameters");
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip(
+                    "Controls the star field rendering.\n"
+                    "Reference: Minecraft LevelRenderer.java:571-620 createStars()\n"
+                    "\n"
+                    "Stars are rendered as 1500 randomly positioned quads.\n"
+                    "Visibility depends on time of day and weather.\n"
+                    "Stars fade out during rain and daytime.");
+            }
+
+            // Enable/Disable toggle
+            bool enableStars = skyPass->IsStarRenderingEnabled();
+            if (ImGui::Checkbox("Enable Star Rendering", &enableStars))
+            {
+                skyPass->SetStarRenderingEnabled(enableStars);
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Toggle star field rendering on/off");
+            }
+
+            // Brightness multiplier
+            float brightness = skyPass->GetStarBrightnessMultiplier();
+            if (ImGui::SliderFloat("Brightness Multiplier", &brightness, 0.0f, 3.0f, "%.2f"))
+            {
+                skyPass->SetStarBrightnessMultiplier(brightness);
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip(
+                    "Multiplier for star brightness (default: 1.0)\n"
+                    "Higher values = brighter stars\n"
+                    "Useful for artistic control or debugging");
+            }
+
+            // Star seed (regenerates star positions)
+            int starSeed = static_cast<int>(skyPass->GetStarSeed());
+            if (ImGui::InputInt("Random Seed", &starSeed))
+            {
+                if (starSeed >= 0)
+                {
+                    skyPass->SetStarSeed(static_cast<unsigned int>(starSeed));
+                }
+            }
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip(
+                    "Random seed for star positions (default: 10842)\n"
+                    "Minecraft uses seed 10842 in LevelRenderer.java:571\n"
+                    "Changing this regenerates all star positions");
+            }
+
+            // Reset button
+            if (ImGui::Button("Reset to Defaults##Stars"))
+            {
+                skyPass->SetStarRenderingEnabled(true);
+                skyPass->SetStarBrightnessMultiplier(1.0f);
+                skyPass->SetStarSeed(10842);
+            }
+
+            ImGui::TreePop();
+        }
+
+        ImGui::Separator();
+
         // ==================== Sky Phase Colors (5-phase system) ====================
 
         if (ImGui::TreeNode("Sky Dome Phase Colors"))
@@ -435,11 +506,15 @@ void ImguiSettingSky::Show(SkyRenderPass* skyPass)
             SkyColorHelper::ResetFogColorsToDefault();
             SkyColorHelper::ResetStripColorsToDefault();
             SkyColorHelper::ResetEasingToDefault();
+            // Reset star rendering parameters
+            skyPass->SetStarRenderingEnabled(true);
+            skyPass->SetStarBrightnessMultiplier(1.0f);
+            skyPass->SetStarSeed(10842);
         }
 
         if (ImGui::IsItemHovered())
         {
-            ImGui::SetTooltip("Reset all sky parameters including phase colors, strip colors, and easing to defaults");
+            ImGui::SetTooltip("Reset all sky parameters including phase colors, strip colors, easing, and star rendering to defaults");
         }
 
         ImGui::Unindent();

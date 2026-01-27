@@ -1,6 +1,7 @@
 ﻿#include "SkyRenderPass.hpp"
 #include "SkyGeometryHelper.hpp"
 #include "SkyColorHelper.hpp"
+#include "StarGeometryHelper.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
@@ -20,6 +21,7 @@
 #include "Engine/Graphic/Bundle/ShaderBundle.hpp"
 #include "Engine/Core/Logger/LoggerAPI.hpp"
 #include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
+#include "Engine/Graphic/Core/RenderState/RasterizeState.hpp"
 
 SkyRenderPass::SkyRenderPass()
 {
@@ -48,6 +50,10 @@ SkyRenderPass::SkyRenderPass()
     m_skyDomeVertices  = SkyGeometryHelper::GenerateSkyDisc(16.0f);
     m_voidDomeVertices = SkyGeometryHelper::GenerateSkyDisc(-16.0f);
     m_sunQuadVertices  = SkyGeometryHelper::GenerateCelestialQuad(AABB2::ZERO_TO_ONE);
+
+    // Generate star field geometry (1500 stars)
+    // Reference: Minecraft LevelRenderer.java:571-620 createStars()
+    m_starVertices = StarGeometryHelper::GenerateStarVertices(m_starSeed);
 
     // Register constant buffers
     // [FIX] Use BufferSpace::Custom for Descriptor Table path (space=1)
@@ -88,6 +94,14 @@ void SkyRenderPass::Execute()
     }
 
     BeginPass();
+
+    // ==========================================================================
+    // [REFACTOR] Pre-compute celestial matrices once per frame
+    // ==========================================================================
+    // This replaces duplicate calculations in RenderSun(), RenderMoon(), RenderStars()
+    // All celestial bodies share the same view matrix (camera rotation + time rotation)
+    // ==========================================================================
+    UpdateCelestialMatrices();
 
     // Upload CelestialConstantBuffer
     // Reference: Iris CelestialUniforms.java
@@ -140,6 +154,10 @@ void SkyRenderPass::Execute()
     RenderSkyDome();
     RenderVoidDome();
     RenderSunsetStrip();
+
+    // [NEW] Render stars before sun/moon (stars are behind celestial bodies)
+    // Reference: Minecraft LevelRenderer.java:1556-1560
+    RenderStars();
 
     // Draw sky textured (sun/moon)
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Additive());
@@ -255,25 +273,19 @@ void SkyRenderPass::RenderSun()
     COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 
-    float           skyAngle     = g_theGame->m_timeProvider->GetSunAngle();
-    float           sunSize      = m_sunSize;
     constexpr float SUN_DISTANCE = 100.0f;
 
     // Model matrix: Translate -> Orient -> Scale
     Mat44 modelMatrix;
     modelMatrix.Append(Mat44::MakeTranslation3D(Vec3(SUN_DISTANCE, 0.0f, 0.0f)));
     modelMatrix.AppendYRotation(-90.f);
-    modelMatrix.Append(Mat44::MakeUniformScale3D(sunSize));
+    modelMatrix.Append(Mat44::MakeUniformScale3D(m_sunSize));
 
-    // Celestial view: camera rotation + time rotation, no translation
-    // [REFACTOR] Use UpdateMatrixUniforms() instead of deprecated GetMatricesUniforms()
+    // [REFACTOR] Use pre-computed celestial view matrix (computed once in Execute())
     MatricesUniforms matricesUniforms;
     g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matricesUniforms);
-    Mat44 celestialView = matricesUniforms.gbufferView;
-    celestialView.AppendYRotation(-360 * skyAngle);
-    celestialView.SetTranslation3D(Vec3::ZERO);
-    matricesUniforms.gbufferView        = celestialView;
-    matricesUniforms.gbufferViewInverse = celestialView.GetInverse();
+    matricesUniforms.gbufferView        = m_celestialView;
+    matricesUniforms.gbufferViewInverse = m_celestialViewInverse;
 
     perObjectData.modelMatrix        = modelMatrix;
     perObjectData.modelMatrixInverse = modelMatrix.GetInverse();
@@ -295,25 +307,19 @@ void SkyRenderPass::RenderMoon()
     COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 
-    float           skyAngle      = g_theGame->m_timeProvider->GetSunAngle();
-    float           moonSize      = m_moonSize;
     constexpr float MOON_DISTANCE = -100.0f;
 
     // Model matrix: Translate -> Orient -> Scale
     Mat44 modelMatrix;
     modelMatrix.Append(Mat44::MakeTranslation3D(Vec3(MOON_DISTANCE, 0.0f, 0.0f)));
     modelMatrix.AppendYRotation(90.f);
-    modelMatrix.Append(Mat44::MakeUniformScale3D(moonSize));
+    modelMatrix.Append(Mat44::MakeUniformScale3D(m_moonSize));
 
-    // Celestial view: camera rotation + time rotation, no translation
-    // [REFACTOR] Use UpdateMatrixUniforms() instead of deprecated GetMatricesUniforms()
+    // [REFACTOR] Use pre-computed celestial view matrix (computed once in Execute())
     MatricesUniforms matricesUniforms;
     g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matricesUniforms);
-    Mat44 celestialView = matricesUniforms.gbufferView;
-    celestialView.AppendYRotation(-360 * skyAngle);
-    celestialView.SetTranslation3D(Vec3::ZERO);
-    matricesUniforms.gbufferView        = celestialView;
-    matricesUniforms.gbufferViewInverse = celestialView.GetInverse();
+    matricesUniforms.gbufferView        = m_celestialView;
+    matricesUniforms.gbufferViewInverse = m_celestialViewInverse;
 
     perObjectData.modelMatrix        = modelMatrix;
     perObjectData.modelMatrixInverse = modelMatrix.GetInverse();
@@ -365,4 +371,134 @@ bool SkyRenderPass::ShouldRenderVoidDome() const
     constexpr float HORIZON_HEIGHT = 63.0f;
     Vec3            cameraPos      = g_theGame->m_player->GetCamera()->GetPosition();
     return cameraPos.z < HORIZON_HEIGHT;
+}
+
+void SkyRenderPass::RenderStars()
+{
+    // Reference: Minecraft LevelRenderer.java:1556-1560
+    //
+    // Minecraft code:
+    //   float f10 = level.getStarBrightness(partialTick) * f9;
+    //   if (f10 > 0.0F) {
+    //       FogRenderer.setupNoFog();
+    //       this.starBuffer.bind();
+    //       this.starBuffer.drawWithShader(poseStack.last().pose(), projectionMatrix, GameRenderer.getPositionColorShader());
+    //   }
+    //
+    // f9 = (1.0 - rainLevel), so stars fade out in rain
+
+    if (!m_enableStarRendering)
+    {
+        return;
+    }
+
+    // Calculate star brightness based on time of day and weather
+    float celestialAngle = g_theGame->m_timeProvider->GetCelestialAngle();
+    float rainStrength   = COMMON_UNIFORM.rainStrength;
+    float starBrightness = StarGeometryHelper::CalculateStarBrightness(celestialAngle, rainStrength);
+
+    // Apply user-configurable brightness multiplier
+    starBrightness *= m_starBrightnessMultiplier;
+
+    // Skip rendering if stars are not visible
+    if (starBrightness <= 0.0f)
+    {
+        return;
+    }
+
+    // Set render stage for shader
+    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::STARS);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
+
+    // Set star color with calculated brightness
+    // Reference: Minecraft uses white color with alpha = brightness
+    celestialData.colorModulator = Vec4(starBrightness, starBrightness, starBrightness, 1.0f);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
+
+    // [REFACTOR] Use pre-computed celestial view matrix (computed once in Execute())
+    MatricesUniforms matricesUniforms;
+    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matricesUniforms);
+    matricesUniforms.gbufferView        = m_celestialView;
+    matricesUniforms.gbufferViewInverse = m_celestialViewInverse;
+
+    // Identity model matrix (stars are already positioned in world space)
+    perObjectData.modelMatrix        = Mat44::IDENTITY;
+    perObjectData.modelMatrixInverse = Mat44::IDENTITY;
+
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectData);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matricesUniforms);
+
+    // Use additive blending for stars (they glow against the sky)
+    g_theRendererSubsystem->SetBlendConfig(BlendConfig::Additive());
+
+    // Disable back-face culling for star quads (visible from all angles)
+    g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
+
+    // Draw star vertices
+    g_theRendererSubsystem->DrawVertexArray(m_starVertices);
+
+    // Reset rasterization to default (back-face culling)
+    g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::CullBack());
+
+    // Reset colorModulator to white
+    celestialData.colorModulator = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
+}
+
+bool SkyRenderPass::ShouldRenderStars() const
+{
+    // Reference: Minecraft LevelRenderer.java:1556-1560
+    // Stars are rendered when brightness > 0 (nighttime, no rain)
+    if (!m_enableStarRendering)
+    {
+        return false;
+    }
+
+    float celestialAngle = g_theGame->m_timeProvider->GetCelestialAngle();
+    float rainStrength   = COMMON_UNIFORM.rainStrength;
+    float starBrightness = StarGeometryHelper::CalculateStarBrightness(celestialAngle, rainStrength);
+
+    return starBrightness > 0.0f;
+}
+
+void SkyRenderPass::SetStarSeed(unsigned int seed)
+{
+    if (m_starSeed != seed)
+    {
+        m_starSeed = seed;
+        // Regenerate star vertices with new seed
+        m_starVertices = StarGeometryHelper::GenerateStarVertices(m_starSeed);
+    }
+}
+
+// ==========================================================================
+// [REFACTOR] Celestial Matrix Pre-computation
+// ==========================================================================
+// This method computes the celestial view matrix once per frame.
+// Previously, this identical calculation was duplicated in:
+//   - RenderSun()
+//   - RenderMoon()
+//   - RenderStars()
+//
+// The celestial view matrix combines:
+//   1. Camera rotation (from gbufferView)
+//   2. Sky rotation based on time (skyAngle)
+//   3. Zero translation (celestial bodies are at "infinity")
+// ==========================================================================
+void SkyRenderPass::UpdateCelestialMatrices()
+{
+    // Cache sky angle for this frame
+    m_cachedSkyAngle = g_theGame->m_timeProvider->GetSunAngle();
+
+    // Get base view matrix from camera
+    MatricesUniforms tempMatrices;
+    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(tempMatrices);
+
+    // Build celestial view: camera rotation + time-based sky rotation, no translation
+    m_celestialView = tempMatrices.gbufferView;
+    m_celestialView.AppendYRotation(-360.0f * m_cachedSkyAngle);
+    m_celestialView.SetTranslation3D(Vec3::ZERO);
+
+    // Pre-compute inverse for shader use
+    m_celestialViewInverse = m_celestialView.GetInverse();
 }

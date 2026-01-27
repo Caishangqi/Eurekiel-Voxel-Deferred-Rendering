@@ -30,9 +30,11 @@
 #include "Game/Framework/Imgui/ImguiLeftDebugOverlay.hpp"
 #include "Game/Framework/RenderPass/RenderDebug/DebugRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderShadow/ShadowRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderShadowComposite/ShadowCompositeRenderPass.hpp"
 #include "Game/SceneTest/SceneUnitTest_CustomConstantBuffer.hpp"
 #include "Game/SceneTest/SceneUnitTest_VertexLayoutRegistration.hpp"
 #include "Generator/SimpleMinerGenerator.hpp"
+#include "ThirdParty/imgui/imgui.h"
 
 
 CommonConstantBuffer COMMON_UNIFORM = CommonConstantBuffer();
@@ -65,6 +67,7 @@ Game::Game()
 
     /// Render Passes (Production)
     m_shadowRenderPass             = std::make_unique<ShadowRenderPass>();
+    m_shadowCompositeRenderPass    = std::make_unique<ShadowCompositeRenderPass>();
     m_skyRenderPass                = std::make_unique<SkyRenderPass>();
     m_terrainRenderPass            = std::make_unique<TerrainRenderPass>();
     m_terrainCutoutRenderPass      = std::make_unique<TerrainCutoutRenderPass>(); // [NEW] Cutout terrain (leaves, grass)
@@ -111,6 +114,12 @@ Game::Game()
     g_theImGui->RegisterWindow("DebugOverlay", [this]()
     {
         ImguiLeftDebugOverlay::ShowWindow(&m_showGameSettings);
+    });
+
+    g_theImGui->RegisterWindow("Example", [this]()
+    {
+        bool show = true;
+        ImGui::ShowDemoWindow(&show);
     });
 
     /// Prepare Uniforms
@@ -176,6 +185,7 @@ void Game::RenderWorld()
     // ========================================
 
     m_shadowRenderPass->Execute();
+    m_shadowCompositeRenderPass->Execute();
     // [STEP 2] Sky Rendering (Must render FIRST, depth = 1.0)
     // Renders sky void gradient and sun/moon billboards to colortex0
     m_skyRenderPass->Execute();

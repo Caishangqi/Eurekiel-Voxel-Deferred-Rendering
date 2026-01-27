@@ -4,6 +4,7 @@
 
 #include "Engine/Graphic/Core/EnigmaGraphicCommon.hpp"
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
+#include "Engine/Math/Mat44.hpp"
 #include "Engine/Math/Vec3.hpp"
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/CelestialConstantBuffer.hpp"
@@ -51,6 +52,16 @@ public:
     float GetMoonSize() const { return m_moonSize; }
     void  SetMoonSize(float size) { m_moonSize = size; }
 
+    // [NEW] Star Rendering Parameters Access for ImGui
+    bool IsStarRenderingEnabled() const { return m_enableStarRendering; }
+    void SetStarRenderingEnabled(bool enabled) { m_enableStarRendering = enabled; }
+
+    unsigned int GetStarSeed() const { return m_starSeed; }
+    void         SetStarSeed(unsigned int seed);
+
+    float GetStarBrightnessMultiplier() const { return m_starBrightnessMultiplier; }
+    void  SetStarBrightnessMultiplier(float multiplier) { m_starBrightnessMultiplier = multiplier; }
+
 private:
     // [NEW] Sky color rendering methods
     void WriteSkyColorToRT();
@@ -59,7 +70,9 @@ private:
     void RenderVoidDome();
     void RenderSun();
     void RenderMoon();
+    void RenderStars();
     bool ShouldRenderSunsetStrip(float sunAngle) const;
+    bool ShouldRenderStars() const;
 
     // [NEW] Void dome conditional rendering
     bool ShouldRenderVoidDome() const;
@@ -87,6 +100,11 @@ private:
     std::vector<Vertex> m_sunQuadVertices; // Sun: 30×30 units, XY plane, Z=0
     std::vector<Vertex> m_moonQuadVertices; // Moon: 20×20 units, XY plane, Z=0
 
+    // [NEW] Star field geometry (cached, created in constructor)
+    // Reference: Minecraft LevelRenderer.java:571-620 createStars()
+    std::vector<Vertex>                               m_starVertices; // 1500 stars × 6 vertices = 9000 vertices
+    std::shared_ptr<enigma::graphic::D12VertexBuffer> m_starVB = nullptr;
+
     // [Component 6.4] Sky Rendering Parameters
     bool m_enableVoidGradient = true; // Void gradient toggle
     Vec3 m_skyZenithColor     = Vec3(0.47f, 0.65f, 1.0f); // Sky zenith color (blue)
@@ -99,6 +117,30 @@ private:
     float m_sunSize  = 30.0f; // Sun billboard size (Minecraft default: 30)
     float m_moonSize = 20.0f; // Moon billboard size (Minecraft default: 20)
 
-    CelestialConstantBuffer celestialData;
+    // [NEW] Star Rendering Parameters (ImGui configurable)
+    // Reference: Minecraft LevelRenderer.java:571-620, 1556-1560
+    bool         m_enableStarRendering      = true; // Star rendering toggle
+    unsigned int m_starSeed                 = 10842; // Random seed (Minecraft default: 10842)
+    float        m_starBrightnessMultiplier = 1.0f; // Brightness multiplier for artistic control
+
+    CelestialConstantBuffer            celestialData;
     enigma::graphic::PerObjectUniforms perObjectData;
+
+    // ==========================================================================
+    // [REFACTOR] Per-Frame Cached Data (computed once in Execute(), reused by render methods)
+    // ==========================================================================
+    // Problem: celestialView matrix was computed identically in RenderSun(), RenderMoon(), RenderStars()
+    // Solution: Pre-compute once per frame, store as member, reuse in all celestial body rendering
+    // ==========================================================================
+
+    // Celestial view matrix: camera rotation + time rotation, no translation
+    // Used by: RenderSun(), RenderMoon(), RenderStars()
+    Mat44 m_celestialView; // View matrix for celestial bodies (no translation)
+    Mat44 m_celestialViewInverse; // Inverse of celestial view matrix
+
+    // Sky angle for current frame (cached to avoid multiple GetSunAngle() calls)
+    float m_cachedSkyAngle = 0.0f;
+
+    // Helper method to update cached celestial matrices
+    void UpdateCelestialMatrices();
 };
