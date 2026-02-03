@@ -164,7 +164,7 @@ void CloudRenderPass::Execute()
         // Render
         g_theRendererSubsystem->SetBlendConfig(BlendConfig::Alpha());
         // [REFACTOR] Pair-based RT binding
-        g_theRendererSubsystem->UseProgram(m_cloudsShader, {{RTType::ColorTex, 0}, {RTType::ColorTex, 3}, {RTType::DepthTex, 0}});
+        g_theRendererSubsystem->UseProgram(m_cloudsShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::ColorTex, 3}, {RenderTargetType::DepthTex, 0}});
         g_theRendererSubsystem->DrawVertexArray(m_geometry->vertices);
     }
 
