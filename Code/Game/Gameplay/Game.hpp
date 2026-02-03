@@ -9,6 +9,7 @@
 #include "Engine/Voxel/Time/WorldTimeProvider.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/FogUniforms.hpp"
+#include "Game/Framework/RenderPass/ConstantBuffer/WorldTimeUniforms.hpp"
 #include "Game/SceneTest/SceneUnitTest.hpp"
 
 namespace enigma::graphic
@@ -95,4 +96,5 @@ public:
 #pragma region CONSTANT_BUFFER
 extern CommonConstantBuffer COMMON_UNIFORM;
 extern FogUniforms          FOG_UNIFORM;
+extern WorldTimeUniforms    WORLD_TIME_UNIFORM;
 #pragma endregion

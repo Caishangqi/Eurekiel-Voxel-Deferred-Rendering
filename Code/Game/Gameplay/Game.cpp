@@ -31,14 +31,13 @@
 #include "Game/Framework/RenderPass/RenderDebug/DebugRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderShadow/ShadowRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderShadowComposite/ShadowCompositeRenderPass.hpp"
-#include "Game/SceneTest/SceneUnitTest_CustomConstantBuffer.hpp"
-#include "Game/SceneTest/SceneUnitTest_VertexLayoutRegistration.hpp"
 #include "Generator/SimpleMinerGenerator.hpp"
 #include "ThirdParty/imgui/imgui.h"
 
 
-CommonConstantBuffer COMMON_UNIFORM = CommonConstantBuffer();
-FogUniforms          FOG_UNIFORM    = FogUniforms();
+CommonConstantBuffer COMMON_UNIFORM     = CommonConstantBuffer();
+FogUniforms          FOG_UNIFORM        = FogUniforms();
+WorldTimeUniforms    WORLD_TIME_UNIFORM = WorldTimeUniforms();
 
 
 Game::Game()
@@ -125,6 +124,7 @@ Game::Game()
     /// Prepare Uniforms
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<FogUniforms>(2, UpdateFrequency::PerFrame, BufferSpace::Custom);
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(8, UpdateFrequency::PerObject, BufferSpace::Custom);
+    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<WorldTimeUniforms>(1, UpdateFrequency::PerFrame, BufferSpace::Custom);
 }
 
 Game::~Game()
@@ -151,7 +151,9 @@ void Game::Update()
     /// Update Player locomotion
     m_player->Update(m_gameClock->GetDeltaSeconds());
     m_timeProvider->Update(m_gameClock->GetDeltaSeconds());
-
+    WORLD_TIME_UNIFORM.moonPhase = 1;
+    WORLD_TIME_UNIFORM.worldDay  = m_timeProvider->GetDayCount();
+    WORLD_TIME_UNIFORM.worldTime = m_timeProvider->GetCurrentTick();
 #ifdef SCENE_TEST
     UpdateScene();
 #endif
@@ -163,12 +165,14 @@ void Game::Render()
     m_player->Render();
     if (!m_enableSceneTest)
     {
+        /// Upload the Global Uniform
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(WORLD_TIME_UNIFORM);
+
         RenderWorld();
         RenderDebug();
-
         /// Curretly presnet in here but later will move to Final Shader program's execute phases.
         /// TODO: Move it to Final Shader Program.
-        g_theRendererSubsystem->PresentRenderTarget(0, RTType::ColorTex);
+        g_theRendererSubsystem->PresentRenderTarget(0, RenderTargetType::ColorTex);
     }
 
 

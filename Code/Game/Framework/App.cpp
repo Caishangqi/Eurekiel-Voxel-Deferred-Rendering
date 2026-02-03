@@ -131,20 +131,22 @@ void App::Startup(char*)
     g_theWindow->Startup();
 
     // Render Subsystem
-    RendererSubsystemConfig renderConfig;
-    renderConfig.targetWindow            = g_theWindow;
-    renderConfig.renderWidth             = static_cast<uint32_t>(windowConfig.m_resolution.x);
-    renderConfig.renderHeight            = static_cast<uint32_t>(windowConfig.m_resolution.y);
-    renderConfig.maxFramesInFlight       = 3;
-    renderConfig.enableDebugLayer        = ENABLE_DEBUG;
-    renderConfig.enableGPUValidation     = ENABLE_GPU_VALIDATION;
-    renderConfig.enableBindlessResources = true;
-    auto rendererSubsystem               = std::make_unique<RendererSubsystem>(renderConfig);
+    // [FIX] Use ParseFromYaml result, fallback to GetDefault() if parsing fails
+    auto                    renderConfigOpt = RendererSubsystemConfig::ParseFromYaml(".enigma\\config\\engine\\renderer.yml");
+    RendererSubsystemConfig renderConfig    = renderConfigOpt.value_or(RendererSubsystemConfig::GetDefault());
+    renderConfig.targetWindow               = g_theWindow;
+    renderConfig.renderWidth                = static_cast<uint32_t>(windowConfig.m_resolution.x);
+    renderConfig.renderHeight               = static_cast<uint32_t>(windowConfig.m_resolution.y);
+    renderConfig.maxFramesInFlight          = 3;
+    renderConfig.enableDebugLayer           = ENABLE_DEBUG;
+    renderConfig.enableGPUValidation        = ENABLE_GPU_VALIDATION;
+    renderConfig.enableBindlessResources    = true;
+    auto rendererSubsystem                  = std::make_unique<RendererSubsystem>(renderConfig);
     GEngine->RegisterSubsystem(std::move(rendererSubsystem));
 
     // ShaderBundleSubsystem registration, we manually load from YAML.
-    auto bundleConfig          = enigma::graphic::ShaderBundleSubsystemConfiguration::LoadFromYaml(".enigma/config/engine/shaderbundle.yml");
-    auto shaderBundleSubsystem = std::make_unique<enigma::graphic::ShaderBundleSubsystem>(std::move(bundleConfig));
+    auto bundleConfig          = ShaderBundleSubsystemConfiguration::LoadFromYaml(".enigma/config/engine/shaderbundle.yml");
+    auto shaderBundleSubsystem = std::make_unique<ShaderBundleSubsystem>(std::move(bundleConfig));
     GEngine->RegisterSubsystem(std::move(shaderBundleSubsystem));
 
     // Imgui Subsystem
