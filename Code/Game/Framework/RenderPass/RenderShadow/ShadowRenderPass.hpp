@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
 #include "Engine/Graphic/Camera/ShadowCamera.hpp"
 #include "Engine/Math/Vec3.hpp"
@@ -21,12 +21,13 @@ namespace enigma::graphic
  *
  * Responsible for:
  * - Loading shadow shaders (shadow.vs.hlsl, shadow.ps.hlsl)
- * - Creating ShadowCamera once in constructor
- * - Updating ShadowCamera position/orientation each frame
+ * - Creating ShadowCamera with light direction vector
+ * - Updating ShadowCamera position/direction each frame
  * - Grid alignment to prevent shadow swimming
  * - Rendering terrain to shadow map with proper vertex layout
  *
- * Coordinate System: +X forward, +Y left, +Z up
+ * [FIX] Now uses Vec3 light direction instead of EulerAngles
+ * to avoid gimbal lock issues at extreme sun angles.
  *
  * Reference: Iris ShadowRenderer.java, TerrainRenderPass.cpp
  */
@@ -85,5 +86,5 @@ private:
     static constexpr float SHADOW_HALF_PLANE    = 160.0f; // Shadow frustum half-size
     static constexpr float SHADOW_NEAR_PLANE    = 0.1f; // Near clip distance
     static constexpr float SHADOW_FAR_PLANE     = 500.0f; // Far clip distance
-    static constexpr float SHADOW_DISTANCE      = 200.0f; // Light distance from center
+    static constexpr float SHADOW_DISTANCE      = 128.0f; // Light distance from center
 };

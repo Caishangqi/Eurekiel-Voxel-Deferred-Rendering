@@ -1,4 +1,4 @@
-#include "ShadowRenderPass.hpp"
+﻿#include "ShadowRenderPass.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Gameplay/Game.hpp"
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
@@ -12,12 +12,9 @@
 #include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Resource/ResourceSubsystem.hpp"
 #include "Engine/Resource/Atlas/TextureAtlas.hpp"
-#include "Engine/Voxel/Time/ITimeProvider.hpp"
 #include "Engine/Voxel/World/TerrainVertexLayout.hpp"
 #include "Engine/Voxel/World/World.hpp"
 #include "Engine/Math/MathUtils.hpp"
-#include "Engine/Math/EulerAngles.hpp"
-#include <cmath>
 
 #include "Engine/Graphic/Bundle/ShaderBundle.hpp"
 #include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
@@ -99,7 +96,7 @@ void ShadowRenderPass::BeginPass()
     // [NEW] Use shadow program with shadowtex0 and shadowcolor0 render targets
     if (m_shadowProgram)
     {
-        g_theRendererSubsystem->UseProgram(m_shadowProgram, {{RTType::ShadowTex, 0}, {RTType::ShadowColor, 0}});
+        g_theRendererSubsystem->UseProgram(m_shadowProgram, {{RenderTargetType::ShadowTex, 0}, {RenderTargetType::ShadowColor, 0}});
     }
 
     // [NEW] Set depth mode for shadow pass
@@ -155,23 +152,24 @@ void ShadowRenderPass::UpdateShadowCamera()
 
 void ShadowRenderPass::RenderShadowMap()
 {
-    // [NEW] Get world from game
+    // Get world from game
     enigma::voxel::World* world = g_theGame ? g_theGame->GetWorld() : nullptr;
     if (!world)
     {
         return; // No world, skip shadow render
     }
 
-    // [NEW] Render all active chunks to shadow map (like TerrainRenderPass)
     const auto& chunks = world->GetLoadedChunks();
+
+    // ========================================================================
+    // Pass 1: Render Opaque + Cutout → shadowtex0
+    // [Iris Ref] ShadowRenderer.java:464-469 - solid, cutout, cutoutMipped
+    // ========================================================================
     for (auto it = chunks.begin(); it != chunks.end(); ++it)
     {
         auto chunkMesh = it->second->GetChunkMesh();
         if (!chunkMesh || chunkMesh->IsEmpty()) continue;
         if (it->second->GetState() != enigma::voxel::ChunkState::Active) continue;
-
-        auto opaqueVertexBuffer = chunkMesh->GetOpaqueD12VertexBuffer();
-        auto opaqueIndexBuffer  = chunkMesh->GetOpaqueD12IndexBuffer();
 
         // Upload per-object uniforms (model matrix)
         PerObjectUniforms perObjectUniforms;
@@ -180,8 +178,55 @@ void ShadowRenderPass::RenderShadowMap()
         Rgba8::WHITE.GetAsFloats(perObjectUniforms.modelColor);
         g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniforms);
 
-        // Draw chunk to shadow map
-        g_theRendererSubsystem->DrawVertexBuffer(opaqueVertexBuffer, opaqueIndexBuffer);
+        // Draw Opaque
+        auto opaqueVertexBuffer = chunkMesh->GetOpaqueD12VertexBuffer();
+        auto opaqueIndexBuffer  = chunkMesh->GetOpaqueD12IndexBuffer();
+        if (opaqueVertexBuffer && opaqueIndexBuffer)
+        {
+            g_theRendererSubsystem->DrawVertexBuffer(opaqueVertexBuffer, opaqueIndexBuffer);
+        }
+
+        // Draw Cutout (hollow objects such as leaves)
+        auto cutoutVertexBuffer = chunkMesh->GetCutoutD12VertexBuffer();
+        auto cutoutIndexBuffer  = chunkMesh->GetCutoutD12IndexBuffer();
+        if (cutoutVertexBuffer && cutoutIndexBuffer)
+        {
+            g_theRendererSubsystem->DrawVertexBuffer(cutoutVertexBuffer, cutoutIndexBuffer);
+        }
+    }
+
+    // ========================================================================
+    // Copy shadowtex0 → shadowtex1 (freeze pre-translucent depth)
+    // [Iris Ref] ShadowRenderer.java:533 - copyPreTranslucentDepth()
+    // [Iris Ref] ShadowRenderTargets.java:171-182 - GPU Blit operation
+    // ========================================================================
+    g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::ShadowTex)->Copy(0, 1);
+
+    // ========================================================================
+    // Pass 2: Render Translucent → shadowtex0 only
+    // [Iris Ref] ShadowRenderer.java:540-542 - translucent layer
+    // shadowtex1 remains "frozen" with opaque+cutout depth only
+    // ========================================================================
+    for (auto it = chunks.begin(); it != chunks.end(); ++it)
+    {
+        auto chunkMesh = it->second->GetChunkMesh();
+        if (!chunkMesh || chunkMesh->IsEmpty()) continue;
+        if (it->second->GetState() != enigma::voxel::ChunkState::Active) continue;
+
+        // Draw Translucent (translucent objects such as water)
+        auto translucentVertexBuffer = chunkMesh->GetTranslucentD12VertexBuffer();
+        auto translucentIndexBuffer  = chunkMesh->GetTranslucentD12IndexBuffer();
+        if (translucentVertexBuffer && translucentIndexBuffer)
+        {
+            // Upload per-object uniforms (model matrix)
+            PerObjectUniforms perObjectUniforms;
+            perObjectUniforms.modelMatrix        = it->second->GetModelToWorldTransform();
+            perObjectUniforms.modelMatrixInverse = perObjectUniforms.modelMatrix.GetInverse();
+            Rgba8::WHITE.GetAsFloats(perObjectUniforms.modelColor);
+            g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniforms);
+
+            g_theRendererSubsystem->DrawVertexBuffer(translucentVertexBuffer, translucentIndexBuffer);
+        }
     }
 }
 
