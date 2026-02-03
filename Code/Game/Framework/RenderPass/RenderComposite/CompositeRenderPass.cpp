@@ -28,7 +28,7 @@ void CompositeRenderPass::Execute()
     {
         if (program)
         {
-            auto rts = RenderPassHelper::GetRenderTargetColorFromIndex(program->GetDirectives().GetDrawBuffers(), RTType::ColorTex);
+            auto rts = RenderPassHelper::GetRenderTargetColorFromIndex(program->GetDirectives().GetDrawBuffers(), RenderTargetType::ColorTex);
             g_theRendererSubsystem->UseProgram(program, rts);
             FullQuadsRenderer::DrawFullQuads();
         }
@@ -54,7 +54,7 @@ void CompositeRenderPass::BeginPass()
     // [FIX] Transition depthtex0 to PIXEL_SHADER_RESOURCE for sampling
     // D3D12 Rule: Cannot read (SRV) and write (DSV) same resource simultaneously
     // [REFACTOR] Use D12DepthTexture::TransitionToShaderResource() per OCP
-    auto* depthProvider = static_cast<enigma::graphic::DepthTextureProvider*>(g_theRendererSubsystem->GetProvider(RTType::DepthTex));
+    auto* depthProvider = static_cast<enigma::graphic::DepthTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::DepthTex));
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Disabled());
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
     depthProvider->GetDepthTexture(0)->TransitionToShaderResource();
@@ -71,7 +71,7 @@ void CompositeRenderPass::EndPass()
 
     // [FIX] Transition depthtex0 back to DEPTH_WRITE for subsequent passes
     // [REFACTOR] Use D12DepthTexture::TransitionToDepthWrite() per OCP
-    auto* depthProvider = static_cast<enigma::graphic::DepthTextureProvider*>(g_theRendererSubsystem->GetProvider(RTType::DepthTex));
+    auto* depthProvider = static_cast<enigma::graphic::DepthTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::DepthTex));
     depthProvider->GetDepthTexture(0)->TransitionToDepthWrite();
     depthProvider->GetDepthTexture(1)->TransitionToDepthWrite();
 }

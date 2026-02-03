@@ -86,7 +86,7 @@ void TerrainRenderPass::BeginPass()
     // [REFACTOR] Pair-based RT binding
     if (m_shaderProgram)
     {
-        g_theRendererSubsystem->UseProgram(m_shaderProgram, {{RTType::ColorTex, 0}, {RTType::ColorTex, 1}, {RTType::ColorTex, 2}, {RTType::DepthTex, 0}});
+        g_theRendererSubsystem->UseProgram(m_shaderProgram, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::ColorTex, 1}, {RenderTargetType::ColorTex, 2}, {RenderTargetType::DepthTex, 0}});
     }
 
     // Set depth mode: write enabled for terrain

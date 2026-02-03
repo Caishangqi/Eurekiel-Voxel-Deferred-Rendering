@@ -91,7 +91,7 @@ void DebugRenderPass::BeginPass()
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Alpha());
     g_theRendererSubsystem->SetCustomImage(0, nullptr);
     // [REFACTOR] Pair-based RT binding
-    g_theRendererSubsystem->UseProgram(sp_debugShader, {{RTType::ColorTex, 0}, {RTType::DepthTex, 0}});
+    g_theRendererSubsystem->UseProgram(sp_debugShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::DepthTex, 0}});
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 
     m_player = g_theGame->m_player.get();
@@ -102,7 +102,7 @@ void DebugRenderPass::BeginPass()
 
 void DebugRenderPass::EndPass()
 {
-    //g_theRendererSubsystem->PresentRenderTarget(0, RTType::ColorTex);
+    //g_theRendererSubsystem->PresentRenderTarget(0, RenderTargetType::ColorTex);
 }
 
 void DebugRenderPass::RenderCursor()

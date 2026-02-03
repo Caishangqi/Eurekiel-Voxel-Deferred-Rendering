@@ -127,7 +127,7 @@ void TerrainTranslucentRenderPass::OnShaderBundleUnloaded()
 void TerrainTranslucentRenderPass::BeginPass()
 {
     // Copy depth texture before rendering translucent objects
-    g_theRendererSubsystem->GetProvider(RTType::DepthTex)->Copy(0, 1);
+    g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::DepthTex)->Copy(0, 1);
 
     // Save current render states for restoration
     m_savedDepthConfig = g_theRendererSubsystem->GetDepthConfig();
@@ -136,7 +136,7 @@ void TerrainTranslucentRenderPass::BeginPass()
     // Set TerrainVertexLayout (same as TerrainRenderPass)
     g_theRendererSubsystem->SetVertexLayout(TerrainVertexLayout::Get());
 
-    g_theRendererSubsystem->UseProgram(m_waterShader, {{RTType::ColorTex, 0}, {RTType::ColorTex, 1}, {RTType::ColorTex, 2}, {RTType::DepthTex, 0}});
+    g_theRendererSubsystem->UseProgram(m_waterShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::ColorTex, 1}, {RenderTargetType::ColorTex, 2}, {RenderTargetType::DepthTex, 0}});
 
     // Upload matrices uniforms
     MatricesUniforms matricesUniforms;

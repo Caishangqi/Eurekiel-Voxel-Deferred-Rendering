@@ -129,10 +129,10 @@ void TerrainCutoutRenderPass::BeginPass()
         g_theRendererSubsystem->UseProgram(
             m_shaderProgram,
             {
-                {RTType::ColorTex, 0}, // colortex0: Albedo
-                {RTType::ColorTex, 1}, // colortex1: Lightmap
-                {RTType::ColorTex, 2}, // colortex2: Normal
-                {RTType::DepthTex, 0} // depthtex0: Depth
+                {RenderTargetType::ColorTex, 0}, // colortex0: Albedo
+                {RenderTargetType::ColorTex, 1}, // colortex1: Lightmap
+                {RenderTargetType::ColorTex, 2}, // colortex2: Normal
+                {RenderTargetType::DepthTex, 0} // depthtex0: Depth
             }
         );
     }
@@ -151,6 +151,6 @@ void TerrainCutoutRenderPass::EndPass()
     // [FIX] Depth copy: depthtex0 -> depthtex1 (noTranslucents)
     // Must happen AFTER cutout rendering so depthtex1 contains Solid + Cutout depth
     // Reference: Iris pipeline - depthtex1 = depth without translucent objects
-    g_theRendererSubsystem->GetProvider(RTType::DepthTex)->Copy(0, 1);
+    g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::DepthTex)->Copy(0, 1);
     LogDebug(LogRenderer, "TerrainCutoutRenderPass: Depth copied depthtex0 -> depthtex1 (noTranslucents)");
 }
