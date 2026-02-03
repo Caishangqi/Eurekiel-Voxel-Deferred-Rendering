@@ -4,7 +4,7 @@
 
 namespace enigma::graphic
 {
-    enum class RTType;
+    enum class RenderTargetType;
 }
 
 using namespace enigma::graphic;
@@ -16,5 +16,5 @@ public:
     RenderPassHelper(const RenderPassHelper&)            = delete; // Prevent copy
     RenderPassHelper& operator=(const RenderPassHelper&) = delete; // Prevent assignment
 public:
-    static std::vector<std::pair<RTType, int>> GetRenderTargetColorFromIndex(std::vector<uint32_t> inIntIndexList, RTType inRTType);
+    static std::vector<std::pair<RenderTargetType, int>> GetRenderTargetColorFromIndex(std::vector<uint32_t> inIntIndexList, RenderTargetType inRTType);
 };

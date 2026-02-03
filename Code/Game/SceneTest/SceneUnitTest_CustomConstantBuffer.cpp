@@ -95,9 +95,9 @@ void SceneUnitTest_CustomConstantBuffer::Render()
     // [REFACTOR] Setup shader and texture with pair-based RT binding
     g_theRendererSubsystem->SetCustomImage(0, tex_testUV.get());
     g_theRendererSubsystem->UseProgram(sp_gBufferTestCustomBuffer, {
-                                           {RTType::ColorTex, 4}, {RTType::ColorTex, 5},
-                                           {RTType::ColorTex, 6}, {RTType::ColorTex, 7},
-                                           {RTType::DepthTex, 0}
+                                           {RenderTargetType::ColorTex, 4}, {RenderTargetType::ColorTex, 5},
+                                           {RenderTargetType::ColorTex, 6}, {RenderTargetType::ColorTex, 7},
+                                           {RenderTargetType::DepthTex, 0}
                                        });
 
     // ========================================
@@ -123,5 +123,5 @@ void SceneUnitTest_CustomConstantBuffer::Render()
 
     // [PRESENT] Display result
     // ========================================
-    g_theRendererSubsystem->PresentRenderTarget(4, RTType::ColorTex);
+    g_theRendererSubsystem->PresentRenderTarget(4, RenderTargetType::ColorTex);
 }

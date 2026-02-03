@@ -107,9 +107,9 @@ void SceneUnitTest_StencilXRay::Render()
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Disabled()); // [CRITICAL] Disable depth to mark entire projection
     // [REFACTOR] Pair-based RT binding
     g_theRendererSubsystem->UseProgram(sp_gBufferBasic, {
-                                           {RTType::ColorTex, 4}, {RTType::ColorTex, 5},
-                                           {RTType::ColorTex, 6}, {RTType::ColorTex, 7},
-                                           {RTType::DepthTex, 0}
+                                           {RenderTargetType::ColorTex, 4}, {RenderTargetType::ColorTex, 5},
+                                           {RenderTargetType::ColorTex, 6}, {RenderTargetType::ColorTex, 7},
+                                           {RenderTargetType::DepthTex, 0}
                                        });
     m_cubeA->Render();
 
@@ -183,5 +183,5 @@ void SceneUnitTest_StencilXRay::Render()
     // ========================================
     // [PRESENT] Display result
     // ========================================
-    g_theRendererSubsystem->PresentRenderTarget(4, RTType::ColorTex);
+    g_theRendererSubsystem->PresentRenderTarget(4, RenderTargetType::ColorTex);
 }

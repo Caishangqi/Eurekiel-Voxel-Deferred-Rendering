@@ -141,7 +141,7 @@ void SkyRenderPass::Execute()
     WriteSkyColorToRT();
 
     // [REFACTOR] Pair-based RT binding
-    g_theRendererSubsystem->UseProgram(m_skyBasicShader, {{RTType::ColorTex, 0}, {RTType::DepthTex, 0}});
+    g_theRendererSubsystem->UseProgram(m_skyBasicShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::DepthTex, 0}});
 
     {
         // [REFACTOR] Use UpdateMatrixUniforms() instead of deprecated GetMatricesUniforms()
@@ -163,7 +163,7 @@ void SkyRenderPass::Execute()
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Additive());
     // [REFACTOR] Pair-based RT binding
     g_theRendererSubsystem->UseProgram(m_skyTexturedShader, {
-                                           {RTType::ColorTex, 0}, {RTType::DepthTex, 0}
+                                           {RenderTargetType::ColorTex, 0}, {RenderTargetType::DepthTex, 0}
                                        });
 
     RenderSun();
@@ -213,7 +213,7 @@ void SkyRenderPass::WriteSkyColorToRT()
         255
     );
 
-    g_theRendererSubsystem->ClearRenderTarget(RTType::ColorTex, 0, fogColorRgba8);
+    g_theRendererSubsystem->ClearRenderTarget(RenderTargetType::ColorTex, 0, fogColorRgba8);
 }
 
 void SkyRenderPass::RenderSunsetStrip()
