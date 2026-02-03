@@ -2,11 +2,11 @@
   "parent": "block/cube",
   "textures": {
     "particle": "simpleminer:block/grass",
-    "down": "simpleminer:block/aether_dirt",
-    "up": "simpleminer:block/aether_grass_block_top",
-    "north": "simpleminer:block/aether_grass_block_side",
-    "east": "simpleminer:block/aether_grass_block_side",
-    "south": "simpleminer:block/aether_grass_block_side",
-    "west": "simpleminer:block/aether_grass_block_side"
+    "down": "simpleminer:block/dirt",
+    "up": "simpleminer:block/grass_block_top",
+    "north": "simpleminer:block/grass_block_side",
+    "east": "simpleminer:block/grass_block_side",
+    "south": "simpleminer:block/grass_block_side",
+    "west": "simpleminer:block/grass_block_side"
   }
 }

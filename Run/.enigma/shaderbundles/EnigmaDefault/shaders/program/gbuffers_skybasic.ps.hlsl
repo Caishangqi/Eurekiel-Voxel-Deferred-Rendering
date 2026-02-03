@@ -1,41 +1,50 @@
 /**
  * @file gbuffers_skybasic.ps.hlsl
- * @brief Sky with Void Gradient - Pixel Shader (Minecraft Style)
+ * @brief Sky with Void Gradient - Pixel Shader (ComplementaryReimagined Style)
  * @date 2025-12-07
- * @version v2.1
+ * @version v3.0
  *
+ * [NEW v3.0] SKY phase now uses GetSky() for procedural sky rendering
+ *            Matches ComplementaryReimagined gbuffers_skybasic.glsl
+ * [NEW v2.2] Added STARS phase for star field rendering
  * [NEW v2.1] SUNSET phase now uses colorModulator for GPU-side coloring
- * This matches Minecraft/Iris ColorModulator behavior exactly
  *
  * Features:
  * - Uses renderStage uniform to differentiate rendering phases
- * - SKY phase: Uses CPU-calculated skyColor uniform
+ * - SKY phase: Procedural sky using GetSky() (ComplementaryReimagined style)
+ *   - Time-based day/night transition
+ *   - Weather-affected sky colors
+ *   - Sun/moon glare effects
  * - SUNSET phase: vertexColor * colorModulator (Minecraft/Iris style)
- *   - Vertex color: pure white (255,255,255), alpha gradient
- *   - colorModulator: sunriseColor from CPU (CelestialUniforms)
+ * - STARS phase: Star field with colorModulator brightness control
  * - VOID phase: Uses darkened skyColor for void dome
  * - Applies Void gradient when camera is below minBuildHeight
  *
  * Render Stage Values (from common_uniforms.hlsl):
  * - RENDER_STAGE_SKY (1): Sky dome rendering
  * - RENDER_STAGE_SUNSET (2): Sunset/sunrise strip rendering
+ * - RENDER_STAGE_STARS (6): Star field rendering
  * - RENDER_STAGE_VOID (7): Void plane rendering
  *
  * Reference:
+ * - ComplementaryReimagined gbuffers_skybasic.glsl
  * - Iris CommonUniforms.java:108 - uniform1i("renderStage", ...)
  * - Iris VanillaTransformer.java:76-79 - iris_Color * iris_ColorModulator
- * - Iris WorldRenderingPhase.java - SKY, SUNSET, VOID phases
+ * - Iris WorldRenderingPhase.java - SKY, SUNSET, STARS, VOID phases
+ * - Minecraft LevelRenderer.java:1556-1560 - Star rendering
  * - Minecraft FogRenderer.java:45-150
  */
 
 #include "../@engine/core/core.hlsl"
+#include "../@engine/include/common_uniforms.hlsl"
+#include "../@engine/include/celestial_uniforms.hlsl"
 
 struct PSOutput
 {
     float4 Color0 : SV_Target0; // colortex0 (sky color)
 };
 
-static const float MIN_BUILD_HEIGHT  = -64.0; // Minecraft min build height
+static const float MIN_BUILD_HEIGHT  = -128.0; // Minecraft min build height
 static const float CLEAR_COLOR_SCALE = 0.03125; // 1.0 / 32.0
 
 /**
@@ -117,6 +126,32 @@ PSOutput main(PSInput input)
 
         // Output with proper alpha for blending
         output.Color0 = float4(finalColor, finalAlpha);
+        return output;
+    }
+    else if (renderStage == RENDER_STAGE_STARS)
+    {
+        // ---------------------------------------------------------------------
+        // [STARS] Star field rendering with brightness from colorModulator
+        // ---------------------------------------------------------------------
+        // Reference: Minecraft LevelRenderer.java:1556-1560
+        //   RenderSystem.setShaderColor(starBrightness, starBrightness, starBrightness, starBrightness)
+        //
+        // Flow:
+        //   1. CPU: Vertex color = white (star color)
+        //   2. CPU: colorModulator.a = starBrightness (calculated from time/weather)
+        //   3. GPU: Apply brightness as alpha for additive blending
+        //
+        // Stars use additive blending: finalColor added to existing sky color
+        // Alpha controls how much the star contributes to the final image
+        // ---------------------------------------------------------------------
+        float3 starColor      = input.Color.rgb;
+        float  starBrightness = colorModulator.a; // Star brightness from CPU
+
+        // Apply brightness to star color
+        finalColor = starColor * starBrightness;
+
+        // Output with alpha for blending (additive blend uses alpha as intensity)
+        output.Color0 = float4(finalColor, starBrightness);
         return output;
     }
     else if (renderStage == RENDER_STAGE_VOID)

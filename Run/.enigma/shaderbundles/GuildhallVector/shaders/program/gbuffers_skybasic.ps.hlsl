@@ -32,9 +32,9 @@
  * - Minecraft FogRenderer.java:45-150
  */
 
-#include "../../@engine/core/core.hlsl"
-#include "../../@engine/include/common_uniforms.hlsl"
-#include "../../@engine/include/celestial_uniforms.hlsl"
+#include "../@engine/core/core.hlsl"
+#include "../@engine/include/common_uniforms.hlsl"
+#include "../@engine/include/celestial_uniforms.hlsl"
 
 struct PSOutput
 {

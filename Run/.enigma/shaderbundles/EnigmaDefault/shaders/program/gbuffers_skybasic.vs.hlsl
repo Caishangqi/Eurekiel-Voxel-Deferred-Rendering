@@ -19,11 +19,7 @@
  * 5. Far plane override: z = 1.0
  */
 
-#include "../../@engine/core/core.hlsl"
-
-// [RENDERTARGETS] 0
-// Output to colortex0 (sky color)
-
+#include "../@engine/core/core.hlsl"
 /**
  * @brief Vertex Shader Main Entry
  * @param input Vertex data from sky dome geometry

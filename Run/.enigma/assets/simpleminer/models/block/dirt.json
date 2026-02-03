@@ -1,12 +1,12 @@
 {
   "parent": "block/cube",
   "textures": {
-    "particle": "simpleminer:block/aether_dirt",
-    "down": "simpleminer:block/aether_dirt",
-    "up": "simpleminer:block/aether_dirt",
-    "north": "simpleminer:block/aether_dirt",
-    "east": "simpleminer:block/aether_dirt",
-    "south": "simpleminer:block/aether_dirt",
-    "west": "simpleminer:block/aether_dirt"
+    "particle": "simpleminer:block/dirt",
+    "down": "simpleminer:block/dirt",
+    "up": "simpleminer:block/dirt",
+    "north": "simpleminer:block/dirt",
+    "east": "simpleminer:block/dirt",
+    "south": "simpleminer:block/dirt",
+    "west": "simpleminer:block/dirt"
   }
 }

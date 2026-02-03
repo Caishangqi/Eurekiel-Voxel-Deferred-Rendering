@@ -18,7 +18,7 @@
  * - SV_Target0 (colortex0) - 纹理颜色 × 顶点颜色
  */
 
-#include "../core/Common.hlsl"
+#include "../core/core.hlsl"
 
 /**
  * @brief 像素着色器主函数
@@ -41,7 +41,7 @@ float4 main(PSInput input) : SV_Target0
     // 2. 采样纹理
     // - 使用 linearSampler (线性过滤，防止像素化)
     // - UV 坐标已经过硬件插值
-    float4 texColor = mainTexture.Sample(linearSampler, input.TexCoord);
+    float4 texColor = mainTexture.Sample(sampler0, input.TexCoord);
 
     // 3. 纹理颜色与顶点颜色混合
     // - Minecraft 标准: texColor * vertexColor

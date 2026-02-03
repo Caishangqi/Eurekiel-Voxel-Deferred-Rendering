@@ -9,8 +9,8 @@ video:
   aspectRatio: 2  # 16:9
   targetFPS: 60
   vsync: true
-  renderDistance: 24  # unit chunk
-  simulationDistance: 24 # unit chunk
+  renderDistance: 6  # unit chunk
+  simulationDistance: 6 # unit chunk
   cloud:
     enabled: true
     renderMode: "fancy"   # fast, fancy

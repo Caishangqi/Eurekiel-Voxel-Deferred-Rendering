@@ -1,4 +1,4 @@
-#include "../core/Common.hlsl"
+#include "../core/core.hlsl"
 #include "../include/developer_uniforms.hlsl"
 /**
  * @brief 像素着色器输出结构体 - 多RT输出
@@ -31,7 +31,7 @@ PSOutput main(PSInput input)
 
     // 采样CustomImage0纹理（使用线性采样器和UV坐标）
     // CustomImage槽位在CPU侧通过SetCustomImage(0, texture)设置
-    float4 texColor = customImage0.Sample(pointSampler, input.TexCoord);
+    float4 texColor = customImage0.Sample(sampler1, input.TexCoord);
 
     // [NEW] Multi-draw data independence test
     // Final color = Custom Buffer color (should be Red/Green/Blue for each cube)
