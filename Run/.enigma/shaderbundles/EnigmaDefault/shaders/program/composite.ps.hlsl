@@ -1,30 +1,18 @@
+/// [REFACTOR] Composite pass with RT formats and enhanced lighting
 #include "../@engine/core/core.hlsl"
 #include "../@engine/lib/fog.hlsl"
 #include "../@engine/lib/math.hlsl"
 
-/**
- * @brief Calculate final lighting intensity using Minecraft vanilla formula
- * @param blockLight Block light value (0.0 - 1.0, from lightmap.r)
- * @param skyLight Sky light value (0.0 - 1.0, from lightmap.g)
- * @param skyBrightnessValue Time-based sky brightness (0.2 - 1.0, from celestial uniforms)
- * @return Final light intensity (0.0 - 1.0)
- *
- * Reference: Minecraft LevelLightEngine.getRawBrightness()
- * Formula: finalLight = max(blockLight, skyLight * skyBrightness)
- *
- * [IMPORTANT] This is NOT multiplication! It's max() operation.
- * - Block light is independent of time
- * - Sky light is scaled by skyBrightness (time-dependent)
- * - Final light = whichever is brighter
- */
+// [NEW] RT format definitions - include ONLY here, engine parses globally
+#include "../include/rt_formats.hlsl"
+
+// [NEW] Enhanced lighting system
+#include "../lib/lighting.hlsl"
+
+/// Vanilla light intensity (block light vs sky light)
 float CalculateLightIntensity(float blockLight, float skyLight, float skyBrightnessValue)
 {
-    // Scale sky light by time-based brightness
-    // skyBrightness: 1.0 at noon, 0.2 at midnight
     float effectiveSkyLight = skyLight * skyBrightnessValue;
-
-    // Final light = max of block light and effective sky light
-    // [IMPORTANT] This matches Minecraft's lighting model
     return max(blockLight, effectiveSkyLight);
 }
 
@@ -122,17 +110,24 @@ PSOutput main(PSInput input)
     }
 
     // [STEP 7] Apply lighting to terrain with AO
-    // [AO] Final formula: albedo * lightIntensity * ao
-    // AO darkens corners and crevices where light would naturally be occluded
+    // Vanilla light intensity + shadow sampling
     float lightIntensity = CalculateLightIntensity(blockLight, skyLight, skyBrightness);
     float finalLight     = max(lightIntensity, 0.03);
-    output.color0        = float4(albedo * finalLight * ao, 1.0);
+
+    // [NEW] Reconstruct world position for shadow sampling
+    float3 viewPos  = ReconstructViewPosition(input.TexCoord, depthAll, gbufferProjectionInverse, gbufferRendererInverse);
+    float3 worldPos = mul(gbufferViewInverse, float4(viewPos, 1.0)).xyz;
+
+    // [NEW] Sample shadow map and apply shadow color tinting
+    float3 shadowUV     = WorldToShadowUV(worldPos, shadowView, shadowProjection);
+    float  shadowFactor = SampleShadowMap(shadowUV, worldPos, shadowtex1, sampler1);
+
+    // Combine: vanilla lighting * shadow * AO
+    float3 shadowedLight = lerp(SHADOW_COLOR, float3(1.0, 1.0, 1.0), shadowFactor);
+    output.color0        = float4(albedo * finalLight * shadowedLight * ao, 1.0);
 
     // [STEP 8] Underwater/Fluid Fog Effects
-    // Only apply to non-sky pixels (already handled above with early return)
-    // gbufferRendererInverse is required for DX12 API coordinate system correction
-    float3 viewPos      = ReconstructViewPosition(input.TexCoord, depthAll, gbufferProjectionInverse, gbufferRendererInverse);
-    float  viewDistance = length(viewPos);
+    float viewDistance = length(viewPos);
 
     if (isEyeInWater == EYE_IN_WATER)
     {
