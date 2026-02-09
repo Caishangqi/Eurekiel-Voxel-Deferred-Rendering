@@ -1,22 +1,13 @@
 /**
  * @file gbuffers_terrain.ps.hlsl
- * @brief Terrain Pixel Shader - G-Buffer Output with Vanilla Lighting
- * @date 2026-01-01
+ * @brief Terrain Pixel Shader - G-Buffer Output
+ *
+ * [REFACTOR] Uses R8G8B8A8_SNORM for normals - no encoding needed
  *
  * G-Buffer Output Layout:
- * - colortex0 (SV_TARGET0): Lit Albedo RGB (with lighting applied)
+ * - colortex0 (SV_TARGET0): Albedo RGB + AO in alpha
  * - colortex1 (SV_TARGET1): Lightmap (R=blocklight, G=skylight)
- * - colortex2 (SV_TARGET2): Encoded Normal ([-1,1] -> [0,1])
- *
- * Lighting Model (Minecraft Vanilla):
- * - effectiveSkyLight = skyLight * skyBrightness
- * - finalLight = max(blockLight, effectiveSkyLight)
- * - litColor = albedo * finalLight
- *
- * Reference:
- * - Engine/Voxel/World/TerrainVertexLayout.hpp
- * - Minecraft LevelLightEngine.getRawBrightness()
- * - voxel-light-engine/design.md
+ * - colortex2 (SV_TARGET2): Normal (SNORM, [-1,1] stored directly)
  */
 
 #include "../@engine/core/core.hlsl"
@@ -48,23 +39,13 @@ struct PSInput_Terrain
  */
 struct PSOutput_Terrain
 {
-    float4 Color0 : SV_TARGET0; // colortex0: Albedo (RGB) + Alpha
-    float4 Color1 : SV_TARGET1; // colortex1: Lightmap (R=block, G=sky, BA=0)
-    float4 Color2 : SV_TARGET2; // colortex2: Encoded Normal (RGB)
+    float4 Color0 : SV_TARGET0; // colortex0: Albedo (RGB) + AO (A)
+    float4 Color1 : SV_TARGET1; // colortex1: Lightmap (R=block, G=sky)
+    float4 Color2 : SV_TARGET2; // colortex2: Normal (SNORM, direct [-1,1])
 };
 
 /**
- * @brief Encode normal from [-1,1] to [0,1] for storage
- */
-float3 EncodeNormal(float3 normal)
-{
-    return normal * 0.5 + 0.5;
-}
-
-/**
  * @brief Terrain pixel shader main entry
- * @param input Interpolated vertex data from VS
- * @return G-Buffer output for deferred lighting
  */
 PSOutput_Terrain main(PSInput_Terrain input)
 {
@@ -97,8 +78,8 @@ PSOutput_Terrain main(PSInput_Terrain input)
     // colortex1: Lightmap data (R=blocklight, G=skylight, B=0, A=1)
     output.Color1 = float4(input.LightmapCoord.x, input.LightmapCoord.y, 0.0, 1.0);
 
-    // colortex2: Encoded world normal
-    output.Color2 = float4(EncodeNormal(normalize(input.Normal)), 1.0);
+    // colortex2: World normal (SNORM format handles [-1,1] natively)
+    output.Color2 = float4(normalize(input.Normal), 1.0);
 
     return output;
 }
