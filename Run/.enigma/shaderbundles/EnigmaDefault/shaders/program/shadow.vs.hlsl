@@ -15,6 +15,7 @@
  */
 
 #include "../@engine/core/core.hlsl"
+#include "../lib/shadow.hlsl"
 
 // ============================================================================
 // Shadow Pass Vertex Structures
@@ -57,10 +58,15 @@ VSOutput_Shadow main(VSInput_Shadow input)
     float4 localPos = float4(input.Position, 1.0);
     float4 worldPos = mul(modelMatrix, localPos);
 
-    // [STEP 2] Transform to shadow view space
+    // [STEP 2] Transform to shadow clip space
+    // Transform chain must match WorldToShadowUV() in shadow.hlsl:
+    //   World -> ShadowView -> gbufferRenderer -> ShadowProjection -> Distortion
     float4 shadowViewPos   = mul(shadowView, worldPos);
     float4 shadowRenderPos = mul(gbufferRenderer, shadowViewPos);
     float4 shadowClipPos   = mul(shadowProjection, shadowRenderPos);
+
+    // [FIX] Apply shadow distortion (must match composite sampling)
+    shadowClipPos.xyz = GetShadowDistortion(shadowClipPos.xyz);
 
     output.Position = shadowClipPos;
     output.TexCoord = input.TexCoord;
