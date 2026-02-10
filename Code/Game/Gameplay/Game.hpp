@@ -94,7 +94,8 @@ public:
 #pragma endregion
 };
 #pragma region CONSTANT_BUFFER
-extern CommonConstantBuffer COMMON_UNIFORM;
-extern FogUniforms          FOG_UNIFORM;
-extern WorldTimeUniforms    WORLD_TIME_UNIFORM;
+extern CommonConstantBuffer              COMMON_UNIFORM;
+extern FogUniforms                       FOG_UNIFORM;
+extern WorldTimeUniforms                 WORLD_TIME_UNIFORM;
+extern enigma::graphic::MatricesUniforms MATRICES_UNIFORM;
 #pragma endregion

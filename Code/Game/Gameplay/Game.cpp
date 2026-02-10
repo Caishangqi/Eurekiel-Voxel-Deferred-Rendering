@@ -3,6 +3,7 @@
 #include <memory>
 #include "Engine/Core/VertexUtils.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
+#include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
 #include "Engine/Input/InputSystem.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Framework/App.hpp"
@@ -32,12 +33,14 @@
 #include "Game/Framework/RenderPass/RenderShadow/ShadowRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderShadowComposite/ShadowCompositeRenderPass.hpp"
 #include "Generator/SimpleMinerGenerator.hpp"
+#include "Generator/FlatWorldGenerator.hpp"
 #include "ThirdParty/imgui/imgui.h"
 
 
 CommonConstantBuffer COMMON_UNIFORM     = CommonConstantBuffer();
 FogUniforms          FOG_UNIFORM        = FogUniforms();
 WorldTimeUniforms    WORLD_TIME_UNIFORM = WorldTimeUniforms();
+MatricesUniforms     MATRICES_UNIFORM   = MatricesUniforms();
 
 
 Game::Game()
@@ -56,8 +59,8 @@ Game::Game()
 
     /// Prepare player
     m_player                = std::make_unique<PlayerCharacter>(this);
-    m_player->m_position    = Vec3(-20, 0, 86);
-    m_player->m_orientation = EulerAngles(-60, 24, 0);
+    m_player->m_position    = Vec3(-20, 9, 75);
+    m_player->m_orientation = EulerAngles(-64, 33, 0);
 
     /// Scene (Test Only)
     m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
@@ -100,7 +103,8 @@ Game::Game()
     /// World Generator and World Creation
     using namespace enigma::voxel;
 
-    auto generator = std::make_unique<SimpleMinerGenerator>();
+    //auto generator = std::make_unique<SimpleMinerGenerator>();
+    auto generator = std::make_unique<FlatWorldGenerator>();
     m_world        = std::make_unique<World>("world", 6693073380, std::move(generator));
     m_world->SetChunkActivationRange(settings.GetInt("video.simulationDistance", 6));
 
@@ -234,6 +238,25 @@ void Game::ProcessInputAction(float deltaSeconds)
     if (g_theInput->WasKeyJustPressed(KEYCODE_F1))
     {
         m_showGameSettings = !m_showGameSettings;
+    }
+
+    if (g_theInput->WasKeyJustPressed('K'))
+    {
+        auto m_stoneId  = enigma::registry::block::BlockRegistry::GetBlockId("simpleminer", "stone");
+        auto stoneBlock = enigma::registry::block::BlockRegistry::GetBlockById(m_stoneId);
+        m_world->SetBlockState(BlockPos(-20, 2, 65), stoneBlock->GetDefaultState());
+        m_world->SetBlockState(BlockPos(-20, 2, 66), stoneBlock->GetDefaultState());
+        m_world->SetBlockState(BlockPos(-20, 2, 67), stoneBlock->GetDefaultState());
+        m_world->SetBlockState(BlockPos(-20, 2, 68), stoneBlock->GetDefaultState());
+        m_world->SetBlockState(BlockPos(-20, 2, 69), stoneBlock->GetDefaultState());
+        m_world->SetBlockState(BlockPos(-20, 2, 70), stoneBlock->GetDefaultState());
+    }
+
+    /// Reset Camera
+    if (g_theInput->WasKeyJustPressed('R'))
+    {
+        m_player->m_position    = Vec3(-20, 9, 75);
+        m_player->m_orientation = EulerAngles(-64, 33, 0);
     }
 }
 
