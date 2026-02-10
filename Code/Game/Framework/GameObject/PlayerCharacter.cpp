@@ -38,6 +38,8 @@ void PlayerCharacter::Update(float deltaSeconds)
     GameObject::Update(deltaSeconds);
     HandleInputAction(deltaSeconds);
     UpdateCamera(deltaSeconds);
+    if (g_theGame->m_enableSceneTest)
+        return;
     UpdatePlayerStatus(deltaSeconds);
 }
 
