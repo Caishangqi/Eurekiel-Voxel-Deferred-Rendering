@@ -1,14 +1,10 @@
 /// Composite pass - deferred lighting with shadow mapping and fog
+/// Ref: miniature-shader textured_lit.fsh (lighting pipeline)
 #include "../@engine/core/core.hlsl"
 #include "../@engine/lib/fog.hlsl"
 #include "../@engine/lib/math.hlsl"
 #include "../include/rt_formats.hlsl"
 #include "../lib/lighting.hlsl"
-
-float CalculateLightIntensity(float blockLight, float skyLight, float skyBrightnessValue)
-{
-    return max(blockLight, skyLight * skyBrightnessValue);
-}
 
 struct PSOutput
 {
@@ -21,12 +17,9 @@ PSOutput main(PSInput input)
 
     /* RENDERTARGETS: 0 */
 
-    // Sample depth: sampler1 = Point (no interpolation for depth)
-    // depthtex0 = all geometry, depthtex1 = opaque-only snapshot
-    float depthOpaque = depthtex1.Sample(sampler1, input.TexCoord).r;
-    float depthAll    = depthtex0.Sample(sampler1, input.TexCoord).r;
+    // --- GBuffer Sampling ---
+    float depthAll = depthtex0.Sample(sampler1, input.TexCoord).r;
 
-    // Albedo + AO (separateAo: RGB=albedo, A=AO for solid/cutout)
     float4 albedoAO = colortex0.Sample(sampler0, input.TexCoord);
     float3 albedo   = albedoAO.rgb;
     float  ao       = albedoAO.a;
@@ -65,10 +58,7 @@ PSOutput main(PSInput input)
         return output;
     }
 
-    // --- Deferred Lighting ---
-
-    float lightIntensity = CalculateLightIntensity(blockLight, skyLight, skyBrightness);
-    float finalLight     = max(lightIntensity, 0.03);
+    // --- Deferred Lighting (ref: miniature-shader textured_lit.fsh) ---
 
     // Reconstruct world position from depth
     float3 viewPos  = ReconstructViewPosition(input.TexCoord, depthAll, gbufferProjectionInverse, gbufferRendererInverse);
@@ -80,25 +70,20 @@ PSOutput main(PSInput input)
     // Light direction: shadowLightPosition (view space) → world space
     float3 lightDirWorld = normalize(mul((float3x3)gbufferViewInverse, shadowLightPosition));
 
-    // --- Shadow ---
-    // Back-faces always in shadow; front-faces use three-layer bias system
-    float NdotL = dot(worldNormal, lightDirWorld);
-    float shadowFactor;
-    if (NdotL <= 0.0)
-    {
-        shadowFactor = 0.0;
-    }
-    else
-    {
-        shadowFactor = SampleShadowWithBias(worldPos, worldNormal, lightDirWorld,
-                                            shadowView, shadowProjection,
-                                            shadowtex1, sampler1);
-        shadowFactor *= smoothstep(0.0, 0.05, NdotL);
-    }
+    // Full lighting pipeline: diffuse → shadow → light color → apply
+    bool   isUnderwater = (isEyeInWater == EYE_IN_WATER);
+    float3 litColor     = CalculateLighting(
+        albedo, worldPos, worldNormal, lightDirWorld,
+        skyLight, blockLight, skyBrightness,
+        compensatedCelestialAngle, // = Iris sunAngle (NOT celestialAngle)
+        0.0, // fogMix (TODO: compute from distance for atmospheric fog)
+        rainStrength,
+        isUnderwater, ao,
+        shadowView, shadowProjection,
+        shadowtex1, sampler1);
 
-    // Combine: lighting × shadow × AO
-    float3 shadowedLight = lerp(SHADOW_COLOR, float3(1.0, 1.0, 1.0), shadowFactor);
-    output.color0        = float4(albedo * finalLight * shadowedLight * ao, 1.0);
+    // Clamp to [0,1] — prevents overexposure before tone mapping (Phase 7)
+    output.color0 = float4(saturate(litColor), 1.0);
 
     // --- Fluid Fog ---
     float viewDistance = length(viewPos);
