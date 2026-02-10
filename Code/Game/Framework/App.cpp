@@ -29,7 +29,6 @@
 #include "Engine/Core/Event/EventSubsystem.hpp"
 
 // Window configuration parser
-#include "WindowConfigParser.hpp"
 #include "Engine/Core/ImGui/ImGuiSubsystem.hpp"
 #include "Engine/Core/ImGui/ImGuiSubsystemConfig.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
@@ -121,9 +120,9 @@ void App::Startup(char*)
     // Window system - render target
     WindowConfig windowConfig;
     windowConfig.m_windowTitle = "Enigma Deferred Rendering Pipeline";
-    windowConfig.m_aspectRatio = static_cast<float>(WINDOW_WIDTH) / static_cast<float>(WINDOW_HEIGHT);
     windowConfig.m_windowMode  = WindowMode::Windowed;
     windowConfig.m_resolution  = IntVec2(1920, 1080);
+    windowConfig.m_aspectRatio = static_cast<float>(windowConfig.m_resolution.x) / static_cast<float>(windowConfig.m_resolution.y);
     windowConfig.m_inputSystem = g_theInput;
     g_theWindow                = new Window(windowConfig);
 
