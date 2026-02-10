@@ -66,6 +66,18 @@ float3 WorldToShadowUV(float3 worldPos, float4x4 shadowView, float4x4 shadowProj
 }
 
 //============================================================================//
+// Pixelated Shadow (Optional)
+// Ref: miniature-shader getLightStrength.fsh:12-16
+//============================================================================//
+
+float3 PixelateShadowPos(float3 worldPos, float pixelSize)
+{
+    if (pixelSize <= 0.0)
+        return worldPos;
+    return Bandify(worldPos, pixelSize);
+}
+
+//============================================================================//
 // Shadow Sampling
 //============================================================================//
 
@@ -76,9 +88,11 @@ bool IsValidShadowUV(float3 shadowUV)
         shadowUV.z < 1.0;
 }
 
-/// Sample shadow map with Layer 3 residual Z-bias and distance fade
+/// Sample shadow map with soft depth comparison and distance fade
+/// Ref: miniature-shader getLightStrength.fsh — continuous depth-based transition
+/// @param shadowProjZ  shadowProjection._m22 (Z scale of shadow projection)
 /// Returns: 1.0 = fully lit, 0.0 = fully shadowed
-float SampleShadowMap(float3 shadowUV, float3 worldPos, Texture2D shadowTex, SamplerState samp)
+float SampleShadowMap(float3 shadowUV, float3 worldPos, float shadowProjZ, Texture2D shadowTex, SamplerState samp)
 {
     float posDistSq = SquaredLength(worldPos);
     if (posDistSq >= SHADOW_MAX_DIST_SQUARED)
@@ -86,39 +100,40 @@ float SampleShadowMap(float3 shadowUV, float3 worldPos, Texture2D shadowTex, Sam
     if (!IsValidShadowUV(shadowUV))
         return 1.0;
 
-    float shadowFade   = 1.0 - posDistSq * INV_SHADOW_MAX_DIST_SQUARED;
-    float shadowDepth  = shadowTex.Sample(samp, shadowUV.xy).r;
-    float shadowFactor = (shadowUV.z - 0.0004 > shadowDepth) ? 0.0 : 1.0;
+    float shadowFade  = 1.0 - posDistSq * INV_SHADOW_MAX_DIST_SQUARED;
+    float shadowDepth = shadowTex.Sample(samp, shadowUV.xy).r;
 
-    return lerp(1.0, shadowFactor, shadowFade);
+    // Soft shadow: depth difference → continuous [0,1] shadow amount
+    // 0.2 = Z compression factor from GetShadowDistortion
+    // 3.0 = transition sharpness (matches miniature-shader)
+    float shadowAmount = saturate(3.0 * (shadowUV.z - shadowDepth) / (shadowProjZ * 0.2));
+
+    return 1.0 - shadowFade * shadowAmount;
 }
 
-/// Preferred entry point: Layer 2 (normal offset) + Layer 3 (residual Z-bias)
+/// Preferred entry point: SHADOW_PIXEL + Layer 2 (normal offset) + soft depth comparison
+/// Ref: miniature-shader getLightStrength.fsh (pixelation + shadow sampling)
 float SampleShadowWithBias(float3    worldPos, float3        normal, float3 lightDir,
                            float4x4  shadowView, float4x4    shadowProj,
                            Texture2D shadowTex, SamplerState samp)
 {
-    float3 biasedWorldPos = worldPos + GetNormalShadowBias(worldPos, normal, lightDir);
+    // SHADOW_PIXEL: pixelate world position for stylized shadows
+    // Ref: miniature-shader getLightStrength.fsh:12-16
+    float3 shadowWorldPos = PixelateShadowPos(worldPos, SHADOW_PIXEL);
+
+    float3 biasedWorldPos = shadowWorldPos + GetNormalShadowBias(shadowWorldPos, normal, lightDir);
     float3 shadowUV       = WorldToShadowUV(biasedWorldPos, shadowView, shadowProj);
-    return SampleShadowMap(shadowUV, worldPos, shadowTex, samp);
+    float  shadowProjZ    = shadowProj._m22;
+    return SampleShadowMap(shadowUV, worldPos, shadowProjZ, shadowTex, samp);
 }
 
 /// Legacy: simplified shadow sampling without normal bias
 float SampleShadow(float3 worldPos, float4x4 shadowView, float4x4 shadowProj, SamplerState samp)
 {
-    float3 shadowUV = WorldToShadowUV(worldPos, shadowView, shadowProj);
-    return SampleShadowMap(shadowUV, worldPos, shadowtex1, samp);
-}
-
-//============================================================================//
-// Pixelated Shadow (Optional)
-//============================================================================//
-
-float3 PixelateShadowPos(float3 worldPos, float pixelSize)
-{
-    if (pixelSize <= 0.0)
-        return worldPos;
-    return Bandify(worldPos, pixelSize);
+    float3 shadowWorldPos = PixelateShadowPos(worldPos, SHADOW_PIXEL);
+    float3 shadowUV       = WorldToShadowUV(shadowWorldPos, shadowView, shadowProj);
+    float  shadowProjZ    = shadowProj._m22;
+    return SampleShadowMap(shadowUV, worldPos, shadowProjZ, shadowtex1, samp);
 }
 
 #endif // LIB_SHADOW_HLSL
