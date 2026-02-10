@@ -126,28 +126,27 @@ void ShadowRenderPass::UpdateShadowCamera()
     auto& timeProvider = g_theGame->m_timeProvider;
     if (!timeProvider) return;
 
-    float shadowAngle = timeProvider->GetShadowAngle();
-    float yawDegrees  = shadowAngle * 360.0f + 90.0f;
+    // Get shadow light position in world space (pass identity matrix)
+    Mat44 identity;
+    Vec3  shadowLightPos = timeProvider->CalculateShadowLightPosition(identity);
 
-    // Pitch: The elevation angle of the sun
-    // When shadowAngle=0.25, the sun is at the zenith and the Shadow Camera looks down (pitch = +90)
-    // When shadowAngle=0/0.5, the sun is on the horizon and the Shadow Camera looks horizontally (pitch = 0)
-    // Use sin function: pitch = 90 * sin(shadowAngle * 2PI)
-    // Note: sin(0.25 * 2PI) = sin(PI/2) = 1, so pitch = 90°
-    float pitchDegrees = 90.0f * sinf(shadowAngle * 2.0f * PI);
+    // Light direction = opposite of sun direction (light travels FROM sun TO scene)
+    Vec3 sunDirection = shadowLightPos.GetNormalized();
+    m_lightDirection  = -sunDirection;
 
-    float rollDegrees = 0.0f;
+    // Convert light direction to EulerAngles for shadow camera
+    // Coordinate system: +X forward, +Y left, +Z up
+    float yawDegrees       = Atan2Degrees(m_lightDirection.y, m_lightDirection.x);
+    float horizontalLength = sqrtf(m_lightDirection.x * m_lightDirection.x +
+        m_lightDirection.y * m_lightDirection.y);
+    float pitchDegrees = Atan2Degrees(-m_lightDirection.z, horizontalLength);
 
-    EulerAngles shadowOrientation(yawDegrees, pitchDegrees, rollDegrees);
-    m_lightDirectionEulerAngles = shadowOrientation;
-    Vec3 I, J, K;
-    m_lightDirectionEulerAngles.GetAsVectors_IFwd_JLeft_KUp(I, J, K);
-    m_lightDirection = I;
-
+    m_lightDirectionEulerAngles = EulerAngles(yawDegrees, pitchDegrees, 0.0f);
     m_shadowCamera->SetPositionAndOrientation(snappedPos, m_lightDirectionEulerAngles);
 
-    MatricesUniforms shadowCameraUniforms = m_shadowCamera->GetMatrixUniforms();
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(shadowCameraUniforms);
+    // Update shadow matrices
+    m_shadowCamera->UpdateMatrixUniforms(MATRICES_UNIFORM);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
 }
 
 void ShadowRenderPass::RenderShadowMap()

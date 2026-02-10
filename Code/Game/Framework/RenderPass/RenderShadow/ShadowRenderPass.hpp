@@ -84,7 +84,6 @@ private:
 
     static constexpr float SHADOW_INTERVAL_SIZE = 2.0f; // Grid snap interval
     static constexpr float SHADOW_HALF_PLANE    = 160.0f; // Shadow frustum half-size
-    static constexpr float SHADOW_NEAR_PLANE    = 0.1f; // Near clip distance
-    static constexpr float SHADOW_FAR_PLANE     = 500.0f; // Far clip distance
-    static constexpr float SHADOW_DISTANCE      = 128.0f; // Light distance from center
+    static constexpr float SHADOW_NEAR_PLANE    = -100.05f; // Near clip distance
+    static constexpr float SHADOW_FAR_PLANE     = 156.0f; // Far clip distance
 };
