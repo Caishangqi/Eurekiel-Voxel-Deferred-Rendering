@@ -312,6 +312,11 @@
         <Content Include="..\..\Run\.enigma\shaderbundles\GuildhallVector\shaders\program\gbuffers_water.vs.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\GuildhallVector\shaders\program\shadow.ps.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\GuildhallVector\shaders\program\shadow.vs.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\common.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\lighting.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\shadow.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\include\rt_formats.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\include\settings.hlsl"/>
         <ClCompile Include="Framework\GameObject\ImguiPlayerDebugInfo.cpp" />
         <ClCompile Include="Framework\Imgui\ImguiGameLogic.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiGameSettings.cpp"/>
@@ -340,6 +345,7 @@
         <ClCompile Include="Framework\RenderPass\SceneRenderPass.cpp"/>
         <ClCompile Include="Framework\Time\ImguiSettingTime.cpp"/>
         <ClCompile Include="Gameplay\Config\GraphicConfigParser.cpp"/>
+        <ClCompile Include="Gameplay\Generator\FlatWorldGenerator.cpp"/>
         <ClCompile Include="Gameplay\Generator\SimpleMinerGenerator.cpp"/>
         <ClCompile Include="Gameplay\Generator\SimpleMinerTreeGenerator.cpp"/>
         <ClCompile Include="Gameplay\TreeStamps\AcaciaTreeStamp.cpp"/>
@@ -389,6 +395,7 @@
         <ClInclude Include="Framework\RenderPass\WorldRenderingPhase.hpp"/>
         <ClInclude Include="Framework\Time\ImguiSettingTime.hpp" />
         <ClInclude Include="Gameplay\Config\GraphicConfigParser.hpp"/>
+        <ClInclude Include="Gameplay\Generator\FlatWorldGenerator.hpp"/>
         <ClInclude Include="Gameplay\Generator\SimpleMinerGenerator.hpp"/>
         <ClInclude Include="Gameplay\Generator\SimpleMinerTreeGenerator.hpp"/>
         <ClInclude Include="Gameplay\TreeStamps\AcaciaTreeStamp.hpp"/>
@@ -409,7 +416,6 @@
         <ClCompile Include="Framework\GameObject\PlayerCharacter.cpp" />
         <ClCompile Include="Gameplay\Game.cpp" />
         <ClCompile Include="Framework\App.cpp" />
-        <ClCompile Include="Framework\WindowConfigParser.cpp" />
         <ClCompile Include="GameCommon.cpp" />
         <ClCompile Include="Main_Windows.cpp" />
         <ClInclude Include="SceneTest\SceneUnitTest_VertexLayoutRegistration.hpp"/>
@@ -420,7 +426,6 @@
         <ClInclude Include="Framework\GameObject\GameObject.hpp" />
         <ClInclude Include="Framework\GameObject\Geometry.hpp" />
         <ClInclude Include="Framework\GameObject\PlayerCharacter.hpp" />
-        <ClInclude Include="Framework\WindowConfigParser.hpp" />
         <ClInclude Include="GameCommon.hpp" />
         <ClInclude Include="Gameplay\Game.hpp" />
         <!-- <ClInclude Include="Test\UnitTest_ShaderFallbackGenerator.hpp" /> REMOVED: ShaderFallbackGenerator deleted in Dual ShaderPack architecture (2025-10-19) -->
@@ -445,7 +450,6 @@
     </ItemGroup>
     <ItemGroup>
         <Folder Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_1\"/>
-        <Folder Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\"/>
         <Folder Include="..\..\Run\.enigma\shaderbundles\GuildhallVector\shaders\bundle\mycustom_bundle_1\"/>
         <Folder Include="..\..\Run\.enigma\shaderbundles\GuildhallVector\shaders\lib\"/>
     </ItemGroup>

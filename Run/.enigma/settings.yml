@@ -4,9 +4,9 @@ general:
 video:
   windowMode: "windowed"  # windowed, fullscreen, borderlessFullscreen
   resolution:
-    width: 1600
-    height: 800
-  aspectRatio: 2  # 16:9
+    width: 1920
+    height: 1080
+  aspectRatio: 2.0  # 16:9
   targetFPS: 60
   vsync: true
   renderDistance: 6  # unit chunk
