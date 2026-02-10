@@ -7,7 +7,9 @@
 #include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCUTBNLayout.hpp"
 #include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
+#include "Engine/Graphic/Target/D12RenderTarget.hpp"
 #include "Engine/Graphic/Target/DepthTextureProvider.hpp"
+#include "Engine/Graphic/Target/ShadowTextureProvider.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Framework/RenderPass/RenderPassHelper.hpp"
 #include "Game/Gameplay/Game.hpp"
@@ -59,9 +61,14 @@ void CompositeRenderPass::BeginPass()
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
     depthProvider->GetDepthTexture(0)->TransitionToShaderResource();
     depthProvider->GetDepthTexture(1)->TransitionToShaderResource();
+
+    // [NEW] Transition shadowtex0-1 to PIXEL_SHADER_RESOURCE for shadow sampling
+    auto* shadowProvider = static_cast<enigma::graphic::ShadowTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::ShadowTex));
+    shadowProvider->GetDepthTexture(0)->TransitionToShaderResource();
+    shadowProvider->GetDepthTexture(1)->TransitionToShaderResource();
+
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
-    auto matrixUniform = g_theGame->m_player->GetCamera()->GetMatrixUniforms();
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matrixUniform);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(FOG_UNIFORM);
 }
 
@@ -74,4 +81,9 @@ void CompositeRenderPass::EndPass()
     auto* depthProvider = static_cast<enigma::graphic::DepthTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::DepthTex));
     depthProvider->GetDepthTexture(0)->TransitionToDepthWrite();
     depthProvider->GetDepthTexture(1)->TransitionToDepthWrite();
+
+    // [NEW] Transition shadowtex0-1 back to DEPTH_WRITE for subsequent shadow passes
+    auto* shadowProvider = static_cast<enigma::graphic::ShadowTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::ShadowTex));
+    shadowProvider->GetDepthTexture(0)->TransitionToDepthWrite();
+    shadowProvider->GetDepthTexture(1)->TransitionToDepthWrite();
 }
