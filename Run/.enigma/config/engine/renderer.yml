@@ -147,6 +147,8 @@ rendertargets:
       clearValue: [ 1.0, 1.0, 1.0, 1.0 ]  # White (Iris standard)
       enableClear: true
       enableFlipper: true
+      # width: 2048
+      # height: 2048
       widthScale: 1.0
       heightScale: 1.0
 
