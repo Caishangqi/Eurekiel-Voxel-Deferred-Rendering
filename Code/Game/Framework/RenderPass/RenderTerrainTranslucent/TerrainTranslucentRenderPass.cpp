@@ -138,10 +138,9 @@ void TerrainTranslucentRenderPass::BeginPass()
 
     g_theRendererSubsystem->UseProgram(m_waterShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::ColorTex, 1}, {RenderTargetType::ColorTex, 2}, {RenderTargetType::DepthTex, 0}});
 
-    // Upload matrices uniforms
-    MatricesUniforms matricesUniforms;
-    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matricesUniforms);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matricesUniforms);
+    // [REFACTOR] Update only gbuffer matrices in global MATRICES_UNIFORM
+    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
 
     // Setup blend and depth states for translucent rendering
     SetupBlendState();
