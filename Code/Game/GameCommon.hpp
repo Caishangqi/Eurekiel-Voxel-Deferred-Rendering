@@ -33,11 +33,6 @@ extern InputSystem*           g_theInput;
 extern AudioSubsystem*        g_theAudio;
 extern Game*                  g_theGame;
 
-#pragma region WINDOW
-#define WINDOW_WIDTH    1280
-#define WINDOW_HEIGHT   720
-#pragma endregion WINDOW
-
 #pragma region RENDER
 #define ENABLE_DEBUG    true
 #define ENABLE_GPU_VALIDATION true
