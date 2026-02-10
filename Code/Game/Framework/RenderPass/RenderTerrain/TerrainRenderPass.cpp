@@ -92,10 +92,9 @@ void TerrainRenderPass::BeginPass()
     // Set depth mode: write enabled for terrain
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
 
-    // [REFACTOR] Use UpdateMatrixUniforms() instead of deprecated GetMatricesUniforms()
-    MatricesUniforms matricesUniforms;
-    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matricesUniforms);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matricesUniforms);
+    // [REFACTOR] Update only gbuffer matrices in global MATRICES_UNIFORM
+    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
 }
 
 void TerrainRenderPass::EndPass()
