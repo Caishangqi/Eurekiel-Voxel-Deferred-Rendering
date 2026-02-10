@@ -11,7 +11,7 @@
  * G-Buffer Output Layout:
  * - colortex0 (SV_TARGET0): Albedo RGB + Alpha
  * - colortex1 (SV_TARGET1): Lightmap (R=blocklight, G=skylight)
- * - colortex2 (SV_TARGET2): Encoded Normal ([-1,1] -> [0,1])
+ * - colortex2 (SV_TARGET2): Normal (SNORM, direct [-1,1])
  *
  * Key Difference from gbuffers_terrain.ps.hlsl:
  * - Alpha test threshold: 0.1 (Iris ONE_TENTH_ALPHA)
@@ -60,16 +60,8 @@ struct PSOutput_TerrainCutout
 {
     float4 Color0 : SV_TARGET0; // colortex0: Albedo (RGB) + Alpha
     float4 Color1 : SV_TARGET1; // colortex1: Lightmap (R=block, G=sky, BA=0)
-    float4 Color2 : SV_TARGET2; // colortex2: Encoded Normal (RGB)
+    float4 Color2 : SV_TARGET2; // colortex2: Normal (SNORM, direct [-1,1])
 };
-
-/**
- * @brief Encode normal from [-1,1] to [0,1] for storage
- */
-float3 EncodeNormal(float3 normal)
-{
-    return normal * 0.5 + 0.5;
-}
 
 /**
  * @brief Terrain cutout pixel shader main entry
@@ -107,8 +99,8 @@ PSOutput_TerrainCutout main(PSInput_TerrainCutout input)
     // colortex1: Lightmap data (R=blocklight, G=skylight, B=0, A=1)
     output.Color1 = float4(input.LightmapCoord.x, input.LightmapCoord.y, 0.0, 1.0);
 
-    // colortex2: Encoded world normal
-    output.Color2 = float4(EncodeNormal(normalize(input.Normal)), 1.0);
+    // colortex2: World normal (SNORM format handles [-1,1] natively)
+    output.Color2 = float4(normalize(input.Normal), 1.0);
 
     return output;
 }
