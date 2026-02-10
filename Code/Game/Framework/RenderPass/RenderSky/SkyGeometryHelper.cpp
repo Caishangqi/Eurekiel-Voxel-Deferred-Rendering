@@ -342,8 +342,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
     float flipAngle         = (sinCelestialAngle < 0.0f) ? 180.0f : 0.0f;
 
     // [DEBUG] Print transform debug info
-    DebuggerPrintf("[SunsetStrip] celestialAngle=%.4f, sin=%.4f, flipAngle=%.1f\n",
-                   celestialAngle, sinCelestialAngle, flipAngle);
+    //DebuggerPrintf("[SunsetStrip] celestialAngle=%.4f, sin=%.4f, flipAngle=%.1f\n", celestialAngle, sinCelestialAngle, flipAngle);
 
     // ==========================================================================
     // Preparing the Geometry same look between Vertex In
@@ -359,8 +358,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
     float depthOffset = DEPTH_SCALE * sunriseColor.w;
 
     // [DEBUG] Print geometry parameters
-    DebuggerPrintf("[SunsetStrip] sunriseColor.w(alpha)=%.4f, depthOffset=%.2f\n",
-                   sunriseColor.w, depthOffset);
+    //DebuggerPrintf("[SunsetStrip] sunriseColor.w(alpha)=%.4f, depthOffset=%.2f\n",sunriseColor.w, depthOffset);
 
     // Center vertex in MC space: (0, 100, 0)
     Vec3 centerMC(0.0f, CENTER_DIST, 0.0f);
@@ -383,8 +381,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
         // [DEBUG] Print depth variation
         if (i == 0 || i == 8) // 打印首尾顶点
         {
-            DebuggerPrintf("[SunsetStrip] Vertex[%d]: angle=%.1f, cosA=%.3f, mcZ=%.2f\n",
-                           i, angle * 57.2958f, cosA, mcZ);
+            //DebuggerPrintf("[SunsetStrip] Vertex[%d]: angle=%.1f, cosA=%.3f, mcZ=%.2f\n",i, angle * 57.2958f, cosA, mcZ);
         }
 
         outerMC.emplace_back(mcX, mcY, mcZ);
@@ -392,7 +389,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSunriseStrip(const Vec4& sunriseC
         // [DEBUG] Print first vertex depth
         if (i == 0)
         {
-            DebuggerPrintf("[SunsetStrip] First outer vertex: cos(0)=%.2f, mcZ=%.2f\n", cosA, mcZ);
+            //DebuggerPrintf("[SunsetStrip] First outer vertex: cos(0)=%.2f, mcZ=%.2f\n", cosA, mcZ);
         }
     }
 

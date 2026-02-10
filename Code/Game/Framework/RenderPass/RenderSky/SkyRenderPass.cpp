@@ -170,11 +170,10 @@ void SkyRenderPass::Execute()
     RenderMoon();
 
     // Restore normal camera matrices after celestial rendering
-    // [REFACTOR] Use UpdateMatrixUniforms() instead of deprecated GetMatricesUniforms()
+    // [REFACTOR] Update global MATRICES_UNIFORM for subsequent passes
     {
-        MatricesUniforms restoredUniforms;
-        g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(restoredUniforms);
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(restoredUniforms);
+        g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
     }
 
     COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::NONE);
