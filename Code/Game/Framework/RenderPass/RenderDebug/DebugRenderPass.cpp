@@ -95,9 +95,9 @@ void DebugRenderPass::BeginPass()
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 
     m_player = g_theGame->m_player.get();
-    MatricesUniforms playerMatricesUniform;
-    m_player->GetCamera()->UpdateMatrixUniforms(playerMatricesUniform);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(playerMatricesUniform);
+    // [REFACTOR] Update only gbuffer matrices in global MATRICES_UNIFORM
+    m_player->GetCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
 }
 
 void DebugRenderPass::EndPass()
