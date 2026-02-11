@@ -50,6 +50,18 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 #define SHADOW_SMOOTHING 4          // [1 2 3 4]
 #endif
 
+// Distance-adaptive PCF: how much to widen the kernel at max shadow distance
+// 0.0 = no distance scaling, 3.0 = 4x wider at max distance
+#ifndef SHADOW_PCF_DIST_SCALE
+#define SHADOW_PCF_DIST_SCALE 5.0   // [0.0 1.0 2.0 3.0 4.0 5.0]
+#endif
+
+// Shadow edge fade range (in blocks) — smooth transition at shadow distance boundary
+// Ref: ComplementaryReimagined mainLighting.glsl shadowSmooth = 16.0
+#ifndef SHADOW_EDGE_FADE_RANGE
+#define SHADOW_EDGE_FADE_RANGE 16.0 // [4.0 8.0 16.0 24.0 32.0]
+#endif
+
 //============================================================================//
 // Light Settings
 //============================================================================//

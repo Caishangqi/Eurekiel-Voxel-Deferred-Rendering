@@ -244,22 +244,40 @@ float SampleShadowWithBias(float3    worldPos, float3        normal, float3 ligh
     if (!IsValidShadowUV(shadowUV))
         return 1.0;
 
+    // --- Shadow edge fade zone ---
+    // Ref: ComplementaryReimagined mainLighting.glsl:273-289
+    // Smooth transition at shadow distance boundary to avoid hard cutoff
+    float posDist        = sqrt(posDistSq);
+    float shadowEdgeDist = SHADOW_DISTANCE - posDist; // distance to shadow boundary
+    float edgeFade       = saturate(shadowEdgeDist / SHADOW_EDGE_FADE_RANGE);
+
 #if SHADOW_QUALITY < 0
     // Hard shadows — single sample, no filtering
-    return SampleShadowMap(shadowUV, worldPos, shadowProjZ, shadowTex, samp);
+    float shadow = SampleShadowMap(shadowUV, worldPos, shadowProjZ, shadowTex, samp);
+    return lerp(1.0, shadow, edgeFade);
 #elif SHADOW_QUALITY == 0
     // Basic 4-tap cross filter
-    return SampleBasicFilteredShadow(shadowUV, SHADOW_PCF_OFFSET, worldPos, shadowProjZ, shadowTex, samp);
+    float shadow = SampleBasicFilteredShadow(shadowUV, SHADOW_PCF_OFFSET, worldPos, shadowProjZ, shadowTex, samp);
+    return lerp(1.0, shadow, edgeFade);
 #else
     // Circular PCF with IGN jittering
     float offset = SHADOW_PCF_OFFSET;
+
+    // Distance-adaptive PCF: scale offset with distance from camera
+    // Far shadows have larger texels due to shadow map distortion,
+    // so we widen the PCF kernel to compensate for the lower effective resolution
+    float distRatio = posDist / SHADOW_DISTANCE; // [0, 1]
+    offset          *= 1.0 + distRatio * SHADOW_PCF_DIST_SCALE;
 
     // Increase spread during rain for softer shadows
     // Ref: ComplementaryReimagined mainLighting.glsl:170
     offset *= 1.0 + rainStrength * 2.0;
 
-    return SamplePCFFilteredShadow(shadowUV, offset, SHADOW_PCF_SAMPLES, screenPos,
-                                   worldPos, shadowProjZ, shadowTex, samp);
+    float shadow = SamplePCFFilteredShadow(shadowUV, offset, SHADOW_PCF_SAMPLES, screenPos,
+                                           worldPos, shadowProjZ, shadowTex, samp);
+
+    // Blend to fully lit at shadow distance boundary
+    return lerp(1.0, shadow, edgeFade);
 #endif
 }
 
