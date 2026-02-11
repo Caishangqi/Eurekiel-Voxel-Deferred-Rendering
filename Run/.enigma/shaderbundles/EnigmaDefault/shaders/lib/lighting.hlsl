@@ -96,19 +96,20 @@ float GetDiffuseThin(float skyLight, float fogMix, float rainStrength, bool isUn
 //============================================================================//
 
 /// Calculate light strength combining diffuse and shadow
-/// Ref: miniature-shader getLightStrength.fsh — diffuse modulates shadow result
+/// @param screenPos SV_Position.xy for PCF noise generation
 float GetLightStrength(float3    worldPos, float3        normal, float3 lightDir, float diffuse,
                        float4x4  shadowView, float4x4    shadowProj,
-                       Texture2D shadowTex, SamplerState samp)
+                       Texture2D shadowTex, SamplerState samp,
+                       float2    screenPos)
 {
     // Early out if no diffuse contribution (back-face or no sky light)
-    // Ref: miniature-shader getLightStrength.fsh:6 — "if diffuse > 0.0"
     if (diffuse <= 0.0)
         return 0.0;
 
-    // Shadow sampling with normal bias + soft comparison + SHADOW_PIXEL
+    // Shadow sampling with normal bias + PCF filtering
     float shadow = SampleShadowWithBias(worldPos, normal, lightDir,
-                                        shadowView, shadowProj, shadowTex, samp);
+                                        shadowView, shadowProj, shadowTex, samp,
+                                        screenPos);
 
     return diffuse * shadow;
 }
@@ -153,8 +154,7 @@ float3 ApplyLighting(float3 albedo, float lightStrength)
 //============================================================================//
 
 /// Full lighting calculation: diffuse + shadow + apply
-/// Ref: miniature-shader textured_lit.fsh full pipeline
-/// @param sunAngle Iris sunAngle (= engine compensatedCelestialAngle), used to compute light color
+/// @param screenPos SV_Position.xy for PCF noise generation
 float3 CalculateLighting(
     float3       albedo,
     float3       worldPos,
@@ -171,7 +171,8 @@ float3 CalculateLighting(
     float4x4     shadowView,
     float4x4     shadowProj,
     Texture2D    shadowTex,
-    SamplerState samp)
+    SamplerState samp,
+    float2       screenPos)
 {
     // Light color from day/night cycle
     // Ref: miniature-shader textured_lit.vsh — getLightColor(sunHeight, skyLight)
@@ -198,7 +199,8 @@ float3 CalculateLighting(
 
     // Combined diffuse × shadow
     float lightStrength = GetLightStrength(worldPos, normal, lightDir, diffuse,
-                                           shadowView, shadowProj, shadowTex, samp);
+                                           shadowView, shadowProj, shadowTex, samp,
+                                           screenPos);
 
     // Block light provides a floor (ref: miniature-shader textured_lit.fsh:111)
     lightStrength = max(0.75 * blockLight, lightStrength);

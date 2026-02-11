@@ -38,6 +38,18 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 #define SHADOW_INTERVAL_SIZE 7.0    // Shadow cascade interval
 #endif
 
+// PCF shadow filtering quality
+// -1 = off (hard shadows), 0 = basic 4-tap, 1-5 = circular PCF with increasing samples
+#ifndef SHADOW_QUALITY
+#define SHADOW_QUALITY 5            // [-1 0 1 2 3 4 5]
+#endif
+
+// PCF kernel radius (larger = softer but more blurry)
+// 1 = tightest, 4 = widest spread
+#ifndef SHADOW_SMOOTHING
+#define SHADOW_SMOOTHING 4          // [1 2 3 4]
+#endif
+
 //============================================================================//
 // Light Settings
 //============================================================================//

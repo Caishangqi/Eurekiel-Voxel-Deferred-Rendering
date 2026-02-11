@@ -70,7 +70,7 @@ PSOutput main(PSInput input)
     // Light direction: shadowLightPosition (view space) → world space
     float3 lightDirWorld = normalize(mul((float3x3)gbufferViewInverse, shadowLightPosition));
 
-    // Full lighting pipeline: diffuse → shadow → light color → apply
+    // Full lighting pipeline: diffuse → shadow (PCF) → light color → apply
     bool   isUnderwater = (isEyeInWater == EYE_IN_WATER);
     float3 litColor     = CalculateLighting(
         albedo, worldPos, worldNormal, lightDirWorld,
@@ -80,7 +80,8 @@ PSOutput main(PSInput input)
         rainStrength,
         isUnderwater, ao,
         shadowView, shadowProjection,
-        shadowtex1, sampler1);
+        shadowtex1, sampler1,
+        input.Position.xy); // SV_Position for PCF noise
 
     // Clamp to [0,1] — prevents overexposure before tone mapping (Phase 7)
     output.color0 = float4(saturate(litColor), 1.0);
