@@ -5,6 +5,12 @@
 #define INCLUDE_SETTINGS_HLSL
 
 //============================================================================//
+// Celestial Settings
+//============================================================================//
+
+const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0]
+
+//============================================================================//
 // Shadow Settings
 //============================================================================//
 
@@ -17,7 +23,7 @@
 #endif
 
 #ifndef SHADOW_PIXEL
-#define SHADOW_PIXEL 8             // [0 - 2048] Pixelated shadow resolution (0 = smooth)
+#define SHADOW_PIXEL 0             // [0 - 2048] Pixelated shadow resolution (0 = smooth)
 #endif
 
 #ifndef SHADOW_MAP_RESOLUTION
