@@ -50,7 +50,7 @@ struct CelestialConstantBuffer
     // ==================== Row 2: Moon position (16 bytes) ====================
     // @iris moonPosition
     alignas(16) Vec3 moonPosition; // Moon direction vector (view space), length 100
-    float            _padding2; //Padding to 16 bytes
+    float            _padding2; // Padding (sunPathRotation is NOT a uniform in Iris, use const float in shader source)
     // ==================== Row 3: Shadow light position (16 bytes) ====================
     // @iris shadowLightPosition
     // Logic: isDay() ? sunPosition : moonPosition (CelestialUniforms.java:93-95)
