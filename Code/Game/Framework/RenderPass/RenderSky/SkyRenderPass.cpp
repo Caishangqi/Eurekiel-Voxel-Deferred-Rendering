@@ -77,12 +77,20 @@ void SkyRenderPass::OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundl
     }
     m_skyBasicShader    = newBundle->GetProgram("gbuffers_skybasic");
     m_skyTexturedShader = newBundle->GetProgram("gbuffers_skytextured");
+
+    // [NEW] Read sunPathRotation from ShaderBundle const directives
+    // Reference: Iris PackDirectives.java:265-266 - acceptConstFloatDirective("sunPathRotation", ...)
+    auto spr = newBundle->GetConstFloat("sunPathRotation");
+    g_theGame->m_timeProvider->SetSunPathRotation(spr.value_or(0.0f));
 }
 
 void SkyRenderPass::OnShaderBundleUnloaded()
 {
     m_skyBasicShader    = nullptr;
     m_skyTexturedShader = nullptr;
+
+    // [NEW] Reset sunPathRotation to default when ShaderBundle is unloaded
+    g_theGame->m_timeProvider->SetSunPathRotation(0.0f);
 }
 
 void SkyRenderPass::Execute()
@@ -493,8 +501,19 @@ void SkyRenderPass::UpdateCelestialMatrices()
     MatricesUniforms tempMatrices;
     g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(tempMatrices);
 
-    // Build celestial view: camera rotation + time-based sky rotation, no translation
-    m_celestialView = tempMatrices.gbufferView;
+    // Build celestial view: camera rotation + orbit tilt + time-based sky rotation, no translation
+    //
+    // Reference: Iris CelestialUniforms.java:119-133
+    //   Iris rotation chain (Y-up): gbufferModelView * Ry(-90) * Rz(sunPathRotation) * Rx(skyAngle*360)
+    //   Engine equivalent (Z-up):   gbufferView * Rx(-sunPathRotation) * Ry(-sunAngle*360)
+    //
+    // Mathematical derivation (see plan for full proof):
+    //   Iris world result: (-y*sin(a), y*cos(a)*cos(spr), -y*cos(a)*sin(spr))
+    //   Mapped to Z-up:   (-y*sin(a), y*cos(a)*sin(spr),  y*cos(a)*cos(spr))
+    //   = Rx(-spr) * Ry(-a) * (0, 0, y)  ✓
+    m_celestialView       = tempMatrices.gbufferView;
+    float sunPathRotation = g_theGame->m_timeProvider->GetSunPathRotation();
+    m_celestialView.AppendXRotation(-sunPathRotation);
     m_celestialView.AppendYRotation(-360.0f * m_cachedSkyAngle);
     m_celestialView.SetTranslation3D(Vec3::ZERO);
 
