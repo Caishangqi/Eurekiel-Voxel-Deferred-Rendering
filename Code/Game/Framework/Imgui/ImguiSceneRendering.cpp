@@ -9,8 +9,10 @@
 #include "Game/GameCommon.hpp"
 #include "Game/Framework/RenderPass/RenderCloud/ImguiSettingCloud.hpp"
 #include "Game/Framework/RenderPass/RenderCloud/CloudRenderPass.hpp"
-#include "Game/Framework/RenderPass/RenderSky/ImguiSettingSky.hpp"
-#include "Game/Framework/RenderPass/RenderSky/SkyRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderSkyBasic/ImguiSettingSkyBasic.hpp"
+#include "Game/Framework/RenderPass/RenderSkyBasic/SkyBasicRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderSkyTextured/ImguiSettingSkyTextured.hpp"
+#include "Game/Framework/RenderPass/RenderSkyTextured/SkyTexturedRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderComposite/ImguiSettingComposite.hpp"
 #include "Game/Gameplay/Game.hpp"
 #include "ThirdParty/imgui/imgui.h"
@@ -32,7 +34,8 @@ void ImguiSceneRendering::Show()
         ImguiSettingCloud::Show(cloudPass);
     }
 
-    ImguiSettingSky::Show(dynamic_cast<SkyRenderPass*>(g_theGame->m_skyRenderPass.get()));
+    ImguiSettingSkyBasic::Show(dynamic_cast<SkyBasicRenderPass*>(g_theGame->m_skyBasicRenderPass.get()));
+    ImguiSettingSkyTextured::Show(dynamic_cast<SkyTexturedRenderPass*>(g_theGame->m_skyTexturedRenderPass.get()));
 
     // [MODULE 3] Composite Settings (Underwater Fog)
     ImguiSettingComposite::Show();

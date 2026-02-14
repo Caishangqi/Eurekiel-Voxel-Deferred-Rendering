@@ -1,5 +1,5 @@
-﻿#include "Game/Framework/RenderPass/RenderSky/SkyGeometryHelper.hpp"
-#include "Game/Framework/RenderPass/RenderSky/SkyColorHelper.hpp" // [NEW] For fog blending
+﻿#include "SkyGeometryHelper.hpp"
+#include "SkyColorHelper.hpp"
 #include "Engine/Math/MathUtils.hpp"
 #include "Engine/Math/Mat44.hpp"
 #include <cmath>

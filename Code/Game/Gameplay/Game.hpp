@@ -40,12 +40,14 @@ public:
 public:
     std::unique_ptr<SceneRenderPass> m_shadowRenderPass             = nullptr;
     std::unique_ptr<SceneRenderPass> m_shadowCompositeRenderPass    = nullptr;
-    std::unique_ptr<SceneRenderPass> m_skyRenderPass                = nullptr;
+    std::unique_ptr<SceneRenderPass> m_skyBasicRenderPass           = nullptr;
+    std::unique_ptr<SceneRenderPass> m_skyTexturedRenderPass        = nullptr;
     std::unique_ptr<SceneRenderPass> m_terrainRenderPass            = nullptr; // Terrain G-Buffer pass (solid)
     std::unique_ptr<SceneRenderPass> m_terrainCutoutRenderPass      = nullptr; // Terrain Cutout pass (leaves, grass)
     std::unique_ptr<SceneRenderPass> m_terrainTranslucentRenderPass = nullptr; // Translucent terrain (water)
     std::unique_ptr<SceneRenderPass> m_cloudRenderPass              = nullptr;
 
+    std::unique_ptr<SceneRenderPass> m_deferredRenderPass  = nullptr;
     std::unique_ptr<SceneRenderPass> m_compositeRenderPass = nullptr;
     std::unique_ptr<SceneRenderPass> m_finalRenderPass     = nullptr;
 

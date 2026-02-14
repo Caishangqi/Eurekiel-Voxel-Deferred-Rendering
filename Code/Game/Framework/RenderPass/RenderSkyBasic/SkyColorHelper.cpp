@@ -1,4 +1,4 @@
-#include "Game/Framework/RenderPass/RenderSky/SkyColorHelper.hpp"
+#include "SkyColorHelper.hpp"
 #include "Engine/Math/MathUtils.hpp"
 #include <cmath>
 

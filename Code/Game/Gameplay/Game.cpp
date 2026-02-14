@@ -11,7 +11,8 @@
 #include "Game/Framework/RenderPass/RenderCloud/CloudRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderComposite/CompositeRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderFinal/FinalRenderPass.hpp"
-#include "Game/Framework/RenderPass/RenderSky/SkyRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderSkyBasic/SkyBasicRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderSkyTextured/SkyTexturedRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderTerrain/TerrainRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderTerrainCutout/TerrainCutoutRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderTerrainTranslucent/TerrainTranslucentRenderPass.hpp"
@@ -30,6 +31,7 @@
 #include "Game/Framework/Imgui/ImguiGameSettings.hpp"
 #include "Game/Framework/Imgui/ImguiLeftDebugOverlay.hpp"
 #include "Game/Framework/RenderPass/RenderDebug/DebugRenderPass.hpp"
+#include "Game/Framework/RenderPass/RenderDeferred/DeferredRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderShadow/ShadowRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderShadowComposite/ShadowCompositeRenderPass.hpp"
 #include "Generator/SimpleMinerGenerator.hpp"
@@ -70,11 +72,13 @@ Game::Game()
     /// Render Passes (Production)
     m_shadowRenderPass             = std::make_unique<ShadowRenderPass>();
     m_shadowCompositeRenderPass    = std::make_unique<ShadowCompositeRenderPass>();
-    m_skyRenderPass                = std::make_unique<SkyRenderPass>();
+    m_skyBasicRenderPass           = std::make_unique<SkyBasicRenderPass>();
+    m_skyTexturedRenderPass        = std::make_unique<SkyTexturedRenderPass>();
     m_terrainRenderPass            = std::make_unique<TerrainRenderPass>();
     m_terrainCutoutRenderPass      = std::make_unique<TerrainCutoutRenderPass>(); // [NEW] Cutout terrain (leaves, grass)
     m_terrainTranslucentRenderPass = std::make_unique<TerrainTranslucentRenderPass>(); // [NEW] Translucent terrain (water)
     m_cloudRenderPass              = std::make_unique<CloudRenderPass>();
+    m_deferredRenderPass           = std::make_unique<DeferredRenderPass>();
     m_compositeRenderPass          = std::make_unique<CompositeRenderPass>();
     m_finalRenderPass              = std::make_unique<FinalRenderPass>();
 
@@ -195,8 +199,10 @@ void Game::RenderWorld()
     m_shadowRenderPass->Execute();
     m_shadowCompositeRenderPass->Execute();
     // [STEP 2] Sky Rendering (Must render FIRST, depth = 1.0)
-    // Renders sky void gradient and sun/moon billboards to colortex0
-    m_skyRenderPass->Execute();
+    // SkyBasic: sky dome, void dome, sunset strip → colortex0
+    m_skyBasicRenderPass->Execute();
+    // SkyTextured: stars, sun, moon → colortex0 (additive)
+    m_skyTexturedRenderPass->Execute();
 
     // [STEP 3] Terrain Rendering (G-Buffer deferred, normal depth)
     // Writes colortex0 (Albedo), colortex1 (Lightmap), colortex2 (Normal)
