@@ -56,15 +56,12 @@ void ImguiSettingTime::Show(enigma::voxel::ITimeProvider* timeProvider)
         float celestialAngle = timeProvider->GetCelestialAngle();
         ImGui::Text("Celestial Angle: %.3f", celestialAngle);
 
-        // Compensated Celestial Angle (celestialAngle + 0.25)
-        float compensatedAngle = timeProvider->GetCompensatedCelestialAngle();
-        ImGui::Text("Compensated Angle: %.3f", compensatedAngle);
+        // Sun Angle (@iris sunAngle = celestialAngle + 0.25)
+        float sunAngle = timeProvider->GetSunAngle();
+        ImGui::Text("Sun Angle: %.3f", sunAngle);
 
         float shadowAngle = timeProvider->GetShadowAngle();
         ImGui::Text("Shadow Angle: %.3f", shadowAngle);
-
-        float sunAngle = timeProvider->GetSunAngle();
-        ImGui::Text("Sun Angle: %.3f", sunAngle);
 
         Vec3 lightDirection = dynamic_cast<ShadowRenderPass*>(g_theGame->m_shadowRenderPass.get())->m_lightDirection;
         ImGui::Text("Light Direction: %.3f %.3f %.3f", lightDirection.x, lightDirection.y, lightDirection.z);

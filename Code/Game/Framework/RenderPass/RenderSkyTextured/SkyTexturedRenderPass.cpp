@@ -72,16 +72,16 @@ void SkyTexturedRenderPass::Execute()
     // Upload CelestialConstantBuffer (independent from SkyBasic)
     Mat44 gbufferModelView = g_theGame->m_player->GetCamera()->GetViewMatrix();
 
-    celestialData.celestialAngle            = g_theGame->m_timeProvider->GetCelestialAngle();
-    celestialData.compensatedCelestialAngle = g_theGame->m_timeProvider->GetCompensatedCelestialAngle();
-    celestialData.cloudTime                 = g_theGame->m_timeProvider->GetCloudTime();
-    celestialData.skyBrightness             = g_theGame->m_timeProvider->GetSkyLightMultiplier();
-    celestialData.sunPosition               = g_theGame->m_timeProvider->CalculateSunPosition(gbufferModelView);
-    celestialData.moonPosition              = g_theGame->m_timeProvider->CalculateMoonPosition(gbufferModelView);
-    celestialData.shadowAngle               = g_theGame->m_timeProvider->GetShadowAngle();
-    celestialData.shadowLightPosition       = g_theGame->m_timeProvider->CalculateShadowLightPosition(gbufferModelView);
-    celestialData.upPosition                = g_theGame->m_timeProvider->CalculateUpPosition(gbufferModelView);
-    celestialData.colorModulator            = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    celestialData.celestialAngle      = g_theGame->m_timeProvider->GetCelestialAngle();
+    celestialData.sunAngle            = g_theGame->m_timeProvider->GetSunAngle();
+    celestialData.cloudTime           = g_theGame->m_timeProvider->GetCloudTime();
+    celestialData.skyBrightness       = g_theGame->m_timeProvider->GetSkyLightMultiplier();
+    celestialData.sunPosition         = g_theGame->m_timeProvider->CalculateSunPosition(gbufferModelView);
+    celestialData.moonPosition        = g_theGame->m_timeProvider->CalculateMoonPosition(gbufferModelView);
+    celestialData.shadowAngle         = g_theGame->m_timeProvider->GetShadowAngle();
+    celestialData.shadowLightPosition = g_theGame->m_timeProvider->CalculateShadowLightPosition(gbufferModelView);
+    celestialData.upPosition          = g_theGame->m_timeProvider->CalculateUpPosition(gbufferModelView);
+    celestialData.colorModulator      = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
     // Upload view matrix with zero translation for celestial rendering

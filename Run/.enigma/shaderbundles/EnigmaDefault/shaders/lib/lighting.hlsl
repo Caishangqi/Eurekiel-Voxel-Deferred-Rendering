@@ -17,8 +17,8 @@
 /// Calculate sun height from sunAngle (Iris convention)
 /// In Iris, sunPosition has magnitude ~100, so sunHeight ranges [-100, 100]
 /// @param sunAngle Iris sunAngle (0.0-1.0 cycle)
-///   IMPORTANT: In our engine this is `compensatedCelestialAngle`, NOT `celestialAngle`
-///   compensatedCelestialAngle = celestialAngle + 0.25 = Iris sunAngle
+///   IMPORTANT: In our engine this is `sunAngle` (renamed from compensatedCelestialAngle)
+///   sunAngle = celestialAngle + 0.25 = Iris sunAngle
 ///   0.25 = noon, 0.50 = sunset, 0.75 = midnight, 0.9675 = sunrise
 /// @return Sun height value matching miniature-shader's view2feet(sunPosition).y
 float GetSunHeight(float sunAngle)

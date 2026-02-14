@@ -75,7 +75,7 @@ PSOutput main(PSInput input)
     float3 litColor     = CalculateLighting(
         albedo, worldPos, worldNormal, lightDirWorld,
         skyLight, blockLight, skyBrightness,
-        compensatedCelestialAngle, // = Iris sunAngle (NOT celestialAngle)
+        sunAngle, // @iris sunAngle (celestialAngle + 0.25)
         0.0, // fogMix (TODO: compute from distance for atmospheric fog)
         rainStrength,
         isUnderwater, ao,

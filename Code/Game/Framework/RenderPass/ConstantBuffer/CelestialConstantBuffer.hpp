@@ -38,7 +38,7 @@ struct CelestialConstantBuffer
 {
     // ==================== Row 0: Angle data (16 bytes) ====================
     alignas(16) float celestialAngle; // Celestial angle (0.0-1.0), Iris: sunAngle
-    float             compensatedCelestialAngle; // Compensation angle (+0.25)
+    float             sunAngle; // @iris sunAngle = celestialAngle + 0.25 (0.25=noon, 0.75=midnight)
     float             cloudTime; // cloud time (tick * 0.03)
     float             skyBrightness; // sky brightness (0.0-1.0)
 
@@ -68,7 +68,7 @@ struct CelestialConstantBuffer
 
     CelestialConstantBuffer()
         : celestialAngle(0.25f) //Default noon
-          , compensatedCelestialAngle(0.5f) // 0.25 + 0.25
+          , sunAngle(0.5f) // 0.25 + 0.25
           , cloudTime(0.0f)
           , skyBrightness(1.0f) // Brightest at noon
           , sunPosition(Vec3(0.0f, 100.0f, 0.0f)) // Default is directly above
@@ -90,7 +90,7 @@ struct CelestialConstantBuffer
 // [Memory Layout] Total size: 96 bytes (6 rows × 16 bytes)
 // =============================================================================
 //
-// Row 0 [0-15]:   celestialAngle, compensatedCelestialAngle, cloudTime, skyBrightness
+// Row 0 [0-15]:   celestialAngle, sunAngle, cloudTime, skyBrightness
 // Row 1 [16-31]:  sunPosition.xyz, shadowAngle
 // Row 2 [32-47]:  moonPosition.xyz, _padding2
 // Row 3 [48-63]:  shadowLightPosition.xyz, _padding3
