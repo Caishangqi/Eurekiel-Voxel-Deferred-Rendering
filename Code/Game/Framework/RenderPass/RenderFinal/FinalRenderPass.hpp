@@ -19,6 +19,9 @@ protected:
     void BeginPass() override;
     void EndPass() override;
 
+    void OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle) override;
+    void OnShaderBundleUnloaded() override;
+
 private:
     std::shared_ptr<enigma::graphic::ShaderProgram> m_shadowProgram = nullptr;
 };
