@@ -161,8 +161,7 @@ void CloudRenderPass::Execute()
         perObjectUniform.modelColor[3]      = config.opacity; // Use opacity from config
         g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniform);
 
-        // Render
-        g_theRendererSubsystem->SetBlendConfig(BlendConfig::Alpha());
+        // Render (blend already set in BeginPass)
         // [REFACTOR] Pair-based RT binding
         g_theRendererSubsystem->UseProgram(m_cloudsShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::ColorTex, 3}, {RenderTargetType::DepthTex, 0}});
         g_theRendererSubsystem->DrawVertexArray(m_geometry->vertices);
@@ -185,35 +184,40 @@ void CloudRenderPass::OnShaderBundleUnloaded()
 }
 
 /// Setup render states for cloud rendering
-/// Uses GL_LESS depth (not LEQUAL) to prevent Z-fighting on semi-transparent faces
+/// Depth write enabled to match Minecraft/Sodium behavior (RenderType.clouds = COLOR_DEPTH_WRITE)
+/// Far plane extended so clouds at high altitude (y=192+) are not clipped by player camera's short far plane
 void CloudRenderPass::BeginPass()
 {
-    g_theRendererSubsystem->SetDepthConfig(DepthConfig::ReadOnly());
+    g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Alpha());
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::CullBack());
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 
-    // Save the near and far for cloud
+    // Extend far plane for cloud visibility (player camera far ~ 128 blocks, clouds at z=192+)
     auto camera  = g_theGame->m_player->GetCamera();
-    m_cachedFar  = camera->GetFarPlane();
     m_cachedNear = camera->GetNearPlane();
-    camera->SetNearFar(0.01f, 1000.f);
-    auto matrixUniform = camera->GetMatrixUniforms();
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matrixUniform);
+    m_cachedFar  = camera->GetFarPlane();
+
+    float cloudFar = std::max(m_cachedFar, 1000.f);
+    camera->SetNearFar(m_cachedNear, cloudFar);
+
+    camera->UpdateMatrixUniforms(MATRICES_UNIFORM);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
 }
 
-/// Restore default render states
+/// Restore default render states and camera projection
 void CloudRenderPass::EndPass()
 {
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::Disabled());
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Opaque());
 
-    // Restore the near and far
+    // Restore original near/far so subsequent passes use the player camera's projection
     auto camera = g_theGame->m_player->GetCamera();
     camera->SetNearFar(m_cachedNear, m_cachedFar);
-    auto matrixUniform = camera->GetMatrixUniforms();
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matrixUniform);
+
+    camera->UpdateMatrixUniforms(MATRICES_UNIFORM);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
 }
 
 /// Load clouds.png and create CloudTextureData for CPU-side geometry generation
