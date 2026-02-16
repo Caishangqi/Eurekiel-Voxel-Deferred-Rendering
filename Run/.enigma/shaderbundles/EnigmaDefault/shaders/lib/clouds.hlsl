@@ -37,18 +37,26 @@ static const float CLOUD_ROUNDNESS_SHADOW = 0.35;
 // Reference: CR cloudCoord.glsl
 // ---------------------------------------------------------------------------
 
-// Convert world XZ position to 256x256 cloud texture coordinate with
+// Convert world XY position to 256x256 cloud texture coordinate with
 // smoothstep rounding for soft cloud edges.
+// Faithful port of CR cloudCoord.glsl — GetRoundedCloudCoord (by SixthSurge)
 //
-// @param pos        World XZ position (cloud trace position)
+// @param pos        Narrowness-scaled horizontal position (after ModifyTracePos)
 // @param roundness  Smoothstep roundness (0.125 for shape, 0.35 for shadow)
 // @return           Normalized texture coordinate [0,1]
 float2 GetRoundedCloudCoord(float2 pos, float roundness)
 {
-    float2 coord      = pos * 0.00390625; // 1.0 / 256.0
-    float2 fractCoord = frac(coord);
-    float2 smoothed   = smoothstep(0.0, roundness, fractCoord) - smoothstep(1.0 - roundness, 1.0, fractCoord);
-    return floor(coord) * 0.00390625 + smoothed * 0.00390625;
+    float2 coord     = pos.yx + 0.5;
+    float2 signCoord = sign(coord);
+    coord            = abs(coord) + 1.0;
+
+    float2 i;
+    float2 f = modf(coord, i);
+
+    f     = smoothstep(0.5 - roundness, 0.5 + roundness, f);
+    coord = i + f;
+
+    return (coord - 0.5) * signCoord / 256.0;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,18 +64,22 @@ float2 GetRoundedCloudCoord(float2 pos, float roundness)
 // Reference: CR reimaginedClouds.glsl — ModifyTracePos
 // ---------------------------------------------------------------------------
 
-// Apply wind animation offset to cloud trace position.
+// Apply wind animation and narrowness scaling to cloud trace position.
+// Faithful port of CR cloudCoord.glsl — ModifyTracePos
+// Coordinate mapping: MC(X,Y,Z) → Engine(X,Z,Y), our engine is Z-up
+//   MC X → our X,  MC Z → our Y,  MC Y(up) → our Z(up)
 //
-// @param tracePos       Current ray march position
+// @param tracePos       Current ray march position (world space, Z-up)
 // @param cloudAltitude  Cloud layer altitude (CLOUD_ALT1 or CLOUD_ALT2)
-// @return               Wind-animated position
+// @return               Wind-animated, narrowness-scaled position
 float3 ModifyTracePos(float3 tracePos, int cloudAltitude)
 {
     float windSpeed  = float(CLOUD_SPEED_MULT) * 0.01;
     float windOffset = frameTimeCounter * windSpeed;
 
-    tracePos.x += windOffset;
-    tracePos.y += float(cloudAltitude);
+    tracePos.y  -= windOffset; // Wind on Y (= MC Z)
+    tracePos.x  += float(cloudAltitude) * 64.0; // Layer offset on X (= MC X)
+    tracePos.xy *= CLOUD_NARROWNESS; // Scale horizontal plane
 
     return tracePos;
 }
@@ -88,12 +100,12 @@ bool GetCloudNoise(float3 tracePos, inout float3 tracePosM, int cloudAltitude)
 {
     tracePosM = ModifyTracePos(tracePos, cloudAltitude);
 
-    float2    coord         = GetRoundedCloudCoord(tracePosM.xz, CLOUD_ROUNDNESS_SAMPLE);
+    float2    coord         = GetRoundedCloudCoord(tracePosM.xy, CLOUD_ROUNDNESS_SAMPLE);
     Texture2D cloudWaterTex = customImage3;
-    float     noise         = cloudWaterTex.Sample(pointSampler, coord).b;
+    float     noise         = cloudWaterTex.Sample(sampler0, coord).b;
 
-    // Height-based density modulation
-    float heightFactor = abs(tracePosM.y - float(cloudAltitude));
+    // Height-based density modulation — use tracePos.z (actual vertical position, Z-up)
+    float heightFactor = abs(tracePos.z - float(cloudAltitude));
     float heightMask   = saturate(1.0 - heightFactor * CLOUD_NARROWNESS);
 
     noise *= heightMask;
@@ -246,8 +258,8 @@ float4 GetVolumetricClouds(
         {
             // Cloud hit — compute shading
 
-            // Height-based shading gradient
-            float heightGrad = saturate((tracePosM.y - float(cloudAltitude) + cloudStretch)
+            // Height-based shading gradient (Z-up: tracePos.z is altitude)
+            float heightGrad = saturate((tracePos.z - float(cloudAltitude) + cloudStretch)
                 / (2.0 * cloudStretch));
 
             // Self-shadow: 2 additional texture samples along light direction (Q >= 2)
@@ -261,8 +273,8 @@ float4 GetVolumetricClouds(
                 for (int s = 1; s <= 2; s++)
                 {
                     float3 shadowPos   = tracePosM + lightDir * (shadowStep * float(s));
-                    float2 shadowCoord = GetRoundedCloudCoord(shadowPos.xz, CLOUD_ROUNDNESS_SHADOW);
-                    float  shadowNoise = cloudWaterTex.Sample(pointSampler, shadowCoord).b;
+                    float2 shadowCoord = GetRoundedCloudCoord(shadowPos.xy, CLOUD_ROUNDNESS_SHADOW);
+                    float  shadowNoise = cloudWaterTex.Sample(sampler0, shadowCoord).b;
                     shadow             -= shadowNoise * 0.35;
                 }
                 shadow = max(shadow, 0.2);
