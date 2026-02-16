@@ -53,36 +53,47 @@ void CompositeRenderPass::OnShaderBundleUnloaded()
 
 void CompositeRenderPass::BeginPass()
 {
-    // [FIX] Transition depthtex0 to PIXEL_SHADER_RESOURCE for sampling
-    // D3D12 Rule: Cannot read (SRV) and write (DSV) same resource simultaneously
-    // [REFACTOR] Use D12DepthTexture::TransitionToShaderResource() per OCP
-    auto* depthProvider = static_cast<enigma::graphic::DepthTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::DepthTex));
+    // Depth/shadow SRV transitions handled by DeferredRenderPass::BeginPass()
+    // CompositeRenderPass only needs post-processing setup
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Disabled());
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
-    depthProvider->GetDepthTexture(0)->TransitionToShaderResource();
-    depthProvider->GetDepthTexture(1)->TransitionToShaderResource();
-
-    // [NEW] Transition shadowtex0-1 to PIXEL_SHADER_RESOURCE for shadow sampling
-    auto* shadowProvider = static_cast<enigma::graphic::ShadowTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::ShadowTex));
-    shadowProvider->GetDepthTexture(0)->TransitionToShaderResource();
-    shadowProvider->GetDepthTexture(1)->TransitionToShaderResource();
-
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
+
+    // Upload uniforms needed by composite1 VL (shadow matrices, celestial data)
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(FOG_UNIFORM);
+
+    // Bind stage-scoped custom textures for composite pass
+    // Save previous customImage state so global customTexture bindings survive
+    auto* bundle = g_theShaderBundleSubsystem->GetCurrentShaderBundle().get();
+    if (bundle && bundle->HasCustomTextures())
+    {
+        auto entries = bundle->GetCustomTexturesForStage("composite");
+        for (const auto& entry : entries)
+        {
+            m_savedCustomImages[entry.textureSlot] = g_theRendererSubsystem->GetCustomImage(entry.textureSlot);
+            g_theRendererSubsystem->SetCustomImage(entry.textureSlot, entry.texture);
+            g_theRendererSubsystem->SetSamplerConfig(entry.metadata.samplerSlot, entry.metadata.samplerConfig);
+        }
+    }
 }
 
 void CompositeRenderPass::EndPass()
 {
+    // Restore saved customImage bindings before other state cleanup
+    for (const auto& [slotIndex, previousTexture] : m_savedCustomImages)
+    {
+        g_theRendererSubsystem->SetCustomImage(slotIndex, previousTexture);
+    }
+    m_savedCustomImages.clear();
+
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::CullBack());
 
-    // [FIX] Transition depthtex0 back to DEPTH_WRITE for subsequent passes
-    // [REFACTOR] Use D12DepthTexture::TransitionToDepthWrite() per OCP
+    // Restore depthtex0/1 to DEPTH_WRITE (transitioned to SRV by DeferredRenderPass)
     auto* depthProvider = static_cast<enigma::graphic::DepthTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::DepthTex));
     depthProvider->GetDepthTexture(0)->TransitionToDepthWrite();
     depthProvider->GetDepthTexture(1)->TransitionToDepthWrite();
 
-    // [NEW] Transition shadowtex0-1 back to DEPTH_WRITE for subsequent shadow passes
+    // Restore shadowtex0/1 to DEPTH_WRITE (transitioned to SRV by DeferredRenderPass)
     auto* shadowProvider = static_cast<enigma::graphic::ShadowTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::ShadowTex));
     shadowProvider->GetDepthTexture(0)->TransitionToDepthWrite();
     shadowProvider->GetDepthTexture(1)->TransitionToDepthWrite();
