@@ -59,7 +59,7 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 // Shadow edge fade range (in blocks) — smooth transition at shadow distance boundary
 // Ref: ComplementaryReimagined mainLighting.glsl shadowSmooth = 16.0
 #ifndef SHADOW_EDGE_FADE_RANGE
-#define SHADOW_EDGE_FADE_RANGE 16.0 // [4.0 8.0 16.0 24.0 32.0]
+#define SHADOW_EDGE_FADE_RANGE 8.0 // [4.0 8.0 16.0 24.0 32.0]
 #endif
 
 //============================================================================//
@@ -108,6 +108,58 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 
 #ifndef OVERWORLD_FOG_MIN_SLIDER
 #define OVERWORLD_FOG_MIN_SLIDER 0  // [0 - 10]
+#endif
+
+//============================================================================//
+// Cloud Settings (Reimagined Style)
+//============================================================================//
+
+#ifndef CLOUD_QUALITY
+#define CLOUD_QUALITY 3              // [1 2 3] Cloud sampling quality
+#endif
+
+#ifndef CLOUD_ALT1
+#define CLOUD_ALT1 192               // [-96 0 64 128 192 256 320 400 512 640 800] Primary cloud altitude
+#endif
+
+#ifndef CLOUD_STRETCH
+#define CLOUD_STRETCH 4.2            // Cloud vertical stretch factor
+#endif
+
+#ifndef CLOUD_SPEED_MULT
+#define CLOUD_SPEED_MULT 100         // [0 25 50 75 100 150 200 400 600 900] Cloud animation speed
+#endif
+
+#ifndef CLOUD_R
+#define CLOUD_R 100                  // [25 50 75 100 125 150 200 250 300] Cloud red tint
+#endif
+
+#ifndef CLOUD_G
+#define CLOUD_G 100                  // [25 50 75 100 125 150 200 250 300] Cloud green tint
+#endif
+
+#ifndef CLOUD_B
+#define CLOUD_B 100                  // [25 50 75 100 125 150 200 250 300] Cloud blue tint
+#endif
+
+#ifndef DOUBLE_REIM_CLOUDS
+#define DOUBLE_REIM_CLOUDS 0         // [0 1] Enable dual cloud layers
+#endif
+
+#ifndef CLOUD_ALT2
+#define CLOUD_ALT2 288               // [-96 0 64 128 192 256 288 320 400 512 640 800] Secondary cloud altitude
+#endif
+
+//============================================================================//
+// Volumetric Light Settings
+//============================================================================//
+
+#ifndef LIGHTSHAFT_QUALI
+#define LIGHTSHAFT_QUALI 2           // [1 2 3 4] Volumetric light quality level
+#endif
+
+#ifndef VL_STRENGTH
+#define VL_STRENGTH 1.0              // [0.5 0.75 1.0 1.25 1.5 2.0] Volumetric light intensity
 #endif
 
 //============================================================================//
