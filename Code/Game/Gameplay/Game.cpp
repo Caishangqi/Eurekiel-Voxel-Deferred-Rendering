@@ -42,6 +42,7 @@
 CommonConstantBuffer COMMON_UNIFORM     = CommonConstantBuffer();
 FogUniforms          FOG_UNIFORM        = FogUniforms();
 WorldTimeUniforms    WORLD_TIME_UNIFORM = WorldTimeUniforms();
+WorldInfoUniforms    WORLD_INFO_UNIFORM = WorldInfoUniforms();
 MatricesUniforms     MATRICES_UNIFORM   = MatricesUniforms();
 
 
@@ -133,6 +134,7 @@ Game::Game()
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<FogUniforms>(2, UpdateFrequency::PerFrame, BufferSpace::Custom);
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(8, UpdateFrequency::PerObject, BufferSpace::Custom);
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<WorldTimeUniforms>(1, UpdateFrequency::PerFrame, BufferSpace::Custom);
+    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<WorldInfoUniforms>(3, UpdateFrequency::PerFrame, BufferSpace::Custom);
 }
 
 Game::~Game()
@@ -162,6 +164,21 @@ void Game::Update()
     WORLD_TIME_UNIFORM.moonPhase = 1;
     WORLD_TIME_UNIFORM.worldDay  = m_timeProvider->GetDayCount();
     WORLD_TIME_UNIFORM.worldTime = m_timeProvider->GetCurrentTick();
+
+    // Time counters for shader animation (Iris: CommonUniforms.java:118-119, SystemTimeUniforms.java:63)
+    static int   s_frameCounter     = 0;
+    static float s_frameTimeCounter = 0.0f;
+
+    float deltaTime    = m_gameClock->GetDeltaSeconds();
+    s_frameTimeCounter += deltaTime;
+    if (s_frameTimeCounter >= 3600.0f)
+        s_frameTimeCounter -= 3600.0f;
+    s_frameCounter++;
+
+    COMMON_UNIFORM.frameCounter     = s_frameCounter;
+    COMMON_UNIFORM.frameTime        = deltaTime;
+    COMMON_UNIFORM.frameTimeCounter = s_frameTimeCounter;
+
 #ifdef SCENE_TEST
     UpdateScene();
 #endif
@@ -221,6 +238,11 @@ void Game::RenderWorld()
     // [STEP 4] Cloud Rendering (Must render AFTER terrain, alpha blending)
     // Renders translucent clouds to colortex0 with alpha blending
     m_cloudRenderPass->Execute();
+
+    // [STEP 4.5] Deferred Lighting + Atmosphere + Clouds
+    // Reads GBuffer (colortex0-2, depthtex0), shadow map, custom textures
+    // Outputs: colortex0 (lit scene), colortex5.a (cloudLinearDepth for VL)
+    m_deferredRenderPass->Execute();
 
     m_compositeRenderPass->Execute();
 

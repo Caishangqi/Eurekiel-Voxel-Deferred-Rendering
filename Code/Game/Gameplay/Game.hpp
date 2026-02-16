@@ -10,6 +10,7 @@
 #include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/FogUniforms.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/WorldTimeUniforms.hpp"
+#include "Game/Framework/RenderPass/ConstantBuffer/WorldInfoUniforms.hpp"
 #include "Game/SceneTest/SceneUnitTest.hpp"
 
 namespace enigma::graphic
@@ -96,8 +97,9 @@ public:
 #pragma endregion
 };
 #pragma region CONSTANT_BUFFER
-extern CommonConstantBuffer              COMMON_UNIFORM;
-extern FogUniforms                       FOG_UNIFORM;
-extern WorldTimeUniforms                 WORLD_TIME_UNIFORM;
+extern CommonConstantBuffer COMMON_UNIFORM;
+extern FogUniforms          FOG_UNIFORM;
+extern WorldTimeUniforms    WORLD_TIME_UNIFORM;
+extern WorldInfoUniforms    WORLD_INFO_UNIFORM;
 extern enigma::graphic::MatricesUniforms MATRICES_UNIFORM;
 #pragma endregion
