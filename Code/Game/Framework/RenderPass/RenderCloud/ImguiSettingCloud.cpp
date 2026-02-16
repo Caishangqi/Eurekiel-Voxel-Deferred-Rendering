@@ -7,6 +7,7 @@
 #include "ImguiSettingCloud.hpp"
 #include "CloudConfigParser.hpp"
 #include "CloudRenderPass.hpp"
+#include "Game/Gameplay/Game.hpp"
 #include "ThirdParty/imgui/imgui.h"
 
 void ImguiSettingCloud::Show(CloudRenderPass* cloudPass)
@@ -105,6 +106,19 @@ void ImguiSettingCloud::Show(CloudRenderPass* cloudPass)
         if (ImGui::IsItemHovered())
         {
             ImGui::SetTooltip("Cloud transparency (0.0 = invisible, 1.0 = opaque)");
+        }
+
+        ImGui::Separator();
+
+        // ==================== Volumetric Cloud Height (Deferred) ====================
+        ImGui::Text("Volumetric Cloud (Deferred):");
+        ImGui::Spacing();
+
+        ImGui::SliderFloat("Cloud Height", &WORLD_INFO_UNIFORM.cloudHeight, 0.0f, 500.0f, "%.1f");
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Iris cloudHeight uniform - runtime cloud altitude.\n"
+                "192.0 = default (no offset from CLOUD_ALT1)");
         }
 
         ImGui::Separator();
