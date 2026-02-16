@@ -1,0 +1,65 @@
+/// Composite pass 1 — volumetric light (god rays) post-processing
+/// Reads colortex5.a (cloudLinearDepth/vlFactor) written by deferred1
+/// Reference: CR composite1.glsl, design R4.6.2
+///
+/// Pipeline: deferred1 output -> composite (passthrough) -> composite1 (VL) -> final
+/// Output: colortex0 (scene + VL), colortex5.a (vlFactor preserved)
+#include "../@engine/core/core.hlsl"
+#include "../@engine/lib/math.hlsl"
+#include "../include/settings.hlsl"
+#include "../lib/common.hlsl"
+#include "../lib/shadow.hlsl"
+#include "../lib/noise.hlsl"
+#include "../lib/volumetricLight.hlsl"
+
+struct PSOutput
+{
+    float4 color0 : SV_Target0; // colortex0
+    float4 color1 : SV_Target1; // colortex5 (mapped via RENDERTARGETS: 0,5)
+};
+
+PSOutput main(PSInput input)
+{
+    PSOutput output;
+
+    /* RENDERTARGETS: 0,5 */
+
+    // Read scene color from deferred/composite output
+    float3 sceneColor = colortex0.Sample(sampler0, input.TexCoord).rgb;
+    float  depth      = depthtex0.Sample(sampler1, input.TexCoord).r;
+
+    // Read cloud linear depth from colortex5.a (written by deferred1)
+    // vlFactor: 1.0 = no cloud (full VL), <1.0 = cloud present (reduced VL)
+    float vlFactor = colortex5.Sample(sampler1, input.TexCoord).a;
+
+    // Compute sunVisibility from SdotU (CR composite1.glsl:24)
+    float SdotU         = dot(normalize(sunPosition), normalize(upPosition));
+    float sunVisibility = clamp(SdotU + 0.0625, 0.0, 0.125) / 0.125;
+
+    // Reconstruct world position (relative to camera)
+    float3 viewPos = ReconstructViewPosition(input.TexCoord, depth,
+                                             gbufferProjectionInverse, gbufferRendererInverse);
+    float3 worldPos = mul(gbufferViewInverse, float4(viewPos, 1.0)).xyz;
+
+    // VdotL: view direction dot light direction (world space)
+    float3 lightDirWorld = normalize(mul((float3x3)gbufferViewInverse, shadowLightPosition));
+    // [FIX] worldPos is ABSOLUTE in our engine — use camera-relative direction (same fix as deferred1)
+    float VdotL = dot(normalize(worldPos - cameraPosition), lightDirWorld);
+
+    // Screen-space dither for ray march offset
+    float dither = InterleavedGradientNoiseForClouds(input.Position.xy);
+
+    // Volumetric light via shadow map ray marching
+    float4 vl = GetVolumetricLight(
+        worldPos, VdotL, dither, vlFactor,
+        sunVisibility,
+        shadowView, shadowProjection,
+        shadowtex1, sampler1);
+
+    // Additive blend: VL adds light to scene
+    sceneColor += vl.rgb * vl.a;
+
+    output.color0 = float4(saturate(sceneColor), 1.0);
+    output.color1 = float4(0.0, 0.0, 0.0, vlFactor);
+    return output;
+}
