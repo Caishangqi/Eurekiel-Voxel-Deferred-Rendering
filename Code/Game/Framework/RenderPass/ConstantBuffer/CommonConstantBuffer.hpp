@@ -41,6 +41,7 @@
 //   - HLSL cbuffer requires 16-byte alignment for each row
 //   - Vec3 = 12 bytes, needs padding to 16 bytes
 //   - int/float fields grouped in 16-byte blocks (4 fields per row)
+//   - Total: 160 bytes = 10 rows * 16 bytes
 //
 // =============================================================================
 
@@ -111,6 +112,15 @@ struct CommonConstantBuffer
     alignas(16) int renderStage; // WorldRenderingPhase ordinal
     int             _pad7[3];
 
+    // ==================== Row 9: Time Counters (16 bytes) ====================
+    // Iris CommonUniforms.java:118 (frameCounter), :119 (frameTime)
+    // Iris SystemTimeUniforms.java:63 (frameTimeCounter)
+    // Used by cloud wind animation and other time-based shader effects
+    alignas(16) int frameCounter; // Frame count since application start
+    float           frameTime; // Delta time of last frame in seconds
+    float           frameTimeCounter; // Accumulated frame time, wraps at 3600.0
+    float           _pad9;
+
     // ==================== Default Constructor ====================
     CommonConstantBuffer()
         : skyColor(0.47f, 0.65f, 1.0f) // Default blue sky
@@ -153,15 +163,20 @@ struct CommonConstantBuffer
           // Row 8: Render Stage
           , renderStage(0)
           , _pad7{0, 0, 0}
+          // Row 9: Time Counters
+          , frameCounter(0)
+          , frameTime(0.0f)
+          , frameTimeCounter(0.0f)
+          , _pad9(0.0f)
     {
     }
 };
 
 #pragma warning(pop)
 
-// Compile-time validation: 9 rows * 16 bytes = 144 bytes
-static_assert(sizeof(CommonConstantBuffer) == 144,
-              "CommonConstantBuffer size mismatch - expected 144 bytes (9 rows * 16 bytes)");
+// Compile-time validation: 10 rows * 16 bytes = 160 bytes
+static_assert(sizeof(CommonConstantBuffer) == 160,
+              "CommonConstantBuffer size mismatch - expected 160 bytes (10 rows * 16 bytes)");
 
 // =============================================================================
 // [HLSL Mapping Reference]
@@ -210,6 +225,11 @@ static_assert(sizeof(CommonConstantBuffer) == 144,
 //
 //     // Row 8: Render Stage
 //     int renderStage;
+//
+//     // Row 9: Time Counters
+//     int   frameCounter;
+//     float frameTime;
+//     float frameTimeCounter;
 // };
 //
 // =============================================================================
