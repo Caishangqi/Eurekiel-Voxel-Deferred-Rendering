@@ -126,7 +126,7 @@ PSOutput main(PSInput input)
     // Player camera far (~128) is too short for clouds at z=192+
     float cloudRenderDist = max(far, 500.0) * 0.8;
 
-    float4 clouds = GetVolumetricClouds(cloudAlt1i, cloudRenderDist, cloudLinearDepth, sunVisibility, cameraPosition, nPlayerPos, viewDistance, VdotS, VdotU, dither);
+    float4 clouds = GetVolumetricClouds(cloudAlt1i, cloudRenderDist, cloudLinearDepth, sunVisibility, cameraPosition, nPlayerPos, viewDistance, VdotS, VdotU, dither, sunDirWorld);
 
     if (clouds.a > 0.0)
     {

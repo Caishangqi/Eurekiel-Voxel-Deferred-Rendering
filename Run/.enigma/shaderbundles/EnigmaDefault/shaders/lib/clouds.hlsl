@@ -172,6 +172,7 @@ float3 GetCloudLightColor(float3 lightColor, float3 inSkyColor,
 // @param VdotS            dot(viewDir, sunDir) for light scattering
 // @param VdotU            viewDir.z (vertical component, Z-up)
 // @param dither           Screen-space dither value from IGN
+// @param lightDirWorld    Normalized shadow light direction in WORLD space
 // @return                 float4(cloudColor.rgb, cloudOpacity)
 float4 GetVolumetricClouds(
     int         cloudAltitude,
@@ -183,7 +184,8 @@ float4 GetVolumetricClouds(
     float       viewDistance,
     float       VdotS,
     float       VdotU,
-    float       dither)
+    float       dither,
+    float3      lightDirWorld)
 {
     float4 result = float4(0.0, 0.0, 0.0, 0.0);
 
@@ -225,8 +227,8 @@ float4 GetVolumetricClouds(
     float planeDistanceDif = farDist - nearDist;
     float stepMult         = planeDistanceDif / float(sampleCount);
 
-    // Light direction for self-shadow sampling
-    float3 lightDir = normalize(shadowLightPosition);
+    // Light direction for self-shadow sampling (world space, passed from caller)
+    float3 lightDir = lightDirWorld;
 
     // Cloud color setup
     float  sunHeight    = sin(sunAngle * TWO_PI);
