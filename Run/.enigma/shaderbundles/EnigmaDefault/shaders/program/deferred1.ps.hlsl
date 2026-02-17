@@ -103,8 +103,8 @@ PSOutput main(PSInput input)
     }
 
     // --- [R4.3] Volumetric Clouds ---
-    // Compute sunVisibility from SdotU (CR deferred1.glsl:23-26)
-    // SdotU = how high the sun is above the horizon
+    // Sun elevation via dot product (CR standard approach)
+    // dot(sunPosition, upPosition): both view-space, measures sun's vertical component
     float SdotU         = dot(normalize(sunPosition), normalize(upPosition));
     float sunVisibility = clamp(SdotU + 0.0625, 0.0, 0.125) / 0.125;
 
@@ -124,7 +124,7 @@ PSOutput main(PSInput input)
 
     // Cloud render distance must reach the cloud layer altitude from camera
     // Player camera far (~128) is too short for clouds at z=192+
-    float cloudRenderDist = max(far, 500.0) * 0.8;
+    float cloudRenderDist = max(far, 1000.0) * 0.8;
 
     float4 clouds = GetVolumetricClouds(cloudAlt1i, cloudRenderDist, cloudLinearDepth, sunVisibility, cameraPosition, nPlayerPos, viewDistance, VdotS, VdotU, dither, sunDirWorld);
 

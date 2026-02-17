@@ -242,17 +242,27 @@ float4 GetVolumetricClouds(
     // Light direction for self-shadow sampling (world space, passed from caller)
     float3 lightDir = lightDirWorld;
 
-    // Cloud color setup
-    float  sunHeight    = sin(sunAngle * TWO_PI);
-    float  noonFactor   = saturate(sunHeight);
-    float3 ambientColor = skyColor * 0.8;
-    float3 lightColor   = lerp(float3(0.1, 0.15, 0.3), float3(1.0, 0.95, 0.85), sunVisibility);
+    // Cloud color setup — simplified approach using skyColor uniform
+    // skyColor is computed by SkyColorHelper's 5-phase system (C++ side)
+    // Cloud base = bright white tinted slightly by sky color (day) / dark blue (night)
+    float noonFactor = sqrt(max(sin(sunAngle * TWO_PI), 0.0));
+    float sunVis2    = sunVisibility * sunVisibility;
+
+    // Cloud ambient: sky-tinted white (lerp toward white for brighter clouds)
+    float3 dayAmbient   = lerp(skyColor, float3(1.0, 1.0, 1.0), 0.6) * 0.85;
+    float3 nightAmbient = float3(0.09, 0.12, 0.17) * 1.4;
+    float3 ambientColor = lerp(nightAmbient, dayAmbient, sunVis2);
+
+    // Cloud light: warm sunlight (day) / cool moonlight (night)
+    float3 dayLight   = lerp(float3(1.2, 0.9, 0.6), float3(1.0, 1.0, 0.95), noonFactor);
+    float3 nightLight = float3(0.11, 0.14, 0.20) * 0.9;
+    float3 lightColor = lerp(nightLight, dayLight, sunVis2);
 
     // Apply user color tint
     float3 colorTint = float3(float(CLOUD_R), float(CLOUD_G), float(CLOUD_B)) * 0.01;
 
     float3 cloudAmbient = GetCloudAmbientColor(ambientColor, skyColor, rainStrength,
-                                               sunVisibility, noonFactor) * colorTint;
+                                               sunVis2, noonFactor) * colorTint;
     float3 cloudLight = GetCloudLightColor(lightColor, skyColor, rainStrength,
                                            noonFactor) * colorTint;
 
@@ -295,8 +305,11 @@ float4 GetVolumetricClouds(
             }
 #endif
 
-            // Blend ambient + direct light with shadow
-            float3 cloudColor = cloudAmbient + cloudLight * shadow * heightGrad;
+            // CR shading: ambient * 0.95 * (1 - 0.35*shading) + light * (0.1 + shading)
+            // Ensures minimum 10% light even at cloud bottom (heightGrad=0)
+            float  cloudShading = shadow * heightGrad;
+            float3 cloudColor   = cloudAmbient * 0.95 * (1.0 - 0.35 * cloudShading)
+                + cloudLight * (0.1 + cloudShading);
 
             // Distance fog applied to cloud itself
             float cloudDist = lTracePos / renderDistance;

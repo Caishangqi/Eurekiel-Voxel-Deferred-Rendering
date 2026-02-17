@@ -147,7 +147,7 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 #endif
 
 #ifndef CLOUD_ALT2
-#define CLOUD_ALT2 288               // [-96 0 64 128 192 256 288 320 400 512 640 800] Secondary cloud altitude
+#define CLOUD_ALT2 256               // [-96 0 64 128 192 256 288 320 400 512 640 800] Secondary cloud altitude
 #endif
 
 //============================================================================//
@@ -155,11 +155,11 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 //============================================================================//
 
 #ifndef LIGHTSHAFT_QUALI
-#define LIGHTSHAFT_QUALI 2           // [1 2 3 4] Volumetric light quality level
+#define LIGHTSHAFT_QUALI 4           // [1 2 3 4] Volumetric light quality level
 #endif
 
 #ifndef VL_STRENGTH
-#define VL_STRENGTH 1.0              // [0.5 0.75 1.0 1.25 1.5 2.0] Volumetric light intensity
+#define VL_STRENGTH 2.0              // [0.5 0.75 1.0 1.25 1.5 2.0] Volumetric light intensity
 #endif
 
 //============================================================================//
