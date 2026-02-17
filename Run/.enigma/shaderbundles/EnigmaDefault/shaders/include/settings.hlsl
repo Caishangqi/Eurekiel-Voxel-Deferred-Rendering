@@ -150,6 +150,64 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 #define CLOUD_ALT2 256               // [-96 0 64 128 192 256 288 320 400 512 640 800] Secondary cloud altitude
 #endif
 
+// --- Cloud Shape ---
+
+#ifndef CLOUD_NARROWNESS
+#define CLOUD_NARROWNESS 0.07        // Cloud height-density falloff rate
+#endif
+
+#ifndef CLOUD_ROUNDNESS_SAMPLE
+#define CLOUD_ROUNDNESS_SAMPLE 0.125 // Smoothstep roundness for cloud shape sampling
+#endif
+
+#ifndef CLOUD_ROUNDNESS_SHADOW
+#define CLOUD_ROUNDNESS_SHADOW 0.35  // Smoothstep roundness for shadow sampling (blurrier)
+#endif
+
+// --- Cloud Shading ---
+
+#ifndef CLOUD_SHADING_POWER
+#define CLOUD_SHADING_POWER 2.5      // [1.0 1.5 2.0 2.5 3.0 3.5] Height gradient curve exponent (higher = wider dark bottom)
+#endif
+
+#ifndef CLOUD_SHADOW_STEP
+#define CLOUD_SHADOW_STEP 1.0        // [0.3 0.5 1.0 1.5 2.0] Self-shadow sample step distance (world units)
+#endif
+
+#ifndef CLOUD_SHADOW_STRENGTH
+#define CLOUD_SHADOW_STRENGTH 0.35   // [0.1 0.2 0.35 0.5 0.7] Self-shadow noise attenuation per sample
+#endif
+
+#ifndef CLOUD_SHADOW_MIN
+#define CLOUD_SHADOW_MIN 0.3         // [0.1 0.2 0.3 0.4 0.5] Minimum self-shadow light (prevents full black)
+#endif
+
+#ifndef CLOUD_LIGHT_MIX_BASE
+#define CLOUD_LIGHT_MIX_BASE 0.6     // [0.3 0.4 0.5 0.6 0.7 0.8] Self-shadow influence floor (higher = less shadow contrast)
+#endif
+
+#ifndef CLOUD_LIGHT_MIX_RANGE
+#define CLOUD_LIGHT_MIX_RANGE 0.4    // [0.2 0.3 0.4 0.5 0.6] Self-shadow influence range (base+range = max multiplier)
+#endif
+
+// --- Cloud Colors (Night) ---
+
+#ifndef CLOUD_NIGHT_AMBIENT
+#define CLOUD_NIGHT_AMBIENT float3(0.09, 0.12, 0.17)
+#endif
+
+#ifndef CLOUD_NIGHT_AMBIENT_MULT
+#define CLOUD_NIGHT_AMBIENT_MULT 1.4 // [0.5 1.0 1.4 2.0] Night ambient brightness multiplier
+#endif
+
+#ifndef CLOUD_NIGHT_LIGHT
+#define CLOUD_NIGHT_LIGHT float3(0.11, 0.14, 0.20)
+#endif
+
+#ifndef CLOUD_NIGHT_LIGHT_MULT
+#define CLOUD_NIGHT_LIGHT_MULT 0.9   // [0.5 0.7 0.9 1.2] Night moonlight brightness multiplier
+#endif
+
 //============================================================================//
 // Volumetric Light Settings
 //============================================================================//

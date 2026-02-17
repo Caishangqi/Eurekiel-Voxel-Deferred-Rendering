@@ -52,24 +52,12 @@ struct PSOutput
  */
 PSOutput main(VSOutput input)
 {
+    // Vanilla clouds disabled — EnigmaDefault uses volumetric clouds in deferred1
+    // Reference: CR gbuffers_clouds.fsh discard when CLOUD_STYLE_DEFINE != 50
+    discard;
+
     PSOutput output;
-
-    // [STEP 1] Alpha Test - Form Cloud Shapes
-    // Discard fragments with alpha below 0.1 to create cloud edges
-    // This threshold matches Sodium CloudRenderer behavior
-    if (input.Color.a < 0.1)
-    {
-        discard;
-    }
-
-    // [STEP 2] Apply modelColor (time-of-day cloud tinting)
-    // Reference: Minecraft ClientLevel.java:673-704 getCloudColor()
-    // Reference: Sodium CloudRenderer.java Line 118: RenderSystem.setShaderColor(r, g, b, 0.8F)
-    // modelColor contains: RGB = time-of-day color, A = 0.8 (Sodium standard)
-    float4 finalColor = input.Color * modelColor;
-
-    // [STEP 3] Output Final Color
-    output.Color0 = finalColor;
-    output.Color1 = finalColor;
+    output.Color0 = float4(0, 0, 0, 0);
+    output.Color1 = float4(0, 0, 0, 0);
     return output;
 }

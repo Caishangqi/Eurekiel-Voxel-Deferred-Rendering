@@ -27,10 +27,8 @@
 #ifndef LIB_CLOUDS_HLSL
 #define LIB_CLOUDS_HLSL
 
-// Cloud shape constants (Reimagined style)
-static const float CLOUD_NARROWNESS       = 0.07;
-static const float CLOUD_ROUNDNESS_SAMPLE = 0.125;
-static const float CLOUD_ROUNDNESS_SHADOW = 0.35;
+// Cloud shape constants — defined in settings.hlsl
+// CLOUD_NARROWNESS, CLOUD_ROUNDNESS_SAMPLE, CLOUD_ROUNDNESS_SHADOW
 
 // ---------------------------------------------------------------------------
 // Cloud Coordinate System
@@ -250,12 +248,12 @@ float4 GetVolumetricClouds(
 
     // Cloud ambient: sky-tinted white (lerp toward white for brighter clouds)
     float3 dayAmbient   = lerp(skyColor, float3(1.0, 1.0, 1.0), 0.6) * 0.85;
-    float3 nightAmbient = float3(0.09, 0.12, 0.17) * 1.4;
+    float3 nightAmbient = CLOUD_NIGHT_AMBIENT * CLOUD_NIGHT_AMBIENT_MULT;
     float3 ambientColor = lerp(nightAmbient, dayAmbient, sunVis2);
 
     // Cloud light: warm sunlight (day) / cool moonlight (night)
     float3 dayLight   = lerp(float3(1.2, 0.9, 0.6), float3(1.0, 1.0, 0.95), noonFactor);
-    float3 nightLight = float3(0.11, 0.14, 0.20) * 0.9;
+    float3 nightLight = CLOUD_NIGHT_LIGHT * CLOUD_NIGHT_LIGHT_MULT;
     float3 lightColor = lerp(nightLight, dayLight, sunVis2);
 
     // Apply user color tint
@@ -283,32 +281,49 @@ float4 GetVolumetricClouds(
             // Cloud hit — compute shading
 
             // Height-based shading gradient (Z-up: tracePos.z is altitude)
+            // 0.0 at cloud bottom, 0.5 at center, 1.0 at cloud top
             float heightGrad = saturate((tracePos.z - float(cloudAltitude) + cloudStretch)
                 / (2.0 * cloudStretch));
 
-            // Self-shadow: 2 additional texture samples along light direction (Q >= 2)
-            float shadow = 1.0;
+            // pow(2.5): continuous curve, no hard cutoff.
+            // Bottom half stays dark (0.5 → 0.18), gradual transition to bright top.
+            // Overhead clouds (first-hit at ~0.4-0.5) get heightGrad ~0.10-0.18 → dark.
+            heightGrad = pow(max(heightGrad, 0.0), CLOUD_SHADING_POWER);
+
+            // Self-shadow: sample along light direction (Q >= 2)
+            // CR: shadow weight is height-dependent — stronger at bottom, zero at top
+            float cloudShadingM = 1.0 - Pow2(heightGrad);
+            float light         = 1.0;
 #if CLOUD_QUALITY >= 2
             {
                 Texture2D cloudWaterTex = customImage3;
-                float     shadowStep    = cloudStretch * 0.5;
+                // Shadow step: larger than CR's 0.3 to reach deeper into cloud body,
+                // ensuring overhead clouds get self-shadow even with low-angle sun
+                float shadowStep = CLOUD_SHADOW_STEP;
 
                 [unroll]
                 for (int s = 1; s <= 2; s++)
                 {
-                    float3 shadowPos   = tracePosM + lightDir * (shadowStep * float(s));
-                    float2 shadowCoord = GetRoundedCloudCoord(shadowPos.xy, CLOUD_ROUNDNESS_SHADOW);
-                    float  shadowNoise = cloudWaterTex.Sample(sampler0, shadowCoord).b;
-                    shadow             -= shadowNoise * 0.35;
+                    // Offset in WORLD space, then apply ModifyTracePos for correct coordinates
+                    float3 shadowWorldPos = tracePos + lightDir * (shadowStep * float(s));
+                    float3 shadowPosM     = ModifyTracePos(shadowWorldPos);
+                    float2 shadowCoord    = GetRoundedCloudCoord(shadowPosM.xy, CLOUD_ROUNDNESS_SHADOW);
+                    float  shadowNoise    = cloudWaterTex.Sample(sampler0, shadowCoord).b;
+                    light                 -= shadowNoise * cloudShadingM * CLOUD_SHADOW_STRENGTH;
                 }
-                shadow = max(shadow, 0.2);
+                light = max(light, CLOUD_SHADOW_MIN);
             }
 #endif
 
-            // CR shading: ambient * 0.95 * (1 - 0.35*shading) + light * (0.1 + shading)
-            // Ensures minimum 10% light even at cloud bottom (heightGrad=0)
-            float  cloudShading = shadow * heightGrad;
-            float3 cloudColor   = cloudAmbient * 0.95 * (1.0 - 0.35 * cloudShading)
+            // CR shading formula: compressed range with view-angle scattering
+            // VdotSM1: half-lambert of view-sun angle for forward scattering
+            float VdotSM1      = max(VdotS * 0.5 + 0.5, 0.0);
+            float VdotSM2      = VdotSM1 * sunVisibility * 0.25 + 0.5 * heightGrad + 0.08;
+            float cloudShading = VdotSM2 * (CLOUD_LIGHT_MIX_BASE + CLOUD_LIGHT_MIX_RANGE * light);
+
+            // CR color: ambient * 0.95 * (1 - 0.35*shading) + light * (0.1 + shading)
+            // Compressed shading range (~0.08-0.58) ensures smooth bottom-to-top gradient
+            float3 cloudColor = cloudAmbient * 0.95 * (1.0 - 0.35 * cloudShading)
                 + cloudLight * (0.1 + cloudShading);
 
             // Distance fog applied to cloud itself
