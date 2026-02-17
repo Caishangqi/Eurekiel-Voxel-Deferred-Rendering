@@ -65,6 +65,7 @@ void ImguiSettingCloud::Show(CloudRenderPass* cloudPass)
 
         if (ImGui::SliderFloat("Height", &config.height, 0.0f, 256.0f, "%.1f"))
         {
+            WORLD_INFO_UNIFORM.cloudHeight = config.height;
             cloudPass->RequestRebuild();
         }
         if (ImGui::IsItemHovered())
@@ -110,19 +111,6 @@ void ImguiSettingCloud::Show(CloudRenderPass* cloudPass)
 
         ImGui::Separator();
 
-        // ==================== Volumetric Cloud Height (Deferred) ====================
-        ImGui::Text("Volumetric Cloud (Deferred):");
-        ImGui::Spacing();
-
-        ImGui::SliderFloat("Cloud Height", &WORLD_INFO_UNIFORM.cloudHeight, 0.0f, 500.0f, "%.1f");
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetTooltip("Iris cloudHeight uniform - runtime cloud altitude.\n"
-                "192.0 = default (no offset from CLOUD_ALT1)");
-        }
-
-        ImGui::Separator();
-
         // ==================== Debug Info ====================
         if (ImGui::CollapsingHeader("Debug Info"))
         {
@@ -136,7 +124,7 @@ void ImguiSettingCloud::Show(CloudRenderPass* cloudPass)
             }
             else
             {
-                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "FANCY (Volumetric)");
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "FANCY (Cube)");
             }
 
             ImGui::Spacing();

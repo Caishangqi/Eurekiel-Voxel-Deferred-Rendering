@@ -69,16 +69,28 @@ float2 GetRoundedCloudCoord(float2 pos, float roundness)
 // Coordinate mapping: MC(X,Y,Z) → Engine(X,Z,Y), our engine is Z-up
 //   MC X → our X,  MC Z → our Y,  MC Y(up) → our Z(up)
 //
-// @param tracePos       Current ray march position (world space, Z-up)
-// @param cloudAltitude  Cloud layer altitude (CLOUD_ALT1 or CLOUD_ALT2)
-// @return               Wind-animated, narrowness-scaled position
-float3 ModifyTracePos(float3 tracePos, int cloudAltitude)
+// NOTE: Layer offset uses compile-time CLOUD_ALT1, NOT runtime-adjusted altitude.
+//       The * 64.0 offset is for multi-layer texture differentiation only (CR design).
+//       Runtime altitude adjustment (cloudHeight) only affects ray intersection & height mask.
+//
+// Wind uses worldTime (world-synced time, affected by time acceleration) instead of
+// frameTimeCounter (real time). This matches CR's default use of syncedTime and ensures
+// clouds accelerate with the world when using time scale controls.
+// CLOUD_SPEED_MULT is preserved as an artistic speed multiplier on top of world time.
+//
+// @param tracePos  Current ray march position (world space, Z-up)
+// @return          Wind-animated, narrowness-scaled position
+float3 ModifyTracePos(float3 tracePos)
 {
+    // Convert world ticks to seconds: MC standard = 20 ticks/sec
+    // worldDay * 24000 + worldTime = total ticks since world start
+    float worldSeconds = float(worldDay * 24000 + worldTime) * 0.05; // 1/20 = 0.05
+
     float windSpeed  = float(CLOUD_SPEED_MULT) * 0.01;
-    float windOffset = frameTimeCounter * windSpeed;
+    float windOffset = worldSeconds * windSpeed;
 
     tracePos.y  -= windOffset; // Wind on Y (= MC Z)
-    tracePos.x  += float(cloudAltitude) * 64.0; // Layer offset on X (= MC X)
+    tracePos.x  += float(CLOUD_ALT1) * 64.0; // Layer offset: compile-time base only
     tracePos.xy *= CLOUD_NARROWNESS; // Scale horizontal plane
 
     return tracePos;
@@ -98,7 +110,7 @@ float3 ModifyTracePos(float3 tracePos, int cloudAltitude)
 // @return               true if cloud density > threshold (cloud hit)
 bool GetCloudNoise(float3 tracePos, inout float3 tracePosM, int cloudAltitude)
 {
-    tracePosM = ModifyTracePos(tracePos, cloudAltitude);
+    tracePosM = ModifyTracePos(tracePos);
 
     float2    coord         = GetRoundedCloudCoord(tracePosM.xy, CLOUD_ROUNDNESS_SAMPLE);
     Texture2D cloudWaterTex = customImage3;

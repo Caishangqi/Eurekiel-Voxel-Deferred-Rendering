@@ -109,8 +109,11 @@ struct CommonConstantBuffer
     // ==================== Row 8: Render Stage (16 bytes) ====================
     // Iris CommonUniforms.java:108 (addDynamicUniforms)
     // Current rendering phase for shader program differentiation
+    // IMPORTANT: Do NOT use array here - HLSL cbuffer arrays pad each element to 16 bytes!
     alignas(16) int renderStage; // WorldRenderingPhase ordinal
-    int             _pad7[3];
+    int             _pad7_0;
+    int             _pad7_1;
+    int             _pad7_2;
 
     // ==================== Row 9: Time Counters (16 bytes) ====================
     // Iris CommonUniforms.java:118 (frameCounter), :119 (frameTime)
@@ -162,7 +165,9 @@ struct CommonConstantBuffer
           , _pad6(0.0f)
           // Row 8: Render Stage
           , renderStage(0)
-          , _pad7{0, 0, 0}
+          , _pad7_0(0)
+          , _pad7_1(0)
+          , _pad7_2(0)
           // Row 9: Time Counters
           , frameCounter(0)
           , frameTime(0.0f)
