@@ -204,13 +204,14 @@ float4 GetVolumetricClouds(
     float cloudUpper   = float(cloudAltitude) + cloudStretch;
     float cloudLower   = float(cloudAltitude) - cloudStretch;
 
-    // Skip if view direction is nearly horizontal (no intersection with cloud plane)
-    if (abs(nPlayerPos.z) < 0.001)
-        return result;
+    // [FIX] Near-horizontal rays: HLSL handles non-zero/0 = ±Inf correctly,
+    // and min/max clamp Inf to renderDistance. Only guard against exact 0/0 = NaN
+    // when camera is exactly at cloud boundary AND ray is perfectly horizontal.
+    float safeZ = (abs(nPlayerPos.z) < 1e-7) ? 1e-7 : nPlayerPos.z;
 
     // Calculate ray intersection distances with cloud layer planes
-    float distToUpper = (cloudUpper - camPos.z) / nPlayerPos.z;
-    float distToLower = (cloudLower - camPos.z) / nPlayerPos.z;
+    float distToUpper = (cloudUpper - camPos.z) / safeZ;
+    float distToLower = (cloudLower - camPos.z) / safeZ;
 
     // Order distances so nearDist < farDist
     float nearDist = min(distToUpper, distToLower);
