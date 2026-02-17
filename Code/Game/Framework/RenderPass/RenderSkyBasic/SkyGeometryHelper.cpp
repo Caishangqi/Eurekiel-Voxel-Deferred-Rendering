@@ -208,7 +208,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSkyDiscWithFog(float centerZ, flo
         perimeterUVs.emplace_back(u, v);
 
         // Calculate fog-blended color based on elevation
-        // [FIX] Perimeter is at horizon (Z=0), so elevation = 0° -> pure fogColor
+        // Perimeter is at horizon (Z=0), so elevation = 0° -> pure fogColor
         float perimeterElevation = SkyColorHelper::CalculateElevationAngle(perimeterPos);
         Vec3  perimeterColorVec  = SkyColorHelper::CalculateSkyColorWithFog(celestialAngle, perimeterElevation);
 
