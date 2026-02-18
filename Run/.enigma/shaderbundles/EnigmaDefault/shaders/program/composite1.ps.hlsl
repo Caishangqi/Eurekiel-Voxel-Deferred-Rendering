@@ -50,8 +50,9 @@ PSOutput main(PSInput input)
     float dither = InterleavedGradientNoiseForClouds(input.Position.xy);
 
     // Volumetric light via shadow map ray marching
+    // [FIX] Pass cameraPosition — ray must march from camera, not world origin
     float4 vl = GetVolumetricLight(
-        worldPos, VdotL, dither, vlFactor,
+        worldPos, cameraPosition, VdotL, dither, vlFactor,
         sunVisibility,
         shadowView, shadowProjection,
         shadowtex1, sampler1);

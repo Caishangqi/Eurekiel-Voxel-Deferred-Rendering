@@ -31,9 +31,9 @@ static const int VL_DAY_SAMPLES =
 #elif LIGHTSHAFT_QUALI == 2
     20;
 #elif LIGHTSHAFT_QUALI == 3
-30;
+    30;
 #else // LIGHTSHAFT_QUALI == 4
-50;
+    50;
 #endif
 
 static const int VL_NIGHT_SAMPLES =
@@ -42,9 +42,9 @@ static const int VL_NIGHT_SAMPLES =
 #elif LIGHTSHAFT_QUALI == 2
     10;
 #elif LIGHTSHAFT_QUALI == 3
-15;
+    15;
 #else // LIGHTSHAFT_QUALI == 4
-30;
+    30;
 #endif
 
 // VdotL directional falloff exponent
@@ -62,21 +62,23 @@ static const float VL_NIGHT_MULT = 0.3;
 //============================================================================//
 
 // Compute screen-space volumetric light via shadow map ray marching.
-// Ray marches from camera (origin) toward the fragment, accumulating
-// light contribution where the shadow map indicates no occlusion.
+// Ray marches from camera toward the fragment in absolute world space,
+// sampling the shadow map at each step to accumulate lit segments.
 //
-// @param worldPos       Fragment position relative to camera (world units)
+// @param worldPos       Fragment position in ABSOLUTE world space
+// @param cameraPos      Camera position in ABSOLUTE world space
 // @param VdotL          dot(viewDirection, lightDirection) for directional falloff
 // @param dither         Screen-space dither value [0,1) to offset ray start
 // @param vlFactor       Cloud depth modulation from colortex5.a (1.0 = no cloud)
 // @param sunVisibility  Sun visibility [0,1] (computed from SdotU in caller)
-// @param shadowView     Shadow view matrix
+// @param shadowView     Shadow view matrix (expects absolute world positions)
 // @param shadowProj     Shadow projection matrix
 // @param shadowTex      Shadow depth texture (shadowtex1)
 // @param samp           Shadow sampler state
 // @return               float4(RGB volumetric color, accumulated intensity)
 float4 GetVolumetricLight(
     float3       worldPos,
+    float3       cameraPos,
     float        VdotL,
     float        dither,
     float        vlFactor,
@@ -95,15 +97,18 @@ float4 GetVolumetricLight(
     int sampleCount = vlFactor < 0.5 ? baseSamples / 2 : baseSamples;
     sampleCount     = max(sampleCount, 4);
 
-    // Clamp ray length to shadow distance (no shadow data beyond)
-    float  rayLength = length(worldPos);
+    // [FIX] Ray from camera to fragment (both absolute world space)
+    // Previous code treated worldPos as camera-relative, starting ray from origin (0,0,0).
+    // Our engine uses absolute world positions, so ray must start from cameraPos.
+    float3 rayVec    = worldPos - cameraPos;
+    float  rayLength = length(rayVec);
     float  maxDist   = min(rayLength, SHADOW_DISTANCE * 0.9);
-    float3 rayDir    = worldPos / max(rayLength, 0.001);
-    float3 rayEnd    = rayDir * maxDist;
+    float3 rayDir    = rayVec / max(rayLength, 0.001);
 
     // Ray step vector with dithered start to reduce banding
-    float3 rayStep    = rayEnd / float(sampleCount);
-    float3 currentPos = rayStep * dither;
+    // currentPos is ABSOLUTE world space — valid for WorldToShadowUV
+    float3 rayStep    = (rayDir * maxDist) / float(sampleCount);
+    float3 currentPos = cameraPos + rayStep * dither;
 
     float shadowProjZ = shadowProj._m22;
 
@@ -112,9 +117,13 @@ float4 GetVolumetricLight(
 
     for (int i = 0; i < sampleCount; i++)
     {
-        // Reuse shadow infrastructure (DRY): WorldToShadowUV + SampleShadowMap
-        float3 shadowUV    = WorldToShadowUV(currentPos, shadowView, shadowProj);
-        float  shadowValue = SampleShadowMap(shadowUV, currentPos, shadowProjZ, shadowTex, samp);
+        // WorldToShadowUV expects absolute world positions (matches shadow.vs.hlsl)
+        float3 shadowUV = WorldToShadowUV(currentPos, shadowView, shadowProj);
+
+        // SampleShadowMap distance check uses SquaredLength(worldPos) — pass camera-relative
+        // so the distance fade works correctly regardless of world origin offset
+        float3 camRelativePos = currentPos - cameraPos;
+        float  shadowValue    = SampleShadowMap(shadowUV, camRelativePos, shadowProjZ, shadowTex, samp);
 
         // shadowValue: 1.0 = lit (light passes through), 0.0 = shadowed
         accumLight += shadowValue;
