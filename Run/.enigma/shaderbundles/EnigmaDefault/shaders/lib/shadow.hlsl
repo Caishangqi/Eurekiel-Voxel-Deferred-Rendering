@@ -31,14 +31,17 @@ float3 GetShadowDistortion(float3 shadowClipPos)
 // Offsets sampling position along surface normal to prevent acne
 //============================================================================//
 
-/// @param worldPos  World space position (relative to camera)
+/// @param worldPos  World space position (ABSOLUTE)
 /// @param normal    World space surface normal (normalized)
 /// @param lightDir  World space light direction (normalized, toward light)
 float3 GetNormalShadowBias(float3 worldPos, float3 normal, float3 lightDir)
 {
-    float NdotL        = saturate(dot(normal, lightDir));
-    float distSq       = dot(worldPos, worldPos);
-    float distanceBias = 0.12 + 0.0008 * pow(distSq, 0.75);
+    float NdotL = saturate(dot(normal, lightDir));
+    // [FIX] Use camera-relative distance for bias scaling — absolute worldPos
+    // would produce huge bias when camera is far from world origin
+    float3 camRelPos    = worldPos - cameraPosition;
+    float  distSq       = dot(camRelPos, camRelPos);
+    float  distanceBias = 0.12 + 0.0008 * pow(distSq, 0.75);
 
     // Angle-adaptive: bias doubles when surface is parallel to light (NdotL → 0)
     return normal * distanceBias * (2.0 - 0.95 * NdotL);
@@ -90,11 +93,14 @@ bool IsValidShadowUV(float3 shadowUV)
 
 /// Sample shadow map with soft depth comparison and distance fade
 /// Ref: miniature-shader getLightStrength.fsh — continuous depth-based transition
+/// @param worldPos    World space position (ABSOLUTE) — camera-relative distance computed internally
 /// @param shadowProjZ  shadowProjection._m22 (Z scale of shadow projection)
 /// Returns: 1.0 = fully lit, 0.0 = fully shadowed
 float SampleShadowMap(float3 shadowUV, float3 worldPos, float shadowProjZ, Texture2D shadowTex, SamplerState samp)
 {
-    float posDistSq = SquaredLength(worldPos);
+    // [FIX] Use camera-relative distance for shadow fade — absolute worldPos
+    // would exceed SHADOW_MAX_DIST_SQUARED when camera is far from world origin
+    float posDistSq = SquaredLength(worldPos - cameraPosition);
     if (posDistSq >= SHADOW_MAX_DIST_SQUARED)
         return 1.0;
     if (!IsValidShadowUV(shadowUV))
@@ -238,7 +244,9 @@ float SampleShadowWithBias(float3    worldPos, float3        normal, float3 ligh
     float  shadowProjZ    = shadowProj._m22;
 
     // Early out: outside shadow map or too far
-    float posDistSq = SquaredLength(worldPos);
+    // [FIX] Use camera-relative distance — absolute worldPos would always exceed
+    // SHADOW_MAX_DIST_SQUARED when camera is far from world origin
+    float posDistSq = SquaredLength(worldPos - cameraPosition);
     if (posDistSq >= SHADOW_MAX_DIST_SQUARED)
         return 1.0;
     if (!IsValidShadowUV(shadowUV))
