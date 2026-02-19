@@ -47,14 +47,11 @@ static const int VL_NIGHT_SAMPLES =
     30;
 #endif
 
-// VdotL directional falloff exponent
-// Higher = tighter shafts concentrated toward light source
-static const float VL_VDOTL_POWER = 8.0;
-
 // Sun volumetric light color (warm tone)
 static const float3 VL_SUN_COLOR = float3(1.0, 0.95, 0.85);
 
 // Night intensity reduction factor
+// Ref: CR volumetricLight.glsl:50-54 — vlMultNightModifier ~0.3-0.5
 static const float VL_NIGHT_MULT = 0.3;
 
 //============================================================================//
@@ -64,10 +61,13 @@ static const float VL_NIGHT_MULT = 0.3;
 // Compute screen-space volumetric light via shadow map ray marching.
 // Ray marches from camera toward the fragment in absolute world space,
 // sampling the shadow map at each step to accumulate lit segments.
+// Directional modulation matches CR's approach: linear VdotL + VdotU + vlTime.
 //
 // @param worldPos       Fragment position in ABSOLUTE world space
 // @param cameraPos      Camera position in ABSOLUTE world space
-// @param VdotL          dot(viewDirection, lightDirection) for directional falloff
+// @param VdotL          dot(viewDirection, lightDirection) — directional falloff
+// @param VdotU          dot(viewDirection, upDirection) — vertical falloff
+// @param SdotU          dot(sunDirection, upDirection) — sun elevation
 // @param dither         Screen-space dither value [0,1) to offset ray start
 // @param vlFactor       Cloud depth modulation from colortex5.a (1.0 = no cloud)
 // @param sunVisibility  Sun visibility [0,1] (computed from SdotU in caller)
@@ -75,11 +75,13 @@ static const float VL_NIGHT_MULT = 0.3;
 // @param shadowProj     Shadow projection matrix
 // @param shadowTex      Shadow depth texture (shadowtex1)
 // @param samp           Shadow sampler state
-// @return               float4(RGB volumetric color, accumulated intensity)
-float4 GetVolumetricLight(
+// @return               float3 volumetric color (additive, ready for sceneColor +=)
+float3 GetVolumetricLight(
     float3       worldPos,
     float3       cameraPos,
     float        VdotL,
+    float        VdotU,
+    float        SdotU,
     float        dither,
     float        vlFactor,
     float        sunVisibility,
@@ -88,62 +90,75 @@ float4 GetVolumetricLight(
     Texture2D    shadowTex,
     SamplerState samp)
 {
+    // --- vlTime: sun elevation gate ---
+    // Ref: CR composite1.glsl:39 — vlTime = min(abs(SdotU) - 0.05, 0.15) / 0.15
+    // Fades VL to zero when sun is near horizon (|SdotU| < 0.05)
+    float vlTime = saturate((abs(SdotU) - 0.05) / 0.15);
+    if (vlTime <= 0.0)
+        return float3(0.0, 0.0, 0.0);
+
     // Determine day/night and select base sample count
     bool isDay       = sunVisibility >= 0.5;
     int  baseSamples = isDay ? VL_DAY_SAMPLES : VL_NIGHT_SAMPLES;
 
     // vlFactor modulation: clouds reduce sample count for performance
-    // Ref: CR volumetricLight.glsl:21-33
-    int sampleCount = vlFactor < 0.5 ? baseSamples / 2 : baseSamples;
-    sampleCount     = max(sampleCount, 4);
+    float vlSceneIntensity = vlFactor;
+    int   sampleCount      = vlSceneIntensity < 0.5 ? baseSamples / 2 : baseSamples;
+    sampleCount            = max(sampleCount, 4);
 
-    // [FIX] Ray from camera to fragment (both absolute world space)
-    // Previous code treated worldPos as camera-relative, starting ray from origin (0,0,0).
-    // Our engine uses absolute world positions, so ray must start from cameraPos.
+    // --- Directional modulation (CR approach) ---
+    // Ref: CR volumetricLight.glsl:68-73
+    // VdotLM: linear [0,1], NOT power — much wider visibility than pow(x, 8)
+    float VdotLM = max((VdotL + 1.0) * 0.5, 0.0);
+
+    // VdotUM: reduce VL when looking up (sky already bright)
+    float VdotUmax0 = max(VdotU, 0.0);
+    float VdotUM    = lerp(Pow2(1.0 - VdotUmax0), 1.0, 0.5 * vlSceneIntensity);
+    VdotUM          = smoothstep(0.0, 1.0, VdotUM);
+
+    // Combined directional multiplier
+    float vlMult = VdotUM * VdotLM * vlTime;
+    vlMult       *= VL_STRENGTH;
+
+    if (vlMult <= 0.001)
+        return float3(0.0, 0.0, 0.0);
+
+    // --- Ray marching setup ---
     float3 rayVec    = worldPos - cameraPos;
     float  rayLength = length(rayVec);
     float  maxDist   = min(rayLength, SHADOW_DISTANCE * 0.9);
     float3 rayDir    = rayVec / max(rayLength, 0.001);
 
-    // Ray step vector with dithered start to reduce banding
-    // currentPos is ABSOLUTE world space — valid for WorldToShadowUV
     float3 rayStep    = (rayDir * maxDist) / float(sampleCount);
     float3 currentPos = cameraPos + rayStep * dither;
 
     float shadowProjZ = shadowProj._m22;
 
-    // Accumulate lit samples
-    float accumLight = 0.0;
+    // --- Accumulate lit samples with per-sample weighting ---
+    // Ref: CR volumetricLight.glsl:168-171
+    // Further samples contribute more (percentComplete * 3.0 when no scene intensity)
+    float4 volumetricLight = float4(0.0, 0.0, 0.0, 0.0);
 
     for (int i = 0; i < sampleCount; i++)
     {
-        // WorldToShadowUV expects absolute world positions (matches shadow.vs.hlsl)
-        float3 shadowUV = WorldToShadowUV(currentPos, shadowView, shadowProj);
+        float3 shadowUV    = WorldToShadowUV(currentPos, shadowView, shadowProj);
+        float  shadowValue = SampleShadowMap(shadowUV, currentPos, shadowProjZ, shadowTex, samp);
 
-        // SampleShadowMap distance check uses SquaredLength(worldPos) — pass camera-relative
-        // so the distance fade works correctly regardless of world origin offset
-        float3 camRelativePos = currentPos - cameraPos;
-        float  shadowValue    = SampleShadowMap(shadowUV, camRelativePos, shadowProjZ, shadowTex, samp);
+        // Per-sample weight: ramp from 0 to 3 over ray length, blend with uniform when scene-aware
+        float percentComplete = float(i + 1) / float(sampleCount);
+        float sampleMult      = lerp(percentComplete * 3.0, 1.0, vlSceneIntensity);
+        sampleMult            /= float(sampleCount);
 
-        // shadowValue: 1.0 = lit (light passes through), 0.0 = shadowed
-        accumLight += shadowValue;
-        currentPos += rayStep;
+        // Near-camera fade: avoid VL popping at very close range
+        float currentDist = length(currentPos - cameraPos);
+        if (currentDist < 5.0)
+            sampleMult *= smoothstep(0.0, 1.0, saturate(currentDist / 5.0));
+
+        volumetricLight += float4(shadowValue, shadowValue, shadowValue, shadowValue) * sampleMult;
+        currentPos      += rayStep;
     }
 
-    accumLight /= float(sampleCount);
-
-    // VdotL directional modulation: light shafts strongest toward light source
-    // pow((VdotL + 1) / 2, N) maps [-1,1] to [0,1] with power falloff
-    float vdotlFactor = pow(saturate((VdotL + 1.0) * 0.5), VL_VDOTL_POWER);
-    accumLight        *= vdotlFactor;
-
-    // vlFactor intensity modulation: reduce brightness behind clouds
-    accumLight *= vlFactor;
-
-    // Apply user-configurable strength
-    accumLight *= VL_STRENGTH;
-
-    // Time-of-day color and intensity
+    // --- Color and intensity ---
     float3 vlColor;
     if (isDay)
     {
@@ -151,11 +166,14 @@ float4 GetVolumetricLight(
     }
     else
     {
-        vlColor    = MOON_COLOR;
-        accumLight *= VL_NIGHT_MULT;
+        vlColor = MOON_COLOR;
+        vlMult  *= VL_NIGHT_MULT;
     }
 
-    return float4(vlColor * accumLight, accumLight);
+    // vlFactor intensity modulation: reduce brightness behind clouds
+    vlMult *= vlFactor;
+
+    return volumetricLight.rgb * vlColor * vlMult;
 }
 
 #endif // LIB_VOLUMETRIC_LIGHT_HLSL
