@@ -43,8 +43,7 @@ PSOutput main(PSInput input)
     float3 worldPos     = mul(gbufferViewInverse, float4(viewPos, 1.0)).xyz;
     float  viewDistance = length(viewPos);
 
-    float3 litColor     = albedo;
-    bool   isCloudPixel = false; // Vanilla cloud pixel detection (depth < 1.0, zero lightmap)
+    float3 litColor = albedo;
 
     if (!isSkyPixel)
     {
@@ -53,42 +52,41 @@ PSOutput main(PSInput input)
         float  blockLight     = lightmapSample.r;
         float  skyLight       = lightmapSample.g;
 
-        // Detect vanilla cloud pixels: has geometry depth but no lightmap (gbuffers_clouds writes colortex0 only)
-        isCloudPixel = (blockLight == 0.0 && skyLight == 0.0);
+        // NOTE: Vanilla cloud pixel detection (blockLight==0 && skyLight==0) removed.
+        // EnigmaDefault disables vanilla geometry clouds (gbuffers_clouds.ps discards all).
+        // That heuristic false-positived on dark terrain (zero lightmap), causing:
+        //   1) Lighting skip → dark blocks kept raw albedo (too bright)
+        //   2) Cloud compositing bypass → clouds visible through solid terrain
 
-        // Cloud/unlit geometry — no lightmap data, keep albedo as-is (CR approach: volumetric clouds blend over later)
-        if (!isCloudPixel)
+        // GBuffer normal (colortex2, SNORM [-1,1], Point sampling)
+        float3 worldNormal = normalize(colortex2.Sample(sampler1, input.TexCoord).xyz);
+
+        // Light direction: shadowLightPosition (view space) -> world space
+        float3 lightDirWorld = normalize(mul((float3x3)gbufferViewInverse, shadowLightPosition));
+
+        // Atmospheric fog factor (replaces hardcoded fogMix = 0.0)
+        float atmFogFactor = GetAtmosphericFogFactor(viewDistance, fogStart, fogEnd);
+
+        // Full lighting pipeline: diffuse + shadow (PCF) + light color + apply
+        bool isUnderwater = (isEyeInWater == EYE_IN_WATER);
+        litColor          = CalculateLighting(
+            albedo, worldPos, worldNormal, lightDirWorld,
+            skyLight, blockLight, skyBrightness,
+            sunAngle,
+            atmFogFactor, // R4.5: was 0.0, now computed
+            rainStrength,
+            isUnderwater, ao,
+            shadowView, shadowProjection,
+            shadowtex1, sampler1,
+            input.Position.xy);
+
+        litColor = saturate(litColor);
+
+        // [R4.2] Atmospheric distance fog (overworld only, not underwater)
+        if (isEyeInWater == EYE_IN_AIR)
         {
-            // GBuffer normal (colortex2, SNORM [-1,1], Point sampling)
-            float3 worldNormal = normalize(colortex2.Sample(sampler1, input.TexCoord).xyz);
-
-            // Light direction: shadowLightPosition (view space) -> world space
-            float3 lightDirWorld = normalize(mul((float3x3)gbufferViewInverse, shadowLightPosition));
-
-            // Atmospheric fog factor (replaces hardcoded fogMix = 0.0)
-            float atmFogFactor = GetAtmosphericFogFactor(viewDistance, fogStart, fogEnd);
-
-            // Full lighting pipeline: diffuse + shadow (PCF) + light color + apply
-            bool isUnderwater = (isEyeInWater == EYE_IN_WATER);
-            litColor          = CalculateLighting(
-                albedo, worldPos, worldNormal, lightDirWorld,
-                skyLight, blockLight, skyBrightness,
-                sunAngle,
-                atmFogFactor, // R4.5: was 0.0, now computed
-                rainStrength,
-                isUnderwater, ao,
-                shadowView, shadowProjection,
-                shadowtex1, sampler1,
-                input.Position.xy);
-
-            litColor = saturate(litColor);
-
-            // [R4.2] Atmospheric distance fog (overworld only, not underwater)
-            if (isEyeInWater == EYE_IN_AIR)
-            {
-                float3 atmFogColor = ComputeAtmosphericFogColor(sunAngle, skyColor);
-                litColor           = ApplyAtmosphericFog(litColor, atmFogColor, atmFogFactor);
-            }
+            float3 atmFogColor = ComputeAtmosphericFogColor(sunAngle, skyColor);
+            litColor           = ApplyAtmosphericFog(litColor, atmFogColor, atmFogFactor);
         }
     }
     else
@@ -126,20 +124,27 @@ PSOutput main(PSInput input)
     // Player camera far (~128) is too short for clouds at z=192+
     float cloudRenderDist = max(far, 1000.0) * 0.8;
 
-    float4 clouds = GetVolumetricClouds(cloudAlt1i, cloudRenderDist, cloudLinearDepth, sunVisibility, cameraPosition, nPlayerPos, viewDistance, VdotS, VdotU, dither, sunDirWorld);
+    // [CR] Per-sample terrain occlusion limit:
+    // Terrain pixels: cloud samples beyond (viewDistance - 1.0) are skipped
+    // Sky pixels: no limit (1e9), clouds render freely
+    // Ref: CR reimaginedClouds.glsl — lViewPosM = lViewPos - 1.0
+    float maxViewDist = isSkyPixel ? 1e9 : max(viewDistance - 1.0, 0.0);
+
+    float4 clouds = GetVolumetricClouds(cloudAlt1i, cloudRenderDist, cloudLinearDepth, sunVisibility, cameraPosition, nPlayerPos, maxViewDist, VdotS, VdotU, dither, sunDirWorld);
 
     if (clouds.a > 0.0)
     {
-        // Sky/cloud pixels: always composite volumetric clouds
-        // Terrain pixels: only if terrain is behind the cloud
-        if (isSkyPixel || isCloudPixel || viewDistance > cloudLinearDepth * far)
+        // Cloud compositing: always for sky, depth-checked for terrain (safety net)
+        // Primary occlusion is handled inside GetVolumetricClouds per-sample check
+        float actualCloudDist = cloudLinearDepth * cloudLinearDepth * cloudRenderDist;
+        if (isSkyPixel || viewDistance > actualCloudDist)
         {
             litColor = lerp(litColor, clouds.rgb, clouds.a);
         }
     }
 
     // --- Fluid Fog (terrain pixels only, migrated from composite) ---
-    if (!isSkyPixel && !isCloudPixel)
+    if (!isSkyPixel)
     {
         if (isEyeInWater == EYE_IN_WATER)
             litColor = ApplyUnderwaterFog(litColor, viewDistance, fogColor, fogStart, fogEnd);
