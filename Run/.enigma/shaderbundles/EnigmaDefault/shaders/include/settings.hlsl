@@ -217,7 +217,7 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 #endif
 
 #ifndef VL_STRENGTH
-#define VL_STRENGTH 2.0              // [0.5 0.75 1.0 1.25 1.5 2.0] Volumetric light intensity
+#define VL_STRENGTH 0.5             // [0.5 0.75 1.0 1.25 1.5 2.0] Volumetric light intensity
 #endif
 
 //============================================================================//

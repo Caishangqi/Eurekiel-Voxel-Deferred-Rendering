@@ -178,7 +178,7 @@ float3 GetCloudLightColor(float3 lightColor, float3 inSkyColor,
 // @param moonVisibility   Moon visibility factor (0-1)
 // @param camPos           Camera world position
 // @param nPlayerPos       Normalized view direction (camera to pixel)
-// @param viewDistance     Linear distance from camera to scene pixel
+// @param maxViewDist      Max cloud sample distance (terrain: viewDist-1, sky: 1e9)
 // @param VdotS            dot(viewDir, sunDir) for light scattering
 // @param VdotU            viewDir.z (vertical component, Z-up)
 // @param dither           Screen-space dither value from IGN
@@ -191,7 +191,7 @@ float4 GetVolumetricClouds(
     float       sunVisibility,
     float3      camPos,
     float3      nPlayerPos,
-    float       viewDistance,
+    float       maxViewDist,
     float       VdotS,
     float       VdotU,
     float       dither,
@@ -273,6 +273,12 @@ float4 GetVolumetricClouds(
         // Skip samples beyond render distance
         if (lTracePos > renderDistance)
             break;
+
+        // [CR] Per-sample terrain occlusion: skip cloud samples behind terrain geometry.
+        // maxViewDist = viewDistance - 1.0 for terrain pixels, 1e9 for sky pixels.
+        // Ref: CR reimaginedClouds.glsl — if (lTracePos > lViewPosM) continue;
+        if (lTracePos > maxViewDist)
+            continue;
 
         float3 tracePos = camPos + nPlayerPos * lTracePos;
         float3 tracePosM;
