@@ -36,29 +36,38 @@ PSOutput main(PSInput input)
     float SdotU         = dot(normalize(sunPosition), normalize(upPosition));
     float sunVisibility = clamp(SdotU + 0.0625, 0.0, 0.125) / 0.125;
 
-    // Reconstruct world position (relative to camera)
+    // Reconstruct world position
     float3 viewPos = ReconstructViewPosition(input.TexCoord, depth,
                                              gbufferProjectionInverse, gbufferRendererInverse);
     float3 worldPos = mul(gbufferViewInverse, float4(viewPos, 1.0)).xyz;
 
-    // VdotL: view direction dot light direction (world space)
+    // View direction (camera-relative, world space)
+    // [FIX] worldPos is ABSOLUTE in our engine — subtract cameraPosition
+    float3 nViewDir = normalize(worldPos - cameraPosition);
+
+    // Light direction in world space
     float3 lightDirWorld = normalize(mul((float3x3)gbufferViewInverse, shadowLightPosition));
-    // [FIX] worldPos is ABSOLUTE in our engine — use camera-relative direction (same fix as deferred1)
-    float VdotL = dot(normalize(worldPos - cameraPosition), lightDirWorld);
+    // Up direction in world space
+    float3 upDirWorld = normalize(mul((float3x3)gbufferViewInverse, upPosition));
+
+    // Directional dot products (CR composite1.glsl:196-198)
+    float VdotL = dot(nViewDir, lightDirWorld);
+    float VdotU = dot(nViewDir, upDirWorld);
 
     // Screen-space dither for ray march offset
     float dither = InterleavedGradientNoiseForClouds(input.Position.xy);
 
     // Volumetric light via shadow map ray marching
-    // [FIX] Pass cameraPosition — ray must march from camera, not world origin
-    float4 vl = GetVolumetricLight(
-        worldPos, cameraPosition, VdotL, dither, vlFactor,
+    // Returns float3 (additive color), no longer float4
+    float3 vl = GetVolumetricLight(
+        worldPos, cameraPosition, VdotL, VdotU, SdotU, dither, vlFactor,
         sunVisibility,
         shadowView, shadowProjection,
         shadowtex1, sampler1);
 
-    // Additive blend: VL adds light to scene
-    sceneColor += vl.rgb * vl.a;
+    // Additive blend: VL adds light to scene (linear add, no squaring)
+    // Ref: CR composite1.glsl:278 — color += volumetricEffect.rgb
+    sceneColor += vl;
 
     output.color0 = float4(saturate(sceneColor), 1.0);
     output.color1 = float4(0.0, 0.0, 0.0, vlFactor);
