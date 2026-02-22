@@ -81,6 +81,8 @@ PSOutput main(PSInput input)
             input.Position.xy);
 
         litColor = saturate(litColor);
+        // NOTE: litColor is saturated here because lighting pipeline outputs [0,1].
+        // HDR values come from VL additive blend in composite1, not from lighting.
 
         // [R4.2] Atmospheric distance fog (overworld only, not underwater)
         if (isEyeInWater == EYE_IN_AIR)
@@ -157,7 +159,7 @@ PSOutput main(PSInput input)
     // --- Output ---
     // colortex0: final lit color
     // colortex5.a: cloud linear depth for composite1 VL sampling
-    output.color0 = float4(saturate(litColor), 1.0);
+    output.color0 = float4(litColor, 1.0);
     output.color1 = float4(0.0, 0.0, 0.0, cloudLinearDepth);
     return output;
 }
