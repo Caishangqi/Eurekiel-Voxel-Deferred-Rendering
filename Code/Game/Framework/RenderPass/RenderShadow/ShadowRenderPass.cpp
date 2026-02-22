@@ -102,6 +102,12 @@ void ShadowRenderPass::BeginPass()
     // [NEW] Set depth mode for shadow pass
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
 
+    // [FIX] Disable back-face culling for shadow pass — standard shadow mapping practice.
+    // At low sun angles, terrain top faces are nearly edge-on to the shadow camera.
+    // With back-face culling, these faces project to thin slivers with gaps (light leaks).
+    // At sunAngle >= 0.5, top faces become back-facing and get culled entirely.
+    g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
+
     // [NEW] Set block atlas for alpha testing
     if (m_blockAtlasTexture)
     {
@@ -111,7 +117,8 @@ void ShadowRenderPass::BeginPass()
 
 void ShadowRenderPass::EndPass()
 {
-    // Shadow pass complete, depth written to shadowtex0
+    // Restore default back-face culling after shadow pass
+    g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::CullBack());
 }
 
 // ============================================================================

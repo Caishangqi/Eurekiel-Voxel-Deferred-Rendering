@@ -251,6 +251,22 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 #define VL_STRENGTH 0.5             // [0.25 0.5 0.75 1.0 1.25 1.5] Volumetric light intensity
 #endif
 
+#ifndef VL_SUNSET_COLOR_MULT
+#define VL_SUNSET_COLOR_MULT 5.5    // [2.0 3.0 4.0 4.5 5.0 5.5 6.0 6.8 8.0] Sunset/sunrise VL color intensity
+#endif
+
+// VL sun angle gate: VL fades to zero when |SdotU| < deadzone,
+// linearly ramps to full over the fade range above the deadzone.
+// Wider deadzone = VL disappears earlier at low sun angles (avoids shadow map artifacts)
+// Ref: CR composite1.glsl:39
+#ifndef VL_SUN_DEADZONE
+#define VL_SUN_DEADZONE 0.05        // [0.05 0.10 0.15 0.20 0.25] Min |SdotU| for VL to activate
+#endif
+
+#ifndef VL_SUN_FADE_RANGE
+#define VL_SUN_FADE_RANGE 0.20      // [0.10 0.15 0.20 0.25 0.30] |SdotU| range over which VL ramps to full
+#endif
+
 //============================================================================//
 // Reflection Settings
 //============================================================================//

@@ -109,10 +109,12 @@ float SampleShadowMap(float3 shadowUV, float3 worldPos, float shadowProjZ, Textu
     float shadowFade  = 1.0 - posDistSq * INV_SHADOW_MAX_DIST_SQUARED;
     float shadowDepth = shadowTex.Sample(samp, shadowUV.xy).r;
 
-    // Soft shadow: depth difference → continuous [0,1] shadow amount
+    // Shadow depth comparison: near-binary for correct occlusion
     // 0.2 = Z compression factor from GetShadowDistortion
-    // 3.0 = transition sharpness (matches miniature-shader)
-    float shadowAmount = saturate(3.0 * (shadowUV.z - shadowDepth) / (shadowProjZ * 0.2));
+    // 256.0 = sharp transition — CR uses hardware shadow2D() (binary) for per-sample
+    // comparison and relies on PCF for softness. Our previous 3.0 was too soft,
+    // causing partial lit values at low sun angles where depth precision degrades.
+    float shadowAmount = saturate(256.0 * (shadowUV.z - shadowDepth) / (shadowProjZ * 0.2));
 
     return 1.0 - shadowFade * shadowAmount;
 }

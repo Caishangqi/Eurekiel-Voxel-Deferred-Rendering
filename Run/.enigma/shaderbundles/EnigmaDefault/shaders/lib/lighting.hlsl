@@ -204,6 +204,15 @@ float3 CalculateLighting(
     float noonFac  = GetNoonFactor(sunAngle);
     float shadowTm = GetShadowTime(sunVis);
 
+    // --- Sun elevation shadow gate ---
+    // At very low sun angles, shadow map depth precision degrades and PCF
+    // samples spread into invalid areas causing light leaks.
+    // sunVisibility saturates to 1.0 at SdotU=0.0625 (too narrow), so shadowTime
+    // doesn't help. This gate uses raw SdotU with a wider window.
+    // Fade: 0 when SdotU < 0.05, ramp to 1.0 over [0.05, 0.20]
+    float SdotU            = dot(normalize(sunPosition), normalize(upPosition));
+    float sunElevationFade = saturate((SdotU - 0.05) / 0.15);
+
     // --- Player brightness (CR: vsBrightness) ---
     float vsBrightness = saturate(screenBrightness);
 
@@ -230,7 +239,7 @@ float3 CalculateLighting(
     // shadowTime: shadows fade at sunrise/sunset (only ambient remains)
     // skyLightShadowMult: prevents shadow light leaking into caves
     float skyLightShadowMult = Pow4(skyLight) * Pow4(skyLight); // skyLight^8
-    float shadowMult         = rawShadow * NdotLM * shadowTm * skyLightShadowMult;
+    float shadowMult         = rawShadow * NdotLM * shadowTm * skyLightShadowMult * sunElevationFade;
 
     // --- Ambient multiplier: sky light drives ambient intensity ---
     float ambientMult = smoothstep(0.0, 1.0, skyLight);

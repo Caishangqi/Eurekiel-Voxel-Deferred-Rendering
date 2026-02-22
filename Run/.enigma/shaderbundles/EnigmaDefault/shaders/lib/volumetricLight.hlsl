@@ -103,9 +103,10 @@ float3 GetVolumetricLight(
     SamplerState samp)
 {
     // --- vlTime: sun elevation gate ---
-    // Ref: CR composite1.glsl:39 — vlTime = min(abs(SdotU) - 0.05, 0.15) / 0.15
-    // Fades VL to zero when sun is near horizon (|SdotU| < 0.05)
-    float vlTime = saturate((abs(SdotU) - 0.05) / 0.15);
+    // Fades VL to zero when sun is near horizon to avoid shadow map grazing-angle artifacts.
+    // Ref: CR composite1.glsl:39 (original: deadzone=0.05, fade=0.15)
+    // Widened to account for shadow map quality degradation at low sun angles.
+    float vlTime = saturate((abs(SdotU) - VL_SUN_DEADZONE) / VL_SUN_FADE_RANGE);
     if (vlTime <= 0.0)
         return float3(0.0, 0.0, 0.0);
 
@@ -114,7 +115,9 @@ float3 GetVolumetricLight(
     int  baseSamples = isDay ? VL_DAY_SAMPLES : VL_NIGHT_SAMPLES;
 
     // vlFactor modulation: clouds reduce sample count for performance
-    float vlSceneIntensity = vlFactor;
+    // CR volumetricLight.glsl:47-48 — suppress day VL when sun is near/below horizon
+    // Prevents shadow map grazing-angle artifacts from causing VL light leaks
+    float vlSceneIntensity = (sunVisibility < 0.5) ? 0.0 : vlFactor;
     int   sampleCount      = vlSceneIntensity < 0.5 ? baseSamples / 2 : baseSamples;
     sampleCount            = max(sampleCount, 4);
 
@@ -169,8 +172,19 @@ float3 GetVolumetricLight(
 
     for (int i = 0; i < sampleCount; i++)
     {
-        float3 shadowUV    = WorldToShadowUV(currentPos, shadowView, shadowProj);
-        float  shadowValue = SampleShadowMap(shadowUV, currentPos, shadowProjZ, shadowTex, samp);
+        float3 shadowUV = WorldToShadowUV(currentPos, shadowView, shadowProj);
+
+        // VL-specific: treat out-of-bounds shadow samples as SHADOWED (0.0),
+        // not lit (1.0). SampleShadowMap returns 1.0 for invalid UVs which is
+        // correct for surface lighting but causes VL to leak through terrain
+        // at low sun angles where the shadow map projection is very elongated.
+        float shadowValue = 0.0;
+        if (IsValidShadowUV(shadowUV))
+        {
+            float sampleDistSq = SquaredLength(currentPos - cameraPos);
+            if (sampleDistSq < SHADOW_MAX_DIST_SQUARED)
+                shadowValue = SampleShadowMap(shadowUV, currentPos, shadowProjZ, shadowTex, samp);
+        }
 
         // Per-sample weight: ramp from 0 to 3 over ray length, blend with uniform when scene-aware
         float percentComplete = float(i + 1) / float(sampleCount);
@@ -195,8 +209,8 @@ float3 GetVolumetricLight(
 
     // Sunset: warm orange, pow() deepens color at low angles
     // Ref: CR lightAndAmbientColors.glsl:15
-    // Multiplier reduced from 6.8 → 3.0 to prevent sunrise/sunset VL washout
-    float3 sunsetVLColor = pow(float3(0.62, 0.39, 0.24), float3(1.5 + invNoonFactor, 1.5 + invNoonFactor, 1.5 + invNoonFactor)) * 3.0;
+    // Multiplier tuned: 6.8(CR original) → 3.0(too dim) → 5.5(balanced orange)
+    float3 sunsetVLColor = pow(float3(0.62, 0.39, 0.24), float3(1.5 + invNoonFactor, 1.5 + invNoonFactor, 1.5 + invNoonFactor)) * VL_SUNSET_COLOR_MULT;
 
     // Day color: blend sunset → noon based on noonFactor²
     float3 dayVLColor = lerp(sunsetVLColor, VL_NOON_COLOR, noonFactorDM);
