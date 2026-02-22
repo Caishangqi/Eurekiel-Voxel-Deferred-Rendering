@@ -1,18 +1,21 @@
 /**
  * @file gbuffers_skytextured.ps.hlsl
- * @brief Sun/Moon Texture Rendering - Pixel Shader (Minecraft Vanilla Style)
+ * @brief Sun/Moon Texture Rendering - Pixel Shader
  * @date 2025-12-08
  *
- * [REFACTOR] Simplified to match Minecraft vanilla architecture:
- * - Direct texture sampling from customImage0
- * - Simple alpha discard for transparency
- * - ColorModulator for brightness control (matches Minecraft DynamicTransforms)
+ * Renders sun/moon celestial textures with additive blending.
+ *
+ * [FIX] Alpha=0 output: colortex0 is R16G16B16A16_FLOAT, additive blending
+ * would accumulate alpha (sky 1.0 + sun 1.0 = 2.0) creating a visible quad
+ * rectangle when viewed through water (deferred1 reads alpha as AO).
+ * Output alpha=0 so additive blend preserves the existing sky alpha.
+ *
+ * [FIX] Underwater discard: when isEyeInWater==1, celestial bodies should
+ * not be visible (CR gbuffers_skytextured.glsl:98, composite1.glsl:241).
  *
  * Reference:
- * - Minecraft position_tex.fsh:
- *   vec4 color = texture(Sampler0, texCoord0);
- *   if (color.a == 0.0) discard;
- *   fragColor = color * ColorModulator;
+ * - Minecraft position_tex.fsh
+ * - CR gbuffers_skytextured.glsl:98 (isEyeInWater dimming)
  */
 
 #include "../@engine/core/core.hlsl"
@@ -28,31 +31,43 @@ struct PSOutput
 };
 
 /**
- * @brief Pixel Shader Main Entry - Minecraft Vanilla Architecture
+ * @brief Pixel Shader Main Entry
  * @param input Interpolated vertex data from VS
- * @return PSOutput Sun/moon texture with alpha blending
+ * @return PSOutput Sun/moon color (alpha=0 for safe additive blending)
  */
 PSOutput main(PSInput input)
 {
     PSOutput output;
+
+    // [FIX] Underwater: discard all celestial pixels
+    // When submerged, sun/moon are replaced by fogColor in deferred1 sky branch.
+    // But water surface geometry (depth < 1.0) bypasses that branch, so we must
+    // prevent celestial color from entering colortex0 entirely.
+    // Ref: CR gbuffers_skytextured.glsl:98
+    if (isEyeInWater == EYE_IN_WATER)
+    {
+        discard;
+    }
 
     // [STEP 1] Sample sun/moon texture from customImage0
     Texture2D celestialTexture = GetCustomImage(0);
     float4    texColor         = celestialTexture.Sample(sampler1, input.TexCoord);
 
     // [STEP 2] Discard fully transparent pixels (Minecraft style)
-    if (texColor.a == 0.0)
+    if (texColor.a < 0.01)
     {
         discard;
     }
 
     // [STEP 3] Apply ColorModulator (brightness control)
-    // ColorModulator is uploaded via CelestialConstantBuffer
-    // Matches Minecraft DynamicTransforms.ColorModulator behavior
     float4 finalColor = texColor * colorModulator;
 
-    // [STEP 4] Output final color with alpha
-    output.Color0 = finalColor;
+    // [STEP 4] Output RGB with alpha=0
+    // Additive blend: dest = src + dest
+    // With src.a=0: dest.a = 0 + sky_a = sky_a (unchanged)
+    // Prevents alpha accumulation in R16G16B16A16_FLOAT colortex0,
+    // which deferred1 reads as AO — alpha mismatch would reveal the quad.
+    output.Color0 = float4(finalColor.rgb, 0.0);
 
     return output;
 }
