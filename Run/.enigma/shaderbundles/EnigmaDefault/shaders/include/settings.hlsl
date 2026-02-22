@@ -14,28 +14,12 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 // Shadow Settings
 //============================================================================//
 
-#ifndef SHADOW_DARKNESS
-#define SHADOW_DARKNESS 0.2         // [0.0 - 1.0] Shadow darkness level
-#endif
-
-#ifndef SHADOW_BLUENESS
-#define SHADOW_BLUENESS 0.3         // [0.0 - 0.5] Shadow blue tint
-#endif
-
 #ifndef SHADOW_PIXEL
 #define SHADOW_PIXEL 0             // [0 - 2048] Pixelated shadow resolution (0 = smooth)
 #endif
 
-#ifndef SHADOW_MAP_RESOLUTION
-#define SHADOW_MAP_RESOLUTION 2048  // [256 - 4096] Shadow map resolution
-#endif
-
 #ifndef SHADOW_DISTANCE
 #define SHADOW_DISTANCE 128.0       // [8.0 - 1024.0] Shadow render distance
-#endif
-
-#ifndef SHADOW_INTERVAL_SIZE
-#define SHADOW_INTERVAL_SIZE 7.0    // Shadow cascade interval
 #endif
 
 // PCF shadow filtering quality
@@ -60,23 +44,6 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 // Ref: ComplementaryReimagined mainLighting.glsl shadowSmooth = 16.0
 #ifndef SHADOW_EDGE_FADE_RANGE
 #define SHADOW_EDGE_FADE_RANGE 8.0 // [4.0 8.0 16.0 24.0 32.0]
-#endif
-
-//============================================================================//
-// Light Settings
-//============================================================================//
-
-// Torch colors (inner/middle/outer gradient)
-#ifndef TORCH_INNER_COLOR
-#define TORCH_INNER_COLOR float3(1.0, 0.85, 0.7)
-#endif
-
-#ifndef TORCH_MIDDLE_COLOR
-#define TORCH_MIDDLE_COLOR float3(1.0, 0.8, 0.6)
-#endif
-
-#ifndef TORCH_OUTER_COLOR
-#define TORCH_OUTER_COLOR float3(1.0, 0.55, 0.2)
 #endif
 
 //============================================================================//
@@ -314,9 +281,5 @@ static const float INV_SHADOW_MAX_DIST_SQUARED = 1.0 / SHADOW_MAX_DIST_SQUARED;
 // Fog range
 static const float OVERWORLD_FOG_MIN = 1.0 - 0.1 * OVERWORLD_FOG_MAX_SLIDER;
 static const float OVERWORLD_FOG_MAX = 1.0 - 0.1 * OVERWORLD_FOG_MIN_SLIDER;
-
-// Lightmap UV constants
-static const float2 AMBIENT_UV     = float2(8.0 / 255.0, 247.0 / 255.0);
-static const float2 TORCH_UV_SCALE = float2(8.0 / 255.0, 231.0 / 255.0);
 
 #endif // INCLUDE_SETTINGS_HLSL
