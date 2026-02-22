@@ -26,7 +26,13 @@ PSOutput main(PSInput input)
 
     // Read scene color from deferred/composite output
     float3 sceneColor = colortex0.Sample(sampler0, input.TexCoord).rgb;
-    float  depth      = depthtex0.Sample(sampler1, input.TexCoord).r;
+
+    // Gamma → Linear: deferred1 outputs gamma-space color (sRGB textures, gamma lighting).
+    // Must linearize before VL addition and tonemap (composite5 applies LinearToSRGB).
+    // Without this, LinearToSRGB in composite5 double-gammas → washed out, low saturation.
+    // Ref: CR composite1.glsl — color = pow(color, vec3(2.2))
+    sceneColor  = pow(max(sceneColor, 0.0), 2.2);
+    float depth = depthtex0.Sample(sampler1, input.TexCoord).r;
 
     // Read cloud linear depth from colortex5.a (written by deferred1)
     // vlFactor: 1.0 = no cloud (full VL), <1.0 = cloud present (reduced VL)
@@ -65,11 +71,11 @@ PSOutput main(PSInput input)
         shadowView, shadowProjection,
         shadowtex1, sampler1);
 
-    // Additive blend: VL adds light to scene (linear add, no squaring)
-    // Ref: CR composite1.glsl:278 — color += volumetricEffect.rgb
+    // Additive blend: VL adds light to scene (HDR, no clamping)
+    // Tonemap in composite5 will handle HDR → LDR conversion
     sceneColor += vl;
 
-    output.color0 = float4(saturate(sceneColor), 1.0);
+    output.color0 = float4(sceneColor, 1.0);
     output.color1 = float4(0.0, 0.0, 0.0, vlFactor);
     return output;
 }
