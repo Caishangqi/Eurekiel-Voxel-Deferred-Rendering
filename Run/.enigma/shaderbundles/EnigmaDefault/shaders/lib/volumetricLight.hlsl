@@ -7,9 +7,10 @@
  * creates visible light shafts toward the sun/moon.
  *
  * Dependencies:
- *   - settings.hlsl    (LIGHTSHAFT_QUALI, VL_STRENGTH, SHADOW_DISTANCE, MOON_COLOR)
+ *   - settings.hlsl    (LIGHTSHAFT_QUALI, VL_STRENGTH, SHADOW_DISTANCE)
  *   - common.hlsl      (SquaredLength)
  *   - shadow.hlsl      (WorldToShadowUV, SampleShadowMap)
+ *   - celestial_uniforms (sunAngle)
  *
  * Reference:
  *   - ComplementaryReimagined volumetricLight.glsl:1-330
@@ -47,12 +48,23 @@ static const int VL_NIGHT_SAMPLES =
     30;
 #endif
 
-// Sun volumetric light color (warm tone)
-static const float3 VL_SUN_COLOR = float3(1.0, 0.95, 0.85);
-
 // Night intensity reduction factor
 // Ref: CR volumetricLight.glsl:50-54 — vlMultNightModifier ~0.3-0.5
-static const float VL_NIGHT_MULT = 0.3;
+// Adjusted for VL_STRENGTH=0.5 (net: 0.15*0.5=0.075, similar to previous 0.08*1.0)
+static const float VL_NIGHT_MULT = 0.15;
+
+//============================================================================//
+// VL Color Palette (CR lightAndAmbientColors.glsl, COMPOSITE1 path)
+// These are light shaft specific colors, separate from ground lighting.
+//============================================================================//
+
+// Noon: cool blue-white (sun overhead, scattered light)
+// Ref: CR lightAndAmbientColors.glsl:8
+static const float3 VL_NOON_COLOR = float3(0.4, 0.75, 1.3);
+
+// Night: cold blue, very dim (reduced to match CR dark night lighting)
+// Ref: CR lightAndAmbientColors.glsl:24
+static const float3 VL_NIGHT_COLOR = float3(0.05, 0.08, 0.16);
 
 //============================================================================//
 // Main Entry Point
@@ -120,6 +132,22 @@ float3 GetVolumetricLight(
     float vlMult = VdotUM * VdotLM * vlTime;
     vlMult       *= VL_STRENGTH;
 
+    // --- Noon intensity reduction (CR volumetricLight.glsl:74) ---
+    // At noon noonFactor≈1 → invNoonFactor2≈0 → multiplier≈0.125 (12.5%)
+    // At sunrise/sunset noonFactor≈0 → invNoonFactor2≈1 → multiplier≈1.0 (100%)
+    // This prevents VL from being blindingly bright when the sun is overhead.
+    //
+    // NOTE: CR uses mix(reduction, 1.0, vlSceneIntensity) to bypass reduction when
+    // clouds are present, but CR's vlFactor is a global flat varying (corner-pixel
+    // temporal accumulation), NOT per-pixel cloudLinearDepth like ours.
+    // Our cloudLinearDepth defaults to 1.0 (no cloud) which would bypass the
+    // reduction entirely. So we apply the reduction unconditionally.
+    // Ref: CR common.glsl:681, CR volumetricLight.glsl:74
+    float noonFactor     = sqrt(max(sin(sunAngle * TWO_PI), 0.0));
+    float invNoonFactor  = 1.0 - noonFactor;
+    float invNoonFactor2 = invNoonFactor * invNoonFactor;
+    vlMult               *= invNoonFactor2 * 0.875 + 0.125;
+
     if (vlMult <= 0.001)
         return float3(0.0, 0.0, 0.0);
 
@@ -158,17 +186,40 @@ float3 GetVolumetricLight(
         currentPos      += rayStep;
     }
 
-    // --- Color and intensity ---
-    float3 vlColor;
-    if (isDay)
+    // --- VL Color: time-aware dynamic color (CR approach) ---
+    // Ref: CR lightAndAmbientColors.glsl:6-59, volumetricLight.glsl:293-295
+    //
+    // CR uses noonFactor² for light shaft mixing (sharper transition than ground lighting)
+    // Sunset color uses pow() with invNoonFactor to deepen warm tones at low sun angles
+    float noonFactorDM = noonFactor * noonFactor; // light shaft factor (CR line 54)
+
+    // Sunset: warm orange, pow() deepens color at low angles
+    // Ref: CR lightAndAmbientColors.glsl:15
+    // Multiplier reduced from 6.8 → 3.0 to prevent sunrise/sunset VL washout
+    float3 sunsetVLColor = pow(float3(0.62, 0.39, 0.24), float3(1.5 + invNoonFactor, 1.5 + invNoonFactor, 1.5 + invNoonFactor)) * 3.0;
+
+    // Day color: blend sunset → noon based on noonFactor²
+    float3 dayVLColor = lerp(sunsetVLColor, VL_NOON_COLOR, noonFactorDM);
+
+    // Final: blend night → day based on sunVisibility²
+    float  sunVisibility2 = sunVisibility * sunVisibility;
+    float3 vlColor        = lerp(VL_NIGHT_COLOR, dayVLColor, sunVisibility2);
+
+    if (!isDay)
     {
-        vlColor = VL_SUN_COLOR;
+        vlMult *= VL_NIGHT_MULT;
     }
-    else
-    {
-        vlColor = MOON_COLOR;
-        vlMult  *= VL_NIGHT_MULT;
-    }
+
+    // --- VL Color post-processing (CR volumetricLight.glsl:294-295) ---
+    // Saturation boost at sunset, reduce at noon
+    // Ref: CR line 294 — pow(vlColor, 0.5 + 0.5*invNoonFactor + 0.3*rain)
+    // We omit rainFactor (not available here), simplified to sunset saturation boost
+    float satPower = 0.5 + 0.5 * invNoonFactor;
+    vlColor        = pow(max(vlColor, 0.001), float3(satPower, satPower, satPower));
+
+    // Brightness modulation: boost at sunset, reduce at noon
+    // Ref: CR line 295 — vlColor *= 1.0 - ... + sunVisibility * pow2(invNoonFactor) * invRainFactor
+    vlColor *= 1.0 + sunVisibility * Pow2(invNoonFactor);
 
     // vlFactor intensity modulation: reduce brightness behind clouds
     vlMult *= vlFactor;

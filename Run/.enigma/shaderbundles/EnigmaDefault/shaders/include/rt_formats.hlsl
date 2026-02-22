@@ -13,7 +13,7 @@
 //============================================================================//
 
 /*
-const int colortex0Format = R8G8B8A8_UNORM;
+const int colortex0Format = R16G16B16A16_FLOAT;
 const int colortex1Format = R8G8B8A8_UNORM;
 const int colortex2Format = R8G8B8A8_SNORM;
 const int colortex3Format = R8G8B8A8_UNORM;

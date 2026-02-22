@@ -66,10 +66,6 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 // Light Settings
 //============================================================================//
 
-#ifndef LIGHT_BRIGHTNESS
-#define LIGHT_BRIGHTNESS 0.9        // [0.0 - 2.0] Light intensity multiplier
-#endif
-
 // Torch colors (inner/middle/outer gradient)
 #ifndef TORCH_INNER_COLOR
 #define TORCH_INNER_COLOR float3(1.0, 0.85, 0.7)
@@ -83,8 +79,43 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 #define TORCH_OUTER_COLOR float3(1.0, 0.55, 0.2)
 #endif
 
-#ifndef MOON_COLOR
-#define MOON_COLOR float3(0.1, 0.15, 0.3)
+//============================================================================//
+// Scene Lighting Colors (CR lightAndAmbientColors.glsl)
+//============================================================================//
+
+// Day: Noon light color
+// CR: vec3(0.65, 0.55, 0.375) * 2.05
+#ifndef NOON_LIGHT_COLOR
+#define NOON_LIGHT_COLOR float3(1.3325, 1.1275, 0.76875)
+#endif
+
+// Day: Sunset light color (approximated at typical sunset angle)
+// CR: pow(vec3(0.64, 0.45, 0.3), 1.5+) * 5.0
+#ifndef SUNSET_LIGHT_COLOR
+#define SUNSET_LIGHT_COLOR float3(1.28, 0.675, 0.3375)
+#endif
+
+// Night: Moonlight on surfaces
+// CR: 0.9 * vec3(0.15, 0.14, 0.20) * (0.4 + vsBrightness * 0.4)
+#ifndef NIGHT_LIGHT_COLOR
+#define NIGHT_LIGHT_COLOR float3(0.135, 0.126, 0.180)
+#endif
+
+// Night: Sky ambient
+// CR: 0.9 * vec3(0.09, 0.12, 0.17) * (1.55 + vsBrightness * 0.77)
+#ifndef NIGHT_AMBIENT_COLOR
+#define NIGHT_AMBIENT_COLOR float3(0.081, 0.108, 0.153)
+#endif
+
+// Block light warm color
+// CR: blocklightCol
+#ifndef BLOCKLIGHT_COLOR
+#define BLOCKLIGHT_COLOR float3(1.0, 0.7, 0.46)
+#endif
+
+// Cave minimum light color tint
+#ifndef MIN_LIGHT_COLOR
+#define MIN_LIGHT_COLOR float3(0.45, 0.475, 0.6)
 #endif
 
 //============================================================================//
@@ -217,7 +248,7 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 #endif
 
 #ifndef VL_STRENGTH
-#define VL_STRENGTH 0.5             // [0.5 0.75 1.0 1.25 1.5 2.0] Volumetric light intensity
+#define VL_STRENGTH 0.5             // [0.25 0.5 0.75 1.0 1.25 1.5] Volumetric light intensity
 #endif
 
 //============================================================================//
@@ -259,10 +290,6 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 //============================================================================//
 // Computed Constants (static const for HLSL)
 //============================================================================//
-
-// Shadow color with blue tint
-static const float3 SHADOW_COLOR = float3(1.0 - SHADOW_DARKNESS, 1.0 - SHADOW_DARKNESS, 1.0 - SHADOW_DARKNESS)
-    + float3(0.0, 0.3333, 1.0) * SHADOW_BLUENESS;
 
 // Shadow distance squared (for distance fade calculations)
 static const float SHADOW_MAX_DIST_SQUARED     = SHADOW_DISTANCE * SHADOW_DISTANCE;

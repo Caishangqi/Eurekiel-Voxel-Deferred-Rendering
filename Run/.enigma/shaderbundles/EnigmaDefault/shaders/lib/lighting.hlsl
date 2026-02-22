@@ -1,7 +1,6 @@
-/// [NEW] Lighting calculation utilities for EnigmaDefault ShaderBundle
-/// Reference: miniature-shader/shaders/common/getDiffuse.vsh
-/// Reference: miniature-shader/shaders/common/getLightStrength.fsh
-/// Reference: miniature-shader/shaders/common/getLightColor.vsh
+/// CR-style day/night lighting system for EnigmaDefault ShaderBundle
+/// Reference: ComplementaryReimagined lib/lighting/mainLighting.glsl
+/// Reference: ComplementaryReimagined lib/colors/lightAndAmbientColors.glsl
 
 #ifndef LIB_LIGHTING_HLSL
 #define LIB_LIGHTING_HLSL
@@ -11,72 +10,137 @@
 #include "shadow.hlsl"
 
 //============================================================================//
-// Light Color (Day/Night Cycle)
+// Time Factor Functions
 //============================================================================//
 
-/// Calculate sun height from sunAngle (Iris convention)
-/// In Iris, sunPosition has magnitude ~100, so sunHeight ranges [-100, 100]
-/// @param sunAngle Iris sunAngle (0.0-1.0 cycle)
-///   IMPORTANT: In our engine this is `sunAngle` (renamed from compensatedCelestialAngle)
-///   sunAngle = celestialAngle + 0.25 = Iris sunAngle
-///   0.25 = noon, 0.50 = sunset, 0.75 = midnight, 0.9675 = sunrise
-/// @return Sun height value matching miniature-shader's view2feet(sunPosition).y
-float GetSunHeight(float sunAngle)
+/// Sun visibility: 0 = night, 1 = day
+/// CR: clamp(SdotU + 0.0625, 0, 0.125) / 0.125
+/// Uses sunPosition and upPosition from celestial_uniforms (view space)
+float GetSunVisibility(float3 inSunPosition, float3 inUpPosition)
 {
-    return 100.0 * sin(sunAngle * 6.28318530718);
+    float SdotU = dot(normalize(inSunPosition), normalize(inUpPosition));
+    return clamp(SdotU + 0.0625, 0.0, 0.125) / 0.125;
 }
 
-/// Calculate light color based on sun height (day/night cycle)
-/// Ref: miniature-shader common/getLightColor.vsh
-/// @param sunHeight Sun height in world space (~[-100, 100])
-/// @param skyLight  Sky light value [0,1] from lightmap
-/// @return Light color for the current time of day
-float3 GetLightColor(float sunHeight, float skyLight)
+/// Shadow time: pow4 curve — 1.0 at noon/midnight, 0.0 at sunrise/sunset
+/// Shadows fade to zero during transitions so only ambient light remains
+float GetShadowTime(float sunVis)
 {
-    // Sun redness at sunrise/sunset (low sun angles → more red)
-    // Transition: sunHeight 19.6-24.6 → redness fades out
-    float sunRedness = 1.0 - clamp(0.2 * sunHeight - 3.929, 0.0, 1.0);
+    // Symmetric: shadows strongest when sun fully up or fully down
+    // Weakest during transition (sunrise/sunset)
+    float t = abs(sunVis * 2.0 - 1.0); // 0 at transition, 1 at noon/midnight
+    return Pow4(t);
+}
 
-    // Day: warm sun color with redness; Night: cool moon color
-    float3 lightColor = sunHeight > 0.01
-                            ? normalize(float3(1.0 + clamp(sunRedness, 0.12, 1.0), 1.06, 1.0))
-                            : MOON_COLOR;
-
-    // Fade transition between night and day
-    // Full brightness when |sunHeight| > 14.5, zero when < 4.5
-    lightColor *= clamp(0.1 * abs(sunHeight) - 0.4453, 0.0, 1.0);
-
-    // Reduce color saturation on dark spots (low skyLight)
-    float l = Luma(lightColor);
-    return lerp(float3(l, l, l), lightColor, skyLight);
+/// Noon factor: how close to solar noon. 1 = noon, 0 = night/horizon
+/// CR: sqrt(max(sin(sunAngle * TWO_PI), 0))
+float GetNoonFactor(float inSunAngle)
+{
+    return sqrt(max(sin(inSunAngle * TWO_PI), 0.0));
 }
 
 //============================================================================//
-// Diffuse Calculation
+// Light & Ambient Color Functions
+//============================================================================//
+
+/// Day light color: lerp from sunset warm to noon neutral based on noonFactor
+float3 GetDayLightColor(float noonFactor)
+{
+    return lerp(SUNSET_LIGHT_COLOR, NOON_LIGHT_COLOR, noonFactor);
+}
+
+/// Day ambient color: derived from skyColor with sunset tint blended in
+float3 GetDayAmbientColor(float3 inSkyColor, float noonFactor)
+{
+    // Sky color provides base ambient; at sunset, warm tint bleeds in
+    float3 skyAmbient    = inSkyColor * 1.4;
+    float3 sunsetAmbient = lerp(inSkyColor, SUNSET_LIGHT_COLOR * 0.5, 0.3);
+    return lerp(sunsetAmbient, skyAmbient, noonFactor);
+}
+
+/// Night light color: moonlight, scaled by player brightness setting
+/// CR: 0.9 * vec3(0.15, 0.14, 0.20) * (0.4 + vsBrightness * 0.4)
+float3 GetNightLightColor(float vsBrightness)
+{
+    return NIGHT_LIGHT_COLOR * (0.4 + vsBrightness * 0.4);
+}
+
+/// Night ambient color: dark blue sky glow, scaled by player brightness
+/// CR: 0.9 * vec3(0.09, 0.12, 0.17) * (1.55 + vsBrightness * 0.77)
+float3 GetNightAmbientColor(float vsBrightness)
+{
+    return NIGHT_AMBIENT_COLOR * (1.55 + vsBrightness * 0.77);
+}
+
+/// Combined scene light and ambient colors with day/night blending and rain
+/// CR: lightAndAmbientColors.glsl main logic
+void GetSceneLightColors(
+    float      sunVis2, // sunVisibility squared for sharper transition
+    float      noonFactor,
+    float3     inSkyColor,
+    float      vsBrightness,
+    float      inRainStrength,
+    out float3 outLightColor,
+    out float3 outAmbientColor)
+{
+    // Day colors
+    float3 dayLight   = GetDayLightColor(noonFactor);
+    float3 dayAmbient = GetDayAmbientColor(inSkyColor, noonFactor);
+
+    // Night colors
+    float3 nightLight   = GetNightLightColor(vsBrightness);
+    float3 nightAmbient = GetNightAmbientColor(vsBrightness);
+
+    // Blend day ↔ night via sunVisibility²
+    outLightColor   = lerp(nightLight, dayLight, sunVis2);
+    outAmbientColor = lerp(nightAmbient, dayAmbient, sunVis2);
+
+    // Rain darkening: reduce light, slightly boost ambient (overcast sky)
+    // CR: lightColor *= 1.0 - rainStrength * 0.5
+    outLightColor   *= 1.0 - inRainStrength * 0.5;
+    outAmbientColor *= 1.0 + inRainStrength * 0.15;
+}
+
+//============================================================================//
+// Block & Minimum Lighting
+//============================================================================//
+
+/// Block light with warm color and CR-style curve
+/// CR: blocklightCol * pow(blockLight, 1.5) * blockLight
+float3 GetBlockLighting(float blockLight)
+{
+    // Pow curve makes block light fall off more naturally
+    float intensity = blockLight * blockLight * sqrt(blockLight); // ~pow(bl, 2.5)
+    return BLOCKLIGHT_COLOR * intensity;
+}
+
+/// Cave minimum light — fades with skyLight, includes nightVision boost
+/// Provides a tiny amount of light so caves aren't pitch black
+float3 GetMinimumLighting(float skyLight, float vsBrightness, float inNightVision)
+{
+    // Base minimum: very dim, fades out as skyLight increases (outdoor = no need)
+    float minBase = 0.003 * (1.0 + vsBrightness * 2.0);
+    float skyFade = 1.0 - skyLight * skyLight; // caves (low skyLight) get more
+
+    // Night vision provides significant boost
+    float nvBoost = inNightVision * 0.25;
+
+    return MIN_LIGHT_COLOR * (minBase * skyFade + nvBoost);
+}
+
+//============================================================================//
+// Diffuse Calculation (unchanged)
 //============================================================================//
 
 /// Calculate diffuse lighting factor
-/// @param skyLight Sky light value [0,1]
-/// @param normal Surface normal (world space)
-/// @param lightDir Light direction (normalized)
-/// @param fogMix Fog blend factor [0,1]
-/// @param rainStrength Rain intensity [0,1]
-/// @param isUnderwater True if camera is underwater
-/// @return Diffuse factor [0,1]
 float GetDiffuse(float skyLight, float3 normal, float3 lightDir, float fogMix, float rainStrength, bool isUnderwater)
 {
-    // Base diffuse from normal dot light
-    float NdotL       = dot(normalize(normal), normalize(lightDir));
-    float baseDiffuse = clamp(2.5 * NdotL, -0.3333, 1.0);
-
-    // Sky light contribution (rescale from lightmap range)
-    float skyFactor = Rescale(skyLight, 0.3137, 0.6235);
-
-    // Environmental modifiers
+    float NdotL         = dot(normalize(normal), normalize(lightDir));
+    float baseDiffuse   = clamp(2.5 * NdotL, -0.3333, 1.0);
+    float skyFactor     = Rescale(skyLight, 0.3137, 0.6235);
     float underwaterMod = isUnderwater ? 0.5 : 1.0;
     float fogMod        = 1.0 - fogMix;
     float rainMod       = 1.0 - rainStrength;
-
     return underwaterMod * fogMod * rainMod * skyFactor * baseDiffuse;
 }
 
@@ -87,74 +151,34 @@ float GetDiffuseThin(float skyLight, float fogMix, float rainStrength, bool isUn
     float underwaterMod = isUnderwater ? 0.5 : 1.0;
     float fogMod        = 1.0 - fogMix;
     float rainMod       = 1.0 - rainStrength;
-
     return underwaterMod * fogMod * rainMod * skyFactor * 0.75;
 }
 
 //============================================================================//
-// Light Strength (Diffuse + Shadow)
+// Light Strength (Diffuse + Shadow) (unchanged)
 //============================================================================//
 
 /// Calculate light strength combining diffuse and shadow
-/// @param screenPos SV_Position.xy for PCF noise generation
 float GetLightStrength(float3    worldPos, float3        normal, float3 lightDir, float diffuse,
                        float4x4  shadowView, float4x4    shadowProj,
                        Texture2D shadowTex, SamplerState samp,
                        float2    screenPos)
 {
-    // Early out if no diffuse contribution (back-face or no sky light)
     if (diffuse <= 0.0)
         return 0.0;
 
-    // Shadow sampling with normal bias + PCF filtering
     float shadow = SampleShadowWithBias(worldPos, normal, lightDir,
                                         shadowView, shadowProj, shadowTex, samp,
                                         screenPos);
-
     return diffuse * shadow;
 }
 
 //============================================================================//
-// Final Lighting Application
+// Combined Lighting Pipeline (CR-style rewrite)
 //============================================================================//
 
-/// Apply lighting to albedo color
-/// Ref: miniature-shader textured_lit.fsh:115-116
-/// Two-step process:
-///   1. Shadow tint: lerp(SHADOW_COLOR, white, lightStrength)
-///   2. Brightness boost with light color (normalized → safe from overexposure)
-/// @param albedo       Base color
-/// @param lightStrength Combined light strength [0,1]
-/// @param lightColor   Light color from GetLightColor (normalized sun or MOON_COLOR)
-/// @return Lit color
-float3 ApplyLighting(float3 albedo, float lightStrength, float3 lightColor)
-{
-    // Step 1: Shadow color blend — dark areas get SHADOW_COLOR tint
-    // Ref: textured_lit.fsh:115 — "ambient *= mix(SHADOW_COLOR, vec3(1.0), lightStrength)"
-    float3 shadowedLight = lerp(SHADOW_COLOR, float3(1.0, 1.0, 1.0), lightStrength);
-
-    // Step 2: Brightness boost with light color tint
-    // Ref: textured_lit.fsh:116 — "ambient *= 0.75 + (lightBrightness * lightStrength) * lightColor"
-    // lightBrightness reduces boost for bright surfaces to prevent overexposure
-    float  albedoLuma      = Luma(albedo);
-    float  lightBrightness = max(0.0, LIGHT_BRIGHTNESS - 0.5 * Pow3(albedoLuma));
-    float3 brightnessBoost = 0.75 + (lightBrightness * lightStrength) * lightColor;
-
-    return albedo * shadowedLight * brightnessBoost;
-}
-
-/// Apply lighting with default white light
-float3 ApplyLighting(float3 albedo, float lightStrength)
-{
-    return ApplyLighting(albedo, lightStrength, float3(1.0, 1.0, 1.0));
-}
-
-//============================================================================//
-// Combined Lighting Pipeline
-//============================================================================//
-
-/// Full lighting calculation: diffuse + shadow + apply
-/// @param screenPos SV_Position.xy for PCF noise generation
+/// Full lighting calculation — CR mainLighting.glsl approach
+/// Signature unchanged from previous version for deferred1.ps.hlsl compatibility
 float3 CalculateLighting(
     float3       albedo,
     float3       worldPos,
@@ -174,40 +198,57 @@ float3 CalculateLighting(
     SamplerState samp,
     float2       screenPos)
 {
-    // Light color from day/night cycle
-    // Ref: miniature-shader textured_lit.vsh — getLightColor(sunHeight, skyLight)
-    float  sunHeight  = GetSunHeight(sunAngle);
-    float3 lightColor = GetLightColor(sunHeight, skyLight);
+    // --- Time factors ---
+    float sunVis   = GetSunVisibility(sunPosition, upPosition);
+    float sunVis2  = sunVis * sunVis; // sharper day/night transition
+    float noonFac  = GetNoonFactor(sunAngle);
+    float shadowTm = GetShadowTime(sunVis);
 
-    // Base ambient level (proxy for miniature-shader's getAmbientColor)
-    // In miniature-shader, the lightmap texture encodes day/night brightness;
-    // here skyBrightness serves the same role for daytime.
-    // At night, skyBrightness drops near zero, but outdoor areas still receive
-    // moonlight — we approximate this with a skyLight-based floor.
-    float ambientLevel = max(blockLight, skyLight * skyBrightness);
+    // --- Player brightness (CR: vsBrightness) ---
+    float vsBrightness = saturate(screenBrightness);
 
-    // Moonlight ambient floor: outdoor areas (high skyLight) stay visible at night
-    // Indoor/cave areas (low skyLight) remain dark as intended
-    // Ref: Minecraft lightmap provides ~0.08-0.15 ambient at night with full sky light
-    ambientLevel = max(ambientLevel, skyLight * 0.15);
+    // --- Scene light & ambient colors (CR day/night blend) ---
+    float3 lightColor, ambientColor;
+    GetSceneLightColors(sunVis2, noonFac, skyColor, vsBrightness, rainStrength,
+                        lightColor, ambientColor);
 
-    // Absolute minimum (deep caves, no light sources)
-    ambientLevel = max(ambientLevel, 0.03);
+    // --- Diffuse N·L factor ---
+    float NdotLraw = dot(normalize(normal), normalize(lightDir));
+    float NdotLM   = max(NdotLraw * 0.7 + 0.3, 0.0); // half-Lambert-ish
 
-    // Diffuse factor (N·L, sky light, environment modifiers)
-    float diffuse = GetDiffuse(skyLight, normal, lightDir, fogMix, rainStrength, isUnderwater);
+    // --- Raw shadow sampling ---
+    float diffuse   = GetDiffuse(skyLight, normal, lightDir, fogMix, rainStrength, isUnderwater);
+    float rawShadow = 0.0;
+    if (diffuse > 0.0)
+    {
+        rawShadow = SampleShadowWithBias(worldPos, normal, lightDir,
+                                         shadowView, shadowProj, shadowTex, samp,
+                                         screenPos);
+    }
 
-    // Combined diffuse × shadow
-    float lightStrength = GetLightStrength(worldPos, normal, lightDir, diffuse,
-                                           shadowView, shadowProj, shadowTex, samp,
-                                           screenPos);
+    // --- Shadow multiplier (CR mainLighting.glsl) ---
+    // shadowTime: shadows fade at sunrise/sunset (only ambient remains)
+    // skyLightShadowMult: prevents shadow light leaking into caves
+    float skyLightShadowMult = Pow4(skyLight) * Pow4(skyLight); // skyLight^8
+    float shadowMult         = rawShadow * NdotLM * shadowTm * skyLightShadowMult;
 
-    // Block light provides a floor (ref: miniature-shader textured_lit.fsh:111)
-    lightStrength = max(0.75 * blockLight, lightStrength);
+    // --- Ambient multiplier: sky light drives ambient intensity ---
+    float ambientMult = smoothstep(0.0, 1.0, skyLight);
 
-    // Apply lighting with shadow color + brightness boost + AO
-    // ambientLevel provides day/night base brightness
-    return ApplyLighting(albedo, lightStrength, lightColor) * ambientLevel * ao;
+    // --- Block lighting (warm torch color) ---
+    float3 blockLighting = GetBlockLighting(blockLight);
+
+    // --- Minimum lighting (cave floor + nightVision) ---
+    float3 minLighting = GetMinimumLighting(skyLight, vsBrightness, nightVision);
+
+    // --- Final composition (CR formula) ---
+    // sceneLighting = lightColor * shadowMult + ambientColor * ambientMult
+    // finalDiffuse  = sqrt(ao² * (blockLighting + sceneLighting² + minLighting))
+    float3 sceneLighting = lightColor * shadowMult + ambientColor * ambientMult;
+    float3 totalLight    = blockLighting + sceneLighting * sceneLighting + minLighting;
+    float3 finalDiffuse  = sqrt(ao * ao * totalLight);
+
+    return albedo * finalDiffuse;
 }
 
 #endif // LIB_LIGHTING_HLSL
