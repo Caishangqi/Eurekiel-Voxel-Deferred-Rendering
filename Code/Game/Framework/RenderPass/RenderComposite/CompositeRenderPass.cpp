@@ -30,9 +30,28 @@ void CompositeRenderPass::Execute()
     {
         if (program)
         {
-            auto rts = RenderPassHelper::GetRenderTargetColorFromIndex(program->GetDirectives().GetDrawBuffers(), RenderTargetType::ColorTex);
+            const auto& directives = program->GetDirectives();
+
+            // Apply per-program blend from shaders.properties
+            const auto& blendConfig = directives.GetBlendConfig();
+            if (!blendConfig.IsUndefined())
+            {
+                g_theRendererSubsystem->SetBlendConfig(blendConfig);
+            }
+
+            // Apply per-buffer blend overrides
+            const auto& bufferOverrides = directives.GetBufferBlendOverrides();
+            for (const auto& [rtIndex, rtBlend] : bufferOverrides)
+            {
+                g_theRendererSubsystem->SetBlendConfig(rtBlend, rtIndex);
+            }
+
+            auto rts = RenderPassHelper::GetRenderTargetColorFromIndex(directives.GetDrawBuffers(), RenderTargetType::ColorTex);
             g_theRendererSubsystem->UseProgram(program, rts);
             FullQuadsRenderer::DrawFullQuads();
+
+            // Reset blend state for next program
+            g_theRendererSubsystem->SetBlendConfig(BlendConfig::Opaque());
         }
     }
     EndPass();
@@ -56,6 +75,7 @@ void CompositeRenderPass::BeginPass()
     // Depth/shadow SRV transitions handled by DeferredRenderPass::BeginPass()
     // CompositeRenderPass only needs post-processing setup
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Disabled());
+    g_theRendererSubsystem->SetBlendConfig(BlendConfig::Opaque());
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
 
