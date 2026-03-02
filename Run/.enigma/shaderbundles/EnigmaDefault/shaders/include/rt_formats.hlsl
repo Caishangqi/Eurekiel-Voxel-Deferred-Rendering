@@ -1,4 +1,4 @@
-/// [NEW] RenderTarget Format Definitions for EnigmaDefault ShaderBundle
+/// RenderTarget Format Definitions for EnigmaDefault ShaderBundle
 /// Reference: flexible-deferred-rendering-feature-rendertarget-format-refactor
 ///
 /// Include this file in ONE shader only (e.g., composite.ps.hlsl).
@@ -44,5 +44,25 @@ const float4 colortex2ClearColor = float4(0.0, 0.0, 1.0, 1.0);
 const float4 colortex3ClearColor = float4(0.0, 0.0, 0.0, 0.0);
 const float4 colortex4ClearColor = float4(0.0, 0.0, 0.0, 0.0);
 const float4 colortex5ClearColor = float4(0.0, 0.0, 0.0, 0.0);
+
+//============================================================================//
+// ShadowColor RT Configuration (Phase 5: Water Caustics + Underwater VL)
+//============================================================================//
+
+// Format Directives (parsed by engine)
+/*
+const int shadowcolor0Format = R8G8B8A8_UNORM;
+const int shadowcolor1Format = R8G8B8A8_UNORM;
+*/
+
+// Clear Control
+const bool shadowcolor0Clear = true;
+const bool shadowcolor1Clear = true;
+
+// Clear Color
+// shadowcolor0 = white: caustic pattern default no-effect (multiplicative blend, white = no change)
+// shadowcolor1 = black: underwater VL default no-light (additive blend, black = no contribution)
+const float4 shadowcolor0ClearColor = float4(1.0, 1.0, 1.0, 1.0);
+const float4 shadowcolor1ClearColor = float4(0.0, 0.0, 0.0, 1.0);
 
 #endif // INCLUDE_RT_FORMATS_HLSL
