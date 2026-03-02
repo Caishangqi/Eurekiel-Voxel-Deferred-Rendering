@@ -1,4 +1,4 @@
-/// [NEW] Common utility functions for EnigmaDefault ShaderBundle
+/// Common utility functions for EnigmaDefault ShaderBundle
 /// Ported from miniature-shader/shaders/common/math.glsl
 
 #ifndef LIB_COMMON_HLSL

@@ -58,7 +58,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba
     // [Step 1] Pre-calculate all 9 perimeter vertices at HORIZON level
     std::vector<Vec3>  perimeterPositions;
     std::vector<Vec2>  perimeterUVs;
-    std::vector<Rgba8> perimeterColors; // [NEW] Store per-vertex colors for alpha gradient
+    std::vector<Rgba8> perimeterColors; // Store per-vertex colors for alpha gradient
     perimeterPositions.reserve(9);
     perimeterUVs.reserve(9);
     perimeterColors.reserve(9);
@@ -94,7 +94,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba
         float v = 1.0f;
         perimeterUVs.emplace_back(u, v);
 
-        // [NEW] Alpha gradient for sky dome edge transparency
+        // Alpha gradient for sky dome edge transparency
         // Reference: Minecraft sky dome has semi-transparent edges at horizon
         // Upper hemisphere: edge alpha = 0 (fully transparent at horizon)
         // Lower hemisphere: keep opaque (void dome doesn't need transparency)
@@ -121,7 +121,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba
         {
             // Upper hemisphere: CCW from below (player looks up)
             // Order: Center -> Next -> Current
-            // [NEW] Center vertex uses full alpha, perimeter vertices use gradient alpha
+            // Center vertex uses full alpha, perimeter vertices use gradient alpha
             vertices.emplace_back(centerPosition, color, centerUV, normal, tangent, bitangent);
             vertices.emplace_back(perimeterPositions[i + 1], perimeterColors[i + 1], perimeterUVs[i + 1], normal, tangent, bitangent);
             vertices.emplace_back(perimeterPositions[i], perimeterColors[i], perimeterUVs[i], normal, tangent, bitangent);
@@ -130,7 +130,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba
         {
             // Lower hemisphere: CCW from above (player looks down)
             // Order: Center -> Current -> Next (reversed)
-            // [NEW] Void dome keeps full opacity (no alpha gradient needed)
+            // Void dome keeps full opacity (no alpha gradient needed)
             vertices.emplace_back(centerPosition, color, centerUV, normal, tangent, bitangent);
             vertices.emplace_back(perimeterPositions[i], perimeterColors[i], perimeterUVs[i], normal, tangent, bitangent);
             vertices.emplace_back(perimeterPositions[i + 1], perimeterColors[i + 1], perimeterUVs[i + 1], normal, tangent, bitangent);
@@ -142,7 +142,7 @@ std::vector<Vertex> SkyGeometryHelper::GenerateSkyDisc(float centerZ, const Rgba
 }
 
 //-----------------------------------------------------------------------------------------------
-// [NEW] Generate sky disc with CPU-side fog blending (Iris-style)
+// Generate sky disc with CPU-side fog blending (Iris-style)
 // Each vertex color is calculated based on its elevation angle:
 // - Center (zenith, elevation=90°): pure skyColor
 // - Perimeter (horizon, elevation=0°): pure fogColor

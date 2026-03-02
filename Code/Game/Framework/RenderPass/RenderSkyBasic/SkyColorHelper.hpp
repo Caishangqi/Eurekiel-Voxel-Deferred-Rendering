@@ -123,7 +123,7 @@ struct SkyEasingConfig
  * - Sunset (celestialAngle ~0.215, tick 12000, 6:00 PM) - Orange-red
  * - Midnight (celestialAngle 0.5, tick 18000, 12:00 AM) - Dark blue/black
  *
- * @note [NEW] Dawn phase added to support tick 0-1000 transition
+ * @note Dawn phase added to support tick 0-1000 transition
  *       Minecraft shows light yellow sky during early morning (tick 1000+)
  *       This allows sunrise strip to be orange while sky transitions to yellow
  */
@@ -267,7 +267,7 @@ public:
     static void                SetStripColors(const SunriseStripColors& colors);
     static void                ResetStripColorsToDefault();
 
-    // [NEW] Easing configuration accessors
+    // Easing configuration accessors
     static SkyEasingConfig& GetEasingConfig();
     static void             SetEasingConfig(const SkyEasingConfig& config);
     static void             ResetEasingToDefault();

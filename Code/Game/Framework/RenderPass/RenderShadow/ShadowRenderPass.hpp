@@ -17,7 +17,7 @@ namespace enigma::graphic
 }
 
 /**
- * @brief [NEW] Setup render pass for shadow map rendering
+ * @brief Setup render pass for shadow map rendering
  *
  * Responsible for:
  * - Loading shadow shaders (shadow.vs.hlsl, shadow.ps.hlsl)

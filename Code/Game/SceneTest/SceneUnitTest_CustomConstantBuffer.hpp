@@ -12,7 +12,7 @@ namespace enigma::graphic
 #pragma warning(push)
 #pragma warning(disable: 4324)
 
-// [NEW] Test Custom Uniform for multi-draw data independence verification
+// Test Custom Uniform for multi-draw data independence verification
 // Uses Vec4 color to visually verify Ring Buffer isolation
 struct TestUserCustomUniform
 {
@@ -40,7 +40,7 @@ private:
 #pragma endregion RENDER_RESOURCE
 
 #pragma region GAME_OBJECT
-    // [NEW] Three cubes for RGB multi-draw test (left to right: Red, Green, Blue)
+    // Three cubes for RGB multi-draw test (left to right: Red, Green, Blue)
     std::unique_ptr<Geometry> m_cubeA = nullptr; // Red cube at (-4, 0, 0)
     std::unique_ptr<Geometry> m_cubeB = nullptr; // Green cube at (0, 0, 0)
     std::unique_ptr<Geometry> m_cubeC = nullptr; // Blue cube at (4, 0, 0)

@@ -41,9 +41,9 @@ SceneUnitTest_CustomConstantBuffer::SceneUnitTest_CustomConstantBuffer()
     sa_testMoon->BuildFromGrid(".enigma/assets/engine/textures/environment/moon_phases.png", IntVec2(4, 2));
 
     /// Prepare scene - Three cubes for RGB multi-draw test
-    /// [NEW] Left to right: Red (-4,0,0), Green (0,0,0), Blue (4,0,0)
+    /// Left to right: Red (-4,0,0), Green (0,0,0), Blue (4,0,0)
 
-    // [NEW] Red cube at left position
+    // Red cube at left position
     m_cubeA             = std::make_unique<Geometry>(g_theGame);
     AABB3 geoCubeA      = AABB3(Vec3(0, 0, 0), Vec3(2, 2, 2));
     m_cubeA->m_position = Vec3(-4.0f, 0.0f, 0.0f);
@@ -51,7 +51,7 @@ SceneUnitTest_CustomConstantBuffer::SceneUnitTest_CustomConstantBuffer()
     m_cubeA->m_scale    = Vec3(1.0f, 1.0f, 1.0f);
     m_cubeA->SetVertices(geoCubeA.GetVertices())->SetIndices(geoCubeA.GetIndices());
 
-    // [NEW] Green cube at center position
+    // Green cube at center position
     m_cubeB             = std::make_unique<Geometry>(g_theGame);
     AABB3 geoCubeB      = AABB3(Vec3(0, 0, 0), Vec3(2, 2, 2));
     m_cubeB->m_position = Vec3(0.0f, 0.0f, 0.0f);
@@ -59,7 +59,7 @@ SceneUnitTest_CustomConstantBuffer::SceneUnitTest_CustomConstantBuffer()
     m_cubeB->m_scale    = Vec3(1.0f, 1.0f, 1.0f);
     m_cubeB->SetVertices(geoCubeB.GetVertices())->SetIndices(geoCubeB.GetIndices());
 
-    // [NEW] Blue cube at right position
+    // Blue cube at right position
     m_cubeC             = std::make_unique<Geometry>(g_theGame);
     AABB3 geoCubeC      = AABB3(Vec3(0, 0, 0), Vec3(2, 2, 2));
     m_cubeC->m_position = Vec3(4.0f, 0.0f, 0.0f);
@@ -68,7 +68,7 @@ SceneUnitTest_CustomConstantBuffer::SceneUnitTest_CustomConstantBuffer()
     m_cubeC->SetVertices(geoCubeC.GetVertices())->SetIndices(geoCubeC.GetIndices());
 
     /// Register Custom Constant Buffer
-    /// [NEW] Slot 42, space=1 (Custom Buffer path via Descriptor Table)
+    /// Slot 42, space=1 (Custom Buffer path via Descriptor Table)
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<TestUserCustomUniform>(
         42, // slot
         UpdateFrequency::PerObject, // frequency
@@ -83,7 +83,7 @@ SceneUnitTest_CustomConstantBuffer::~SceneUnitTest_CustomConstantBuffer()
 
 void SceneUnitTest_CustomConstantBuffer::Update()
 {
-    // [NEW] Update is now empty - color upload happens per-draw in Render()
+    // Update is now empty - color upload happens per-draw in Render()
     // This tests Ring Buffer data independence: each draw gets its own color
 }
 

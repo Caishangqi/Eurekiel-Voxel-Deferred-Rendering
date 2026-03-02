@@ -3,7 +3,7 @@
 #include <cmath>
 
 //-----------------------------------------------------------------------------------------------
-// [NEW] BezierEasing::Apply implementation
+// BezierEasing::Apply implementation
 // Uses cubic Bezier evaluation for time remapping (like CSS cubic-bezier)
 //
 // The curve is defined by 4 points:
@@ -172,7 +172,7 @@ void SkyColorHelper::ResetStripColorsToDefault()
     s_stripColors = SunriseStripColors::GetDefault();
 }
 
-// [NEW] Easing configuration accessors
+// Easing configuration accessors
 SkyEasingConfig& SkyColorHelper::GetEasingConfig()
 {
     return s_easingConfig;
@@ -194,7 +194,7 @@ void SkyColorHelper::SetMinecraftStyleEasing()
 }
 
 //-----------------------------------------------------------------------------------------------
-// [NEW] Calculate sky color using 5-phase interpolation with Bezier easing
+// Calculate sky color using 5-phase interpolation with Bezier easing
 //
 // Phase boundaries (5-phase):
 // - Phase 0 (0.0 - 0.25):   Noon -> Sunset
@@ -259,7 +259,7 @@ Vec3 SkyColorHelper::CalculateSkyColor(float celestialAngle)
 }
 
 //-----------------------------------------------------------------------------------------------
-// [NEW] Calculate fog color using 5-phase interpolation with Bezier easing
+// Calculate fog color using 5-phase interpolation with Bezier easing
 Vec3 SkyColorHelper::CalculateFogColor(float celestialAngle, float sunAngle)
 {
     // Use static phase colors (can be modified via ImGui)

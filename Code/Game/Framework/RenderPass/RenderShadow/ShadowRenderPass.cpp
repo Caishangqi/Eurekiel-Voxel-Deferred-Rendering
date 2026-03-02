@@ -27,13 +27,13 @@ using namespace enigma::graphic;
 
 ShadowRenderPass::ShadowRenderPass()
 {
-    // [NEW] Load shadow shaders (like TerrainRenderPass:29)
+    // Load shadow shaders (like TerrainRenderPass:29)
     ShaderCompileOptions shaderCompileOptions;
     shaderCompileOptions.enableDebugInfo = true;
 
     m_shadowProgram = g_theShaderBundleSubsystem->GetCurrentShaderBundle()->GetProgram("shadow");
 
-    // [NEW] Get atlas image for alpha testing in shadow pass
+    // Get atlas image for alpha testing in shadow pass
     const Image* atlasImage = g_theResource->GetAtlas("blocks")->GetAtlasImage();
     if (atlasImage)
     {
@@ -66,10 +66,10 @@ void ShadowRenderPass::Execute()
 {
     BeginPass();
 
-    // [NEW] Update shadow camera matrices
+    // Update shadow camera matrices
     UpdateShadowCamera();
 
-    // [NEW] Render terrain to shadow map
+    // Render terrain to shadow map
     RenderShadowMap();
 
     EndPass();
@@ -90,16 +90,16 @@ void ShadowRenderPass::OnShaderBundleUnloaded()
 
 void ShadowRenderPass::BeginPass()
 {
-    // [NEW] Set TerrainVertexLayout for shadow rendering (same as terrain pass)
+    // Set TerrainVertexLayout for shadow rendering (same as terrain pass)
     g_theRendererSubsystem->SetVertexLayout(TerrainVertexLayout::Get());
 
-    // [NEW] Use shadow program with shadowtex0 and shadowcolor0 render targets
+    // Use shadow program with shadowtex0 and shadowcolor0 render targets
     if (m_shadowProgram)
     {
         g_theRendererSubsystem->UseProgram(m_shadowProgram, {{RenderTargetType::ShadowTex, 0}, {RenderTargetType::ShadowColor, 0}});
     }
 
-    // [NEW] Set depth mode for shadow pass
+    // Set depth mode for shadow pass
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
 
     // [FIX] Disable back-face culling for shadow pass — standard shadow mapping practice.
@@ -108,7 +108,7 @@ void ShadowRenderPass::BeginPass()
     // At sunAngle >= 0.5, top faces become back-facing and get culled entirely.
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
 
-    // [NEW] Set block atlas for alpha testing
+    // Set block atlas for alpha testing
     if (m_blockAtlasTexture)
     {
         g_theRendererSubsystem->SetCustomImage(0, m_blockAtlasTexture.get());
