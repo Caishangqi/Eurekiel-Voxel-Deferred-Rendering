@@ -1,21 +1,24 @@
-/// Composite pass — passthrough (placeholder for Phase 5 reflections/SSR)
-/// Lighting, atmospheric fog, clouds, and fluid fog migrated to deferred1.ps.hlsl
-/// Reference: CR composite.glsl (PBR reflections), design R4.6.1
+/// Composite pass — reserved for future opaque surface reflections (metals, ice)
+/// Water SSR is now computed inline in gbuffers_water.ps.hlsl (CR architecture)
+///
+/// Pipeline: deferred1 -> gbuffers_water (SSR inline) -> composite -> composite1 (VL) -> composite5 (tonemap)
+/// Output: colortex7 (zeroed — no opaque reflections yet)
+/// Reference: CR composite.glsl (DRAWBUFFERS:7)
 #include "../@engine/core/core.hlsl"
 
 struct PSOutput
 {
-    float4 color0 : SV_Target0;
+    float4 color7 : SV_Target0; // colortex7: reflection (reserved for future opaque reflections)
 };
 
 PSOutput main(PSInput input)
 {
     PSOutput output;
 
-    /* RENDERTARGETS: 0 */
+    /* RENDERTARGETS: 7 */
 
-    // Pass through deferred output unchanged
-    output.color0 = colortex0.Sample(sampler0, input.TexCoord);
-
+    // No opaque surface reflections implemented yet
+    // Future: read colortex4/colortex6 material data for metals/ice and compute SSR here
+    output.color7 = float4(0.0, 0.0, 0.0, 0.0);
     return output;
 }
