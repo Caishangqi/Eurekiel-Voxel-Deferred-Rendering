@@ -3,7 +3,7 @@
  * @brief Shadow Pass Vertex Shader - Light Space Transformation
  * @date 2026-01-07
  *
- * [NEW] Shadow mapping vertex shader for depth-only rendering.
+ * Shadow mapping vertex shader for depth-only rendering.
  * Transforms vertices from world space to light space using
  * shadowView and shadowProjection matrices.
  *
@@ -11,11 +11,13 @@
  * - POSITION (float3) - Vertex position
  * - TEXCOORD0 (float2) - UV for alpha testing
  *
- * Output: Light space position + UV for shadow.ps.hlsl
+ * Output: Light space position + UV + WorldPos for shadow.ps.hlsl
  */
 
 #include "../@engine/core/core.hlsl"
 #include "../lib/shadow.hlsl"
+
+// [RENDERTARGETS] 0,1
 
 // ============================================================================
 // Shadow Pass Vertex Structures
@@ -40,6 +42,7 @@ struct VSOutput_Shadow
 {
     float4 Position : SV_POSITION; // Light space clip position
     float2 TexCoord : TEXCOORD0; // UV for alpha testing in PS
+    float3 WorldPos : TEXCOORD1; // World position (for caustics + VL)
 };
 
 /**
@@ -70,6 +73,7 @@ VSOutput_Shadow main(VSInput_Shadow input)
 
     output.Position = shadowClipPos;
     output.TexCoord = input.TexCoord;
+    output.WorldPos = worldPos.xyz;
 
     return output;
 }
