@@ -21,8 +21,8 @@
 
 #include "../@engine/core/core.hlsl"
 
-// [RENDERTARGETS] 0,1,2
-// Output: colortex0 (Albedo), colortex1 (Lightmap), colortex2 (Normal)
+// [RENDERTARGETS] 0,1,2,4
+// Output: colortex0 (Color), colortex1 (Lightmap), colortex2 (Normal), colortex4 (Material)
 
 // ============================================================================
 // Water-Specific Vertex Structures
