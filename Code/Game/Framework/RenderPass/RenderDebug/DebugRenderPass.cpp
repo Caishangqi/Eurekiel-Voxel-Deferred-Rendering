@@ -13,6 +13,9 @@
 #include "Game/Framework/RenderPass/RenderShadow/ShadowRenderPass.hpp"
 #include "Game/Gameplay/Game.hpp"
 
+bool DebugRenderPass::ENABLE_LIGHT_DIRECTION_DEBUG_DRAW = true;
+bool DebugRenderPass::ENABLE_COORDINATE_GIZMOS          = true;
+
 DebugRenderPass::DebugRenderPass()
 {
     /// Prepare Shader
@@ -80,7 +83,8 @@ void DebugRenderPass::Execute()
 {
     BeginPass();
     //RenderGrid();
-    RenderCursor();
+    if (ENABLE_COORDINATE_GIZMOS)
+        RenderCursor();
     EndPass();
 }
 
@@ -120,7 +124,8 @@ void DebugRenderPass::RenderCursor()
     lightDirection->m_orientation = dynamic_cast<ShadowRenderPass*>(g_theGame->m_shadowRenderPass.get())->m_lightDirectionEulerAngles;
     center->m_position            = m_player->m_position + playerForward * 3.0f;
     center_xyz->Render();
-    lightDirection->Render();
+    if (ENABLE_LIGHT_DIRECTION_DEBUG_DRAW)
+        lightDirection->Render();
     center->Render();
 }
 

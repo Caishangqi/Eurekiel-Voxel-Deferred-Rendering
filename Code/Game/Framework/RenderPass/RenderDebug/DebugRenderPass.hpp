@@ -31,11 +31,14 @@ private:
     Geometry* gridPlane      = nullptr;
 
     std::shared_ptr<enigma::graphic::ShaderProgram> sp_debugShader = nullptr;
-
-    std::shared_ptr<enigma::graphic::D12Texture> m_gridTexture = nullptr;
+    std::shared_ptr<enigma::graphic::D12Texture>    m_gridTexture  = nullptr;
 
 private:
     PlayerCharacter* m_player = nullptr;
     void             RenderCursor();
     void             RenderGrid();
+
+public:
+    static bool ENABLE_LIGHT_DIRECTION_DEBUG_DRAW;
+    static bool ENABLE_COORDINATE_GIZMOS;
 };
