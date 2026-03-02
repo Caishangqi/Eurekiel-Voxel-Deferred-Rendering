@@ -4,7 +4,7 @@
 #include "Engine/Core/Logger/LoggerAPI.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
-#include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp" // [NEW] PerObjectUniforms结构体
+#include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp" // PerObjectUniforms结构体
 #include "Game/GameCommon.hpp"
 #include "Game/Gameplay/Game.hpp"
 
