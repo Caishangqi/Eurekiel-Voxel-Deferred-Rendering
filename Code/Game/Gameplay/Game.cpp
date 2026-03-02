@@ -76,8 +76,8 @@ Game::Game()
     m_skyBasicRenderPass           = std::make_unique<SkyBasicRenderPass>();
     m_skyTexturedRenderPass        = std::make_unique<SkyTexturedRenderPass>();
     m_terrainRenderPass            = std::make_unique<TerrainRenderPass>();
-    m_terrainCutoutRenderPass      = std::make_unique<TerrainCutoutRenderPass>(); // [NEW] Cutout terrain (leaves, grass)
-    m_terrainTranslucentRenderPass = std::make_unique<TerrainTranslucentRenderPass>(); // [NEW] Translucent terrain (water)
+    m_terrainCutoutRenderPass      = std::make_unique<TerrainCutoutRenderPass>(); // Cutout terrain (leaves, grass)
+    m_terrainTranslucentRenderPass = std::make_unique<TerrainTranslucentRenderPass>(); // Translucent terrain (water)
     m_cloudRenderPass              = std::make_unique<CloudRenderPass>();
     m_deferredRenderPass           = std::make_unique<DeferredRenderPass>();
     m_compositeRenderPass          = std::make_unique<CompositeRenderPass>();
@@ -90,7 +90,7 @@ Game::Game()
     /// [NeoForge Pattern] Registration → Freeze → Compile
     RegisterBlocks();
 
-    // [NEW] Freeze all registries after registration completes
+    // Freeze all registries after registration completes
     // Reference: NeoForge GameData.java:65-76
     auto* registerSubsystem = GEngine->GetSubsystem<enigma::core::RegisterSubsystem>();
     if (registerSubsystem)
@@ -108,9 +108,9 @@ Game::Game()
     /// World Generator and World Creation
     using namespace enigma::voxel;
 
-    //auto generator = std::make_unique<SimpleMinerGenerator>();
-    auto generator = std::make_unique<FlatWorldGenerator>();
-    m_world        = std::make_unique<World>("world", 6693073380, std::move(generator));
+    auto generator = std::make_unique<SimpleMinerGenerator>();
+    //auto generator = std::make_unique<FlatWorldGenerator>();
+    m_world = std::make_unique<World>("world", 6693073380, std::move(generator));
     m_world->SetChunkActivationRange(settings.GetInt("video.simulationDistance", 6));
 
     /// Register ImGUI
@@ -135,10 +135,40 @@ Game::Game()
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(8, UpdateFrequency::PerObject, BufferSpace::Custom);
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<WorldTimeUniforms>(1, UpdateFrequency::PerFrame, BufferSpace::Custom);
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<WorldInfoUniforms>(3, UpdateFrequency::PerFrame, BufferSpace::Custom);
+
+    /// [R5.0] Subscribe to ShaderBundle lifecycle events for chunk mesh rebuild
+    /// When a Bundle switches, material ID mappings change — all chunks must rebuild vertices
+    /// (Reference: Iris levelRenderer.allChanged() on shader pack switch)
+    m_onBundleLoadedHandle = enigma::graphic::ShaderBundleEvents::OnBundleLoaded.Add(
+        [this](enigma::graphic::ShaderBundle*)
+        {
+            if (m_world)
+                m_world->InvalidateAllChunkMeshes();
+        }
+    );
+    m_onBundleUnloadedHandle = enigma::graphic::ShaderBundleEvents::OnBundleUnloaded.Add(
+        [this]()
+        {
+            if (m_world)
+                m_world->InvalidateAllChunkMeshes();
+        }
+    );
 }
 
 Game::~Game()
 {
+    // [R5.0] Unsubscribe from ShaderBundle events before world cleanup
+    if (m_onBundleLoadedHandle != 0)
+    {
+        enigma::graphic::ShaderBundleEvents::OnBundleLoaded.Remove(m_onBundleLoadedHandle);
+        m_onBundleLoadedHandle = 0;
+    }
+    if (m_onBundleUnloadedHandle != 0)
+    {
+        enigma::graphic::ShaderBundleEvents::OnBundleUnloaded.Remove(m_onBundleUnloadedHandle);
+        m_onBundleUnloadedHandle = 0;
+    }
+
     // Save and close world before cleanup
     if (m_world)
     {
@@ -209,45 +239,41 @@ void Game::Render()
 void Game::RenderWorld()
 {
     // ========================================
-    // [Task 19] Deferred Rendering Pipeline Integration
-    // Render Order: Sky → Terrain → Cloud → Final (Skip Composite)
+    // Deferred Rendering Pipeline (Iris-compatible order)
+    // Ref: IrisRenderingPipeline.java beginTranslucents() / finalizeLevelRendering()
+    //
+    // Order: Shadow → Sky → Opaque G-Buffer → Deferred Lighting
+    //        → Translucent (water/cloud) → Composite → Final
     // ========================================
 
+    // [STEP 1] Shadow pass
     m_shadowRenderPass->Execute();
     m_shadowCompositeRenderPass->Execute();
-    // [STEP 2] Sky Rendering (Must render FIRST, depth = 1.0)
-    // SkyBasic: sky dome, void dome, sunset strip → colortex0
+
+    // [STEP 2] Sky Rendering (depth = 1.0, rendered first into G-Buffer)
     m_skyBasicRenderPass->Execute();
-    // SkyTextured: stars, sun, moon → colortex0 (additive)
     m_skyTexturedRenderPass->Execute();
 
-    // [STEP 3] Terrain Rendering (G-Buffer deferred, normal depth)
+    // [STEP 3] Opaque G-Buffer (terrain + cutout)
     // Writes colortex0 (Albedo), colortex1 (Lightmap), colortex2 (Normal)
     m_terrainRenderPass->Execute();
-
-    // [STEP 3.1] Terrain Cutout Rendering (leaves, grass, flowers)
-    // Alpha-tested blocks with threshold 0.1 (Iris ONE_TENTH_ALPHA)
-    // Same G-Buffer output as solid terrain
     m_terrainCutoutRenderPass->Execute();
 
-    // [STEP 3.5] Translucent Terrain Rendering (Water, Ice, etc.)
-    // Renders translucent terrain blocks with alpha blending
-    // Uses depthtex1 for depth testing, writes to colortex0
-    m_terrainTranslucentRenderPass->Execute();
-
-    // [STEP 4] Cloud Rendering (Must render AFTER terrain, alpha blending)
-    // Renders translucent clouds to colortex0 with alpha blending
-    m_cloudRenderPass->Execute();
-
-    // [STEP 4.5] Deferred Lighting + Atmosphere + Clouds
-    // Reads GBuffer (colortex0-2, depthtex0), shadow map, custom textures
-    // Outputs: colortex0 (lit scene), colortex5.a (cloudLinearDepth for VL)
+    // [STEP 4] Deferred Lighting + Atmosphere
+    // Full-screen pass: reads G-Buffer, outputs lit scene to colortex0
+    // Must run BEFORE translucents so water/cloud blend onto the lit scene
     m_deferredRenderPass->Execute();
 
+    // [STEP 5] Translucent Rendering (water, ice, clouds)
+    // Runs AFTER deferred so colortex0 contains the lit scene for correct blending
+    // Water writes colortex4 (material mask) for composite SSR detection
+    m_terrainTranslucentRenderPass->Execute();
+    m_cloudRenderPass->Execute();
+
+    // [STEP 6] Composite passes (SSR, VL, tonemap)
     m_compositeRenderPass->Execute();
 
-    // [STEP 5] Final Pass
-    // Samples colortex0 and outputs to backbuffer
+    // [STEP 7] Final output to backbuffer
     m_finalRenderPass->Execute();
 }
 
