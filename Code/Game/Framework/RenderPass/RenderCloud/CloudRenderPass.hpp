@@ -59,8 +59,8 @@ enum class ViewOrientation;
  */
 enum class CloudStatus
 {
-    FAST, // [NEW] Single flat face per cell (~32K vertices)
-    FANCY // [NEW] Full volumetric cells (~98K vertices)
+    FAST, // Single flat face per cell (~32K vertices)
+    FANCY // Full volumetric cells (~98K vertices)
 };
 
 /**
@@ -71,9 +71,9 @@ enum class CloudStatus
  */
 enum class ViewOrientation
 {
-    BELOW_CLOUDS, // [NEW] Camera below cloud layer (Z < 192)
-    INSIDE_CLOUDS, // [NEW] Camera inside cloud layer (192 <= Z <= 196)
-    ABOVE_CLOUDS // [NEW] Camera above cloud layer (Z > 196)
+    BELOW_CLOUDS, // Camera below cloud layer (Z < 192)
+    INSIDE_CLOUDS, // Camera inside cloud layer (192 <= Z <= 196)
+    ABOVE_CLOUDS // Camera above cloud layer (Z > 196)
 };
 
 /**
@@ -91,11 +91,11 @@ struct CloudGeometryParameters
 {
     int             originX; // [FIX] Player cell X (Engine X axis)
     int             originY; // [FIX] Player cell Y (Engine Y axis)
-    int             radius; // [NEW] Render distance in cells
-    ViewOrientation orientation; // [NEW] Camera direction
-    CloudStatus     renderMode; // [NEW] Fast/Fancy mode
+    int             radius; // Render distance in cells
+    ViewOrientation orientation; // Camera direction
+    CloudStatus     renderMode; // Fast/Fancy mode
 
-    // [NEW] Default constructor
+    // Default constructor
     CloudGeometryParameters()
         : originX(0), originY(0), radius(0)
           , orientation(ViewOrientation::BELOW_CLOUDS)
@@ -103,14 +103,14 @@ struct CloudGeometryParameters
     {
     }
 
-    // [NEW] Parameterized constructor
+    // Parameterized constructor
     // [FIX] Parameter order: (x, y, radius, orientation, mode) - matching Sodium
     CloudGeometryParameters(int x, int y, int r, ViewOrientation o, CloudStatus m)
         : originX(x), originY(y), radius(r), orientation(o), renderMode(m)
     {
     }
 
-    // [NEW] Equality operator for change detection
+    // Equality operator for change detection
     bool operator==(const CloudGeometryParameters& other) const
     {
         return originX == other.originX &&
@@ -135,8 +135,8 @@ struct CloudGeometryParameters
  */
 struct CloudGeometry
 {
-    std::vector<Vertex>     vertices; // [NEW] CPU-side vertex buffer
-    CloudGeometryParameters params; // [NEW] Generation parameters
+    std::vector<Vertex>     vertices; // CPU-side vertex buffer
+    CloudGeometryParameters params; // Generation parameters
 
     CloudGeometry()  = default;
     ~CloudGeometry() = default;
@@ -215,7 +215,7 @@ protected:
     void EndPass() override;
 
 public:
-    // [NEW] Public API for external control
+    // Public API for external control
     /**
      * @brief Load clouds.png texture and create CloudTextureData
      *
@@ -243,7 +243,7 @@ public:
     CloudConfig& GetConfig() { return m_configParser->GetParsedConfig(); }
 
 private:
-    // [NEW] Core rendering logic
+    // Core rendering logic
     /**
      * @brief Calculate cloud parameters and rebuild geometry if needed
      *
@@ -261,23 +261,23 @@ private:
     // Data Members
     // ========================================
 
-    // [NEW] Cloud texture data (face masks + colors)
+    // Cloud texture data (face masks + colors)
     std::unique_ptr<CloudTextureData> m_textureData;
 
-    // [NEW] Cloud geometry (cached vertices + parameters)
+    // Cloud geometry (cached vertices + parameters)
     std::unique_ptr<CloudGeometry> m_geometry;
 
     // [REWRITE] Shader program (gbuffers_clouds)
     // [FIX 2] Use raw pointer, matching SkyRenderPass.hpp pattern
     std::shared_ptr<enigma::graphic::ShaderProgram> m_cloudsShader = nullptr;
 
-    // [NEW] Cached geometry parameters (for rebuild detection)
+    // Cached geometry parameters (for rebuild detection)
     CloudGeometryParameters m_cachedParams;
 
-    // [NEW] Rebuild flag (set by texture load or parameter change)
+    // Rebuild flag (set by texture load or parameter change)
     bool m_needsRebuild = true;
 
-    // [NEW] Rendering mode (FAST / FANCY)
+    // Rendering mode (FAST / FANCY)
     CloudStatus m_renderMode;
 
     std::unique_ptr<CloudConfigParser> m_configParser;

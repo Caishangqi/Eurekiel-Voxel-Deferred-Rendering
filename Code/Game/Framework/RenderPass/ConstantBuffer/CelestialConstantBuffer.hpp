@@ -45,7 +45,7 @@ struct CelestialConstantBuffer
     // ==================== Row 1: Sun position (16 bytes) ====================
     // @iris sunPosition
     alignas(16) Vec3 sunPosition; // Sun direction vector (view space), length 100
-    float            shadowAngle; // [NEW] @iris shadowAngle (0.0-0.5)
+    float            shadowAngle; // @iris shadowAngle (0.0-0.5)
 
     // ==================== Row 2: Moon position (16 bytes) ====================
     // @iris moonPosition
@@ -54,12 +54,12 @@ struct CelestialConstantBuffer
     // ==================== Row 3: Shadow light position (16 bytes) ====================
     // @iris shadowLightPosition
     // Logic: isDay() ? sunPosition : moonPosition (CelestialUniforms.java:93-95)
-    alignas(16) Vec3 shadowLightPosition; // [NEW] Shadow light source position (day=sun, night=moon)
+    alignas(16) Vec3 shadowLightPosition; // Shadow light source position (day=sun, night=moon)
     float            _padding3; //Padding to 16 bytes
 
     // ==================== Row 4: Upward vector (16 bytes) ====================
     // @iris upPosition
-    alignas(16) Vec3 upPosition; // [NEW] Up direction vector (view space), length 100
+    alignas(16) Vec3 upPosition; // Up direction vector (view space), length 100
     float            _padding4; // Padding to 16 bytes
 
     // ==================== Row 5: Color modulator (16 bytes) ====================

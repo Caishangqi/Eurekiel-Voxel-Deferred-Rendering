@@ -1,6 +1,6 @@
 ﻿/**
  * @file CloudGeometryHelper.cpp
- * @brief [NEW] Implementation of Sodium-style cloud geometry generation
+ * @brief Implementation of Sodium-style cloud geometry generation
  * @date 2025-12-02
  */
 
@@ -21,7 +21,7 @@
 // ========================================
 
 /**
- * @brief [NEW] Rebuild cloud geometry using spiral traversal algorithm
+ * @brief Rebuild cloud geometry using spiral traversal algorithm
  * Reference: Sodium CloudRenderer.java Line 147-216
  */
 void CloudGeometryHelper::RebuildGeometry(
@@ -109,7 +109,7 @@ void CloudGeometryHelper::RebuildGeometry(
 }
 
 /**
- * @brief [NEW] Process single cell geometry
+ * @brief Process single cell geometry
  * Reference: Sodium CloudRenderer.java Line 218-235
  */
 void CloudGeometryHelper::AddCellGeometry(
@@ -238,7 +238,7 @@ int CloudGeometryHelper::GetVisibleFaces(
 // ========================================
 
 /**
- * @brief [NEW] Generate Fast mode flat geometry
+ * @brief Generate Fast mode flat geometry
  * Reference: Sodium CloudRenderer.java Line 266-297
  * [FIX] Use AddVertsForQuad3D to generate 6 vertices (2 triangles) instead of 4 vertices (1 quad)
  */
@@ -274,7 +274,7 @@ void CloudGeometryHelper::EmitCellGeometryFlat(
 }
 
 /**
- * @brief [NEW] Generate Fancy mode exterior faces
+ * @brief Generate Fancy mode exterior faces
  * Reference: Sodium CloudRenderer.java Line 299-386
  * [FIX] Use AddVertsForQuad3D to generate 6 vertices (2 triangles) per face instead of 4 vertices
  */
@@ -381,7 +381,7 @@ void CloudGeometryHelper::EmitCellGeometryExterior(
 }
 
 /**
- * @brief [NEW] Generate Fancy mode interior faces
+ * @brief Generate Fancy mode interior faces
  * Reference: Sodium CloudRenderer.java Line 388-444
  * [FIX] Use AddVertsForQuad3D to generate 6 vertices (2 triangles) per face instead of 4 vertices
  * Interior faces have reversed winding order compared to exterior faces

@@ -1,6 +1,6 @@
 ﻿/**
  * @file CloudGeometryHelper.hpp
- * @brief [NEW] Static helper for Sodium-style cloud geometry generation
+ * @brief Static helper for Sodium-style cloud geometry generation
  * @date 2025-12-02
  *
  * [REWRITE] CloudGeometryHelper - Static Tool Class
@@ -40,7 +40,7 @@ enum class ViewOrientation;
 
 /**
  * @class CloudGeometryHelper
- * @brief [NEW] Static-only tool class for cloud geometry generation
+ * @brief Static-only tool class for cloud geometry generation
  *
  * Design Principles:
  * 1. No instances - All methods static
@@ -67,7 +67,7 @@ public:
     // ========================================
 
     /**
-     * @brief [NEW] Rebuild cloud geometry using spiral traversal algorithm
+     * @brief Rebuild cloud geometry using spiral traversal algorithm
      * @param existingGeometry Geometry object to fill with vertices
      * @param params Generation parameters (origin, radius, orientation, mode)
      * @param textureData Cloud texture data for sampling
@@ -89,7 +89,7 @@ public:
     );
 
     /**
-     * @brief [NEW] Process single cell geometry
+     * @brief Process single cell geometry
      * @param vertices Vertex vector to append to
      * @param slice Texture slice for sampling
      * @param x Cell X coordinate (relative to origin)
@@ -114,7 +114,7 @@ public:
     );
 
     /**
-     * @brief [NEW] Calculate visible faces mask for cell
+     * @brief Calculate visible faces mask for cell
      * @param x Cell X coordinate (relative to camera)
      * @param z Cell Z coordinate (relative to camera)
      * @param orientation Camera orientation (BELOW/INSIDE/ABOVE clouds)
@@ -140,7 +140,7 @@ public:
     // ========================================
 
     /**
-     * @brief [NEW] Generate Fast mode flat geometry (single face)
+     * @brief Generate Fast mode flat geometry (single face)
      * @param vertices Vertex vector to append to
      * @param color Cell color (ABGR32 format)
      * @param x Cell X coordinate
@@ -160,7 +160,7 @@ public:
     );
 
     /**
-     * @brief [NEW] Generate Fancy mode exterior faces (6 faces)
+     * @brief Generate Fancy mode exterior faces (6 faces)
      * @param vertices Vertex vector to append to
      * @param cellFaces Visible faces mask (6-bit)
      * @param cellColor Cell color (ABGR32 format)
@@ -183,7 +183,7 @@ public:
     );
 
     /**
-     * @brief [NEW] Generate Fancy mode interior faces (reversed normals)
+     * @brief Generate Fancy mode interior faces (reversed normals)
      * @param vertices Vertex vector to append to
      * @param baseColor Base color (ABGR32 format)
      * @param cellX Cell X coordinate
@@ -208,7 +208,7 @@ public:
     // ========================================
 
     /**
-     * @brief [NEW] Calculate taxicab distance (Manhattan distance)
+     * @brief Calculate taxicab distance (Manhattan distance)
      * @param x X coordinate
      * @param z Z coordinate
      * @return Taxicab distance from origin
@@ -219,7 +219,7 @@ public:
     }
 
     /**
-     * @brief [NEW] Check if color is transparent (alpha < 10)
+     * @brief Check if color is transparent (alpha < 10)
      * @param argb Color in ARGB format
      * @return true if transparent, false otherwise
      */
@@ -279,7 +279,7 @@ public:
 // ========================================
 
 /**
- * @brief [NEW] Directional brightness constants
+ * @brief Directional brightness constants
  *
  * Coordinate System Mapping (Minecraft -> Engine):
  * - Minecraft POS_Y (up, 1.0f) -> Engine POS_Z (up)
@@ -289,7 +289,7 @@ public:
  *
  * Reference: Sodium CloudRenderer.java Line 47-58
  */
-constexpr float BRIGHTNESS_POS_Z  = 1.0f; // [NEW] Top face (upward)
-constexpr float BRIGHTNESS_NEG_Z  = 0.7f; // [NEW] Bottom face (downward)
-constexpr float BRIGHTNESS_Y_AXIS = 0.9f; // [NEW] Y-axis faces (left-right)
-constexpr float BRIGHTNESS_X_AXIS = 0.8f; // [NEW] X-axis faces (front-back)
+constexpr float BRIGHTNESS_POS_Z  = 1.0f; // Top face (upward)
+constexpr float BRIGHTNESS_NEG_Z  = 0.7f; // Bottom face (downward)
+constexpr float BRIGHTNESS_Y_AXIS = 0.9f; // Y-axis faces (left-right)
+constexpr float BRIGHTNESS_X_AXIS = 0.8f; // X-axis faces (front-back)
