@@ -14,8 +14,8 @@
 #include "Game/Framework/RenderPass/RenderSkyTextured/ImguiSettingSkyTextured.hpp"
 #include "Game/Framework/RenderPass/RenderSkyTextured/SkyTexturedRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderComposite/ImguiSettingComposite.hpp"
+#include "Game/Framework/RenderPass/RenderDebug/ImguiSettingRenderDebug.hpp"
 #include "Game/Gameplay/Game.hpp"
-#include "ThirdParty/imgui/imgui.h"
 
 /**
  * @brief Show Scene Rendering tab content
@@ -26,6 +26,8 @@ void ImguiSceneRendering::Show()
     // Note: ImguiSettingSky::Show() requires SkyRenderPass* parameter
     // This will be integrated in Task 18 when connecting to Game::RenderImGui()
     // For now, we create the UI structure
+
+    ImguiSettingRenderDebug::Show();
 
     // [MODULE 2] Cloud Rendering
     CloudRenderPass* cloudPass = dynamic_cast<CloudRenderPass*>(g_theGame->m_cloudRenderPass.get());
