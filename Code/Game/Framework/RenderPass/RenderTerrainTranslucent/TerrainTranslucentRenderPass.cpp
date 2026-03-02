@@ -26,6 +26,7 @@
 #include "Engine/Graphic/Target/DepthTextureProvider.hpp"
 #include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
+#include "Game/Framework/RenderPass/RenderPassHelper.hpp"
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Resource/ResourceSubsystem.hpp"
@@ -136,7 +137,11 @@ void TerrainTranslucentRenderPass::BeginPass()
     // Set TerrainVertexLayout (same as TerrainRenderPass)
     g_theRendererSubsystem->SetVertexLayout(TerrainVertexLayout::Get());
 
-    g_theRendererSubsystem->UseProgram(m_waterShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::ColorTex, 1}, {RenderTargetType::ColorTex, 2}, {RenderTargetType::DepthTex, 0}});
+    // Bind render targets from shader RENDERTARGETS directive (e.g. 0,1,2,4)
+    // Previously hardcoded {0,1,2} which missed colortex4 (material data for SSR)
+    auto rts = RenderPassHelper::GetRenderTargetColorFromIndex(m_waterShader->GetDirectives().GetDrawBuffers(), RenderTargetType::ColorTex);
+    rts.push_back({RenderTargetType::DepthTex, 0});
+    g_theRendererSubsystem->UseProgram(m_waterShader, rts);
 
     // [REFACTOR] Update only gbuffer matrices in global MATRICES_UNIFORM
     g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
@@ -154,6 +159,26 @@ void TerrainTranslucentRenderPass::EndPass()
 
 void TerrainTranslucentRenderPass::SetupBlendState()
 {
+    // Apply blend from shaders.properties if available, otherwise default alpha blend
+    if (m_waterShader)
+    {
+        const auto& directives  = m_waterShader->GetDirectives();
+        const auto& blendConfig = directives.GetBlendConfig();
+        if (!blendConfig.IsUndefined())
+        {
+            g_theRendererSubsystem->SetBlendConfig(blendConfig);
+
+            // Apply per-buffer blend overrides (e.g., colortex4=off for G-buffer data)
+            const auto& bufferOverrides = directives.GetBufferBlendOverrides();
+            for (const auto& [rtIndex, rtBlend] : bufferOverrides)
+            {
+                g_theRendererSubsystem->SetBlendConfig(rtBlend, rtIndex);
+            }
+            return;
+        }
+    }
+
+    // Fallback: standard alpha blend
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Alpha());
 }
 
