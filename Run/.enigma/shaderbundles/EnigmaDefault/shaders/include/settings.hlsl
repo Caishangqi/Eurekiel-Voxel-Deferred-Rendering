@@ -1,4 +1,4 @@
-/// [NEW] Centralized shader configuration for EnigmaDefault ShaderBundle
+/// Centralized shader configuration for EnigmaDefault ShaderBundle
 /// Reference: miniature-shader/shaders/shader.h
 
 #ifndef INCLUDE_SETTINGS_HLSL
@@ -243,15 +243,15 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 #define GLASS_REFLECTIVITY 0.3
 
 #ifndef SSR_MAX_STEPS
-#define SSR_MAX_STEPS 10            // [1 - 512] Screen-space reflection steps
+#define SSR_MAX_STEPS 30            // [1 - 512] Screen-space reflection steps (CR uses 38)
 #endif
 
 #ifndef SSR_STEP_SIZE
-#define SSR_STEP_SIZE 1.6           // [0.1 - 2.0] SSR step size
+#define SSR_STEP_SIZE 1.0           // [0.1 - 2.0] SSR initial step multiplier (CR uses 1.0)
 #endif
 
 #ifndef SSR_BINARY_STEPS
-#define SSR_BINARY_STEPS 4          // [1 - 10] Binary refinement steps
+#define SSR_BINARY_STEPS 6          // [1 - 10] Binary refinement steps (CR uses 10)
 #endif
 
 //============================================================================//
@@ -268,6 +268,50 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 
 #ifndef WATER_WAVE_SPEED
 #define WATER_WAVE_SPEED 2
+#endif
+
+//============================================================================//
+// Water Surface Settings (Reimagined Style)
+//============================================================================//
+
+#ifndef WATER_STYLE
+#define WATER_STYLE 1                // [1 2] 1=Reimagined, 2=Reimagined+Waves
+#endif
+
+#ifndef WATER_BUMPINESS
+#define WATER_BUMPINESS 80           // [0 20 40 60 80 100 120 150 200] Normal intensity
+#endif
+
+#ifndef WATER_FOAM_I
+#define WATER_FOAM_I 50              // [0 25 50 75 100 150 200] Foam intensity
+#endif
+
+#ifndef WATER_FOG_MULT
+#define WATER_FOG_MULT 100           // [25 50 75 100 150 200 300] Underwater fog density
+#endif
+
+#ifndef WATER_ALPHA_MULT
+#define WATER_ALPHA_MULT 100         // [50 75 100 125 150] Water transparency
+#endif
+
+#ifndef WATER_REFRACTION_INTENSITY
+#define WATER_REFRACTION_INTENSITY 100 // [0 25 50 75 100 150 200] Refraction strength
+#endif
+
+#ifndef WATER_MAT_QUALITY
+#define WATER_MAT_QUALITY 3          // [2 3] 2=basic normals, 3=parallax+normals
+#endif
+
+#ifndef WATER_REFLECT_QUALITY
+#define WATER_REFLECT_QUALITY 2      // [0 1 2] 0=off, 1=sky only, 2=SSR
+#endif
+
+#ifndef WATER_CAUSTICS_STRENGTH
+#define WATER_CAUSTICS_STRENGTH 1.0  // [0.0 0.25 0.5 0.75 1.0 1.5 2.0] Caustic pattern intensity
+#endif
+
+#ifndef WATER_VL_STRENGTH
+#define WATER_VL_STRENGTH 1.0        // [0.0 0.25 0.5 0.75 1.0 1.5 2.0] Underwater VL intensity
 #endif
 
 //============================================================================//
