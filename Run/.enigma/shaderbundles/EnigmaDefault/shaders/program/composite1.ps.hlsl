@@ -1,9 +1,10 @@
-/// Composite pass 1 — volumetric light (god rays) post-processing
+/// Composite pass 1 — volumetric light + underwater effects post-processing
 /// Reads colortex5.a (cloudLinearDepth/vlFactor) written by deferred1
-/// Reference: CR composite1.glsl, design R4.6.2
+/// Phase 5: Added refraction, underwater color attenuation, caustics, underwater VL
+/// Reference: CR composite1.glsl, design R4.6.2, design Component 6 (R5.5)
 ///
-/// Pipeline: deferred1 output -> composite (passthrough) -> composite1 (VL) -> final
-/// Output: colortex0 (scene + VL), colortex5.a (vlFactor preserved)
+/// Pipeline: deferred1 output -> composite (SSR) -> composite1 (VL + underwater) -> final
+/// Output: colortex0 (scene + VL + underwater), colortex5.a (vlFactor preserved)
 #include "../@engine/core/core.hlsl"
 #include "../@engine/lib/math.hlsl"
 #include "../include/settings.hlsl"
@@ -12,11 +13,63 @@
 #include "../lib/noise.hlsl"
 #include "../lib/volumetricLight.hlsl"
 
+// Water material mask threshold (241/255 = 0.9451)
+static const float WATER_MATERIAL_THRESHOLD = 240.0 / 255.0;
+
+// Underwater color attenuation (CR style)
+static const float3 UNDERWATER_MULT = float3(0.80, 0.87, 0.97) * 0.85;
+
+// Underwater fog color (deep water blue-green)
+static const float3 WATER_FOG_COLOR = float3(0.05, 0.12, 0.18);
+
 struct PSOutput
 {
     float4 color0 : SV_Target0; // colortex0
     float4 color1 : SV_Target1; // colortex5 (mapped via RENDERTARGETS: 0,5)
 };
+
+// ============================================================================
+// Water Refraction (isEyeInWater == 0, looking at water from above)
+// ============================================================================
+
+/// Compute refracted scene color by offsetting UV based on depth difference.
+/// Validates that the offset pixel is still water via colortex4 material mask.
+float3 ApplyWaterRefraction(float2 uv, float3 sceneColor, float depth)
+{
+#if WATER_REFRACTION_INTENSITY > 0
+    // Check if current pixel is water (colortex4.r material mask)
+    float matMask = colortex4.Sample(sampler1, uv).r;
+    if (matMask < WATER_MATERIAL_THRESHOLD)
+        return sceneColor;
+
+    // Read water normal from colortex2 for refraction direction
+    float3 waterNormal = colortex2.Sample(sampler1, uv).rgb;
+
+    // UV offset proportional to normal XY perturbation and refraction intensity
+    float  refrScale = WATER_REFRACTION_INTENSITY * 0.01;
+    float2 uvOffset  = waterNormal.xy * refrScale * 0.02;
+
+    // Validate offset UV: must still be water
+    float2 refractedUV = uv + uvOffset;
+    refractedUV        = clamp(refractedUV, 0.001, 0.999);
+
+    float offsetMatMask = colortex4.Sample(sampler1, refractedUV).r;
+    if (offsetMatMask < WATER_MATERIAL_THRESHOLD)
+        return sceneColor; // Offset left water region, keep original
+
+    // Resample scene at refracted UV (already linearized)
+    float3 refractedColor = colortex0.Sample(sampler0, refractedUV).rgb;
+    refractedColor        = pow(max(refractedColor, 0.0), 2.2);
+
+    return refractedColor;
+#else
+    return sceneColor;
+#endif
+}
+
+// ============================================================================
+// Main Entry
+// ============================================================================
 
 PSOutput main(PSInput input)
 {
@@ -26,13 +79,16 @@ PSOutput main(PSInput input)
 
     // Read scene color from deferred/composite output
     float3 sceneColor = colortex0.Sample(sampler0, input.TexCoord).rgb;
+    float  depth      = depthtex0.Sample(sampler1, input.TexCoord).r;
 
-    // Gamma → Linear: deferred1 outputs gamma-space color (sRGB textures, gamma lighting).
+    // Water reflection is now computed inline in gbuffers_water (CR architecture).
+    // colortex0 already contains water color with reflection blended in.
+    // Future: opaque surface reflections (metals, ice) would be blended here from colortex7.
+
+    // Gamma -> Linear: deferred1 outputs gamma-space color (sRGB textures, gamma lighting).
     // Must linearize before VL addition and tonemap (composite5 applies LinearToSRGB).
-    // Without this, LinearToSRGB in composite5 double-gammas → washed out, low saturation.
-    // Ref: CR composite1.glsl — color = pow(color, vec3(2.2))
-    sceneColor  = pow(max(sceneColor, 0.0), 2.2);
-    float depth = depthtex0.Sample(sampler1, input.TexCoord).r;
+    // Ref: CR composite1.glsl -- color = pow(color, vec3(2.2))
+    sceneColor = pow(max(sceneColor, 0.0), 2.2);
 
     // Read cloud linear depth from colortex5.a (written by deferred1)
     // vlFactor: 1.0 = no cloud (full VL), <1.0 = cloud present (reduced VL)
@@ -41,14 +97,12 @@ PSOutput main(PSInput input)
     // Compute sunVisibility from SdotU (CR composite1.glsl:24)
     float SdotU         = dot(normalize(sunPosition), normalize(upPosition));
     float sunVisibility = clamp(SdotU + 0.0625, 0.0, 0.125) / 0.125;
-
     // Reconstruct world position
-    float3 viewPos = ReconstructViewPosition(input.TexCoord, depth,
-                                             gbufferProjectionInverse, gbufferRendererInverse);
+    float3 viewPos  = ReconstructViewPosition(input.TexCoord, depth, gbufferProjectionInverse, gbufferRendererInverse);
     float3 worldPos = mul(gbufferViewInverse, float4(viewPos, 1.0)).xyz;
 
     // View direction (camera-relative, world space)
-    // [FIX] worldPos is ABSOLUTE in our engine — subtract cameraPosition
+    // [FIX] worldPos is ABSOLUTE in our engine -- subtract cameraPosition
     float3 nViewDir = normalize(worldPos - cameraPosition);
 
     // Light direction in world space
@@ -64,15 +118,58 @@ PSOutput main(PSInput input)
     float dither = InterleavedGradientNoiseForClouds(input.Position.xy);
 
     // Volumetric light via shadow map ray marching
-    // Returns float3 (additive color), no longer float4
     float3 vl = GetVolumetricLight(
         worldPos, cameraPosition, VdotL, VdotU, SdotU, dither, vlFactor,
         sunVisibility,
         shadowView, shadowProjection,
         shadowtex1, sampler1);
 
+    // ====================================================================
+    // Phase 5: Water Refraction (isEyeInWater == 0, above water surface)
+    // ====================================================================
+    if (isEyeInWater == EYE_IN_AIR)
+    {
+        sceneColor = ApplyWaterRefraction(input.TexCoord, sceneColor, depth);
+    }
+
+    // ====================================================================
+    // Phase 5: Underwater Effects (isEyeInWater == 1)
+    // ====================================================================
+    if (isEyeInWater == EYE_IN_WATER)
+    {
+        // [STEP 1] Color attenuation -- blue-green underwater tint
+        sceneColor *= UNDERWATER_MULT;
+
+        // [STEP 2] VL attenuation -- underwater light filtering
+        float3 uwMult071 = UNDERWATER_MULT * 0.71;
+        float3 vlMult    = uwMult071 * uwMult071; // pow2 per-component
+        vl               *= vlMult;
+
+        // [STEP 3] Sky pixel replacement -- sky becomes water fog color
+        // Sky pixels have depth == 1.0 (far plane)
+        if (depth >= 0.9999)
+        {
+            sceneColor = WATER_FOG_COLOR;
+        }
+
+        // [STEP 4] Caustic overlay from shadowcolor0
+        // shadowcolor0 cleared to white (1,1,1) = no caustic effect
+        // Values < 1.0 indicate caustic pattern presence
+        float3 caustic = shadowcolor0.Sample(sampler0, input.TexCoord).rgb;
+        // Caustic modulates scene brightness (multiplicative on non-sky pixels)
+        if (depth < 0.9999)
+        {
+            sceneColor *= lerp(float3(1, 1, 1), caustic + 0.5, sunVisibility * 0.5);
+        }
+
+        // [STEP 5] Underwater VL from shadowcolor1
+        // shadowcolor1 cleared to black (0,0,0) = no VL contribution
+        float3 underwaterVL = shadowcolor1.Sample(sampler0, input.TexCoord).rgb;
+        vl                  += underwaterVL * WATER_VL_STRENGTH;
+    }
+
     // Additive blend: VL adds light to scene (HDR, no clamping)
-    // Tonemap in composite5 will handle HDR → LDR conversion
+    // Tonemap in composite5 will handle HDR -> LDR conversion
     sceneColor += vl;
 
     output.color0 = float4(sceneColor, 1.0);
