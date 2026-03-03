@@ -150,10 +150,30 @@ void TerrainTranslucentRenderPass::BeginPass()
     // Setup blend and depth states for translucent rendering
     SetupBlendState();
     SetupDepthState();
+
+    // Bind stage-scoped custom textures for gbuffers_water (e.g. water normal texture on slot 3)
+    auto* bundle = g_theShaderBundleSubsystem->GetCurrentShaderBundle().get();
+    if (bundle && bundle->HasCustomTextures())
+    {
+        auto entries = bundle->GetCustomTexturesForStage("gbuffers_water");
+        for (const auto& entry : entries)
+        {
+            m_savedCustomImages[entry.textureSlot] = g_theRendererSubsystem->GetCustomImage(entry.textureSlot);
+            g_theRendererSubsystem->SetCustomImage(entry.textureSlot, entry.texture);
+            g_theRendererSubsystem->SetSamplerConfig(entry.metadata.samplerSlot, entry.metadata.samplerConfig);
+        }
+    }
 }
 
 void TerrainTranslucentRenderPass::EndPass()
 {
+    // Restore saved customImage bindings
+    for (const auto& [slotIndex, previousTexture] : m_savedCustomImages)
+    {
+        g_theRendererSubsystem->SetCustomImage(slotIndex, previousTexture);
+    }
+    m_savedCustomImages.clear();
+
     RestoreRenderState();
 }
 

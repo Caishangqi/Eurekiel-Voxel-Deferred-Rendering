@@ -27,6 +27,8 @@
 #include "Engine/Graphic/Core/RenderState/DepthState.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 
+#include <map>
+
 // Forward declarations
 namespace enigma::graphic
 {
@@ -75,4 +77,7 @@ private:
     // Saved render states (for restoration in EndPass)
     enigma::graphic::DepthConfig m_savedDepthConfig;
     enigma::graphic::BlendConfig m_savedBlendConfig;
+
+    // Saved custom image bindings (restored in EndPass)
+    std::map<int, enigma::graphic::D12Texture*> m_savedCustomImages;
 };
