@@ -272,46 +272,48 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 
 //============================================================================//
 // Water Surface Settings (Reimagined Style)
+// Reference: ComplementaryReimagined water.glsl + shaders.properties
+// customImage3 = cloud-water.png (RG=water normals, B=cloud density, A=height)
 //============================================================================//
 
 #ifndef WATER_STYLE
-#define WATER_STYLE 1                // [1 2] 1=Reimagined, 2=Reimagined+Waves
+#define WATER_STYLE 1                // [1 2] 1=Reimagined (stylized), 2=Reimagined+Waves
 #endif
 
 #ifndef WATER_BUMPINESS
-#define WATER_BUMPINESS 80           // [0 20 40 60 80 100 120 150 200] Normal intensity
+#define WATER_BUMPINESS 80           // [0 20 40 60 80 100 120 150 200] Normal map intensity (higher = more visible waves)
 #endif
 
 #ifndef WATER_FOAM_I
-#define WATER_FOAM_I 50              // [0 25 50 75 100 150 200] Foam intensity
+#define WATER_FOAM_I 50              // [0 25 50 75 100 150 200] Shore foam intensity (0=disabled)
 #endif
 
 #ifndef WATER_FOG_MULT
-#define WATER_FOG_MULT 100           // [25 50 75 100 150 200 300] Underwater fog density
+#define WATER_FOG_MULT 100           // [25 50 75 100 150 200 300] Underwater fog density multiplier (%)
 #endif
 
 #ifndef WATER_ALPHA_MULT
-#define WATER_ALPHA_MULT 100         // [50 75 100 125 150] Water transparency
+#define WATER_ALPHA_MULT 100         // [50 75 100 125 150] Water transparency multiplier (lower = more transparent)
 #endif
 
 #ifndef WATER_REFRACTION_INTENSITY
-#define WATER_REFRACTION_INTENSITY 100 // [0 25 50 75 100 150 200] Refraction strength
+#define WATER_REFRACTION_INTENSITY 100 // [0 25 50 75 100 150 200] Screen-space refraction distortion strength
 #endif
 
 #ifndef WATER_MAT_QUALITY
-#define WATER_MAT_QUALITY 3          // [2 3] 2=basic normals, 3=parallax+normals
+#define WATER_MAT_QUALITY 3          // [2 3] 2=multi-layer normals, 3=parallax mapping + normals
 #endif
 
 #ifndef WATER_REFLECT_QUALITY
-#define WATER_REFLECT_QUALITY 2      // [0 1 2] 0=off, 1=sky only, 2=SSR
+#define WATER_REFLECT_QUALITY 2      // [0 1 2] 0=off, 1=sky fallback only, 2=SSR ray march + sky fallback
 #endif
 
 #ifndef WATER_CAUSTICS_STRENGTH
-#define WATER_CAUSTICS_STRENGTH 1.0  // [0.0 0.25 0.5 0.75 1.0 1.5 2.0] Caustic pattern intensity
+#define WATER_CAUSTICS_STRENGTH 1.0  // [0.0 0.25 0.5 0.75 1.0 1.5 2.0] Shadow-map caustic pattern intensity
 #endif
 
 #ifndef WATER_VL_STRENGTH
-#define WATER_VL_STRENGTH 1.0        // [0.0 0.25 0.5 0.75 1.0 1.5 2.0] Underwater VL intensity
+#define WATER_VL_STRENGTH 1.0        // [0.0 0.25 0.5 0.75 1.0 1.5 2.0] Underwater volumetric light intensity
 #endif
 
 //============================================================================//
