@@ -218,6 +218,7 @@
         </ProjectReference>
     </ItemGroup>
     <ItemGroup>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\block.properties"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\composite.ps.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\composite.vs.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\composite1.ps.hlsl"/>
@@ -489,6 +490,9 @@
             <LinkCompiled>true</LinkCompiled>
         </Content>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\program\composite5.vs.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\tonemap.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\ssr.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\water.hlsl"/>
         <ClCompile Include="Framework\GameObject\ImguiPlayerDebugInfo.cpp" />
         <ClCompile Include="Framework\Imgui\ImguiGameLogic.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiGameSettings.cpp"/>
@@ -502,6 +506,7 @@
         <ClCompile Include="Framework\RenderPass\RenderComposite\CompositeRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderComposite\ImguiSettingComposite.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderDebug\DebugRenderPass.cpp" />
+        <ClCompile Include="Framework\RenderPass\RenderDebug\ImguiSettingRenderDebug.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderDeferred\DeferredRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderFinal\FinalRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderPassHelper.cpp"/>
@@ -555,6 +560,7 @@
         <ClInclude Include="Framework\RenderPass\RenderComposite\CompositeRenderPass.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderComposite\ImguiSettingComposite.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderDebug\DebugRenderPass.hpp" />
+        <ClInclude Include="Framework\RenderPass\RenderDebug\ImguiSettingRenderDebug.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderDeferred\DeferredRenderPass.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderFinal\FinalRenderPass.hpp" />
         <ClInclude Include="Framework\RenderPass\RenderPassHelper.hpp"/>
