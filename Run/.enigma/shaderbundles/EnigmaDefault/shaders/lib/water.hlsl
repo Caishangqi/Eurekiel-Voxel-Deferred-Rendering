@@ -256,6 +256,14 @@ WaterResult ComputeWaterSurface(
     result.normalM = normalize(T * normalMap.x + B * normalMap.y + geoNormal * normalMap.z);
     result.normalM = clamp(result.normalM, float3(-1, -1, -1), float3(1, 1, 1));
 
+    // CR water.glsl:130-132: Fix normals pointing inside water surface
+    // If the reflected view direction points below the surface, blend normal back toward flat
+    // This prevents reflection angles exceeding 180 degrees at extreme perturbations
+    float3 nViewPos     = -viewDir; // camera-to-fragment direction
+    float3 reflectCheck = reflect(nViewPos, normalize(result.normalM));
+    float  norMix       = pow(1.0 - max(dot(geoNormal, reflectCheck), 0.0), 8.0) * 0.5;
+    result.normalM      = lerp(result.normalM, geoNormal, norMix);
+
     // === Step 6: Foam ===
     float texColorSq = dot(colorPM, colorPM);
     result.foam      = ComputeWaterFoam(result.color, texColorSq);

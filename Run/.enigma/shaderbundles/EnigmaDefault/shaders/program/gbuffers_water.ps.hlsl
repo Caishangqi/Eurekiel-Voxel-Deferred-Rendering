@@ -91,29 +91,23 @@ PSOutput_Water main(PSInput_Water input)
         // colortex2: Perturbed world normal
         output.Normal = float4(water.normalM, 1.0);
 
-        // colortex4: Material data (still written for potential composite use)
+        // colortex4: Material data
         output.Material = float4(241.0 / 255.0, water.smoothness, WATER_REFLECTIVITY, water.fresnel);
 
         // ================================================================
         // Inline SSR + Reflection Blending (CR architecture)
-        // colortex0 contains deferred-lit scene; safe to sample at other pixels
         // ================================================================
         float3 waterColor = water.color;
 
 #if WATER_REFLECT_QUALITY >= 1
-        // View direction camera->fragment for SSR
         float3 viewDirToFrag = normalize(input.WorldPos - cameraPosition);
         float3 reflectDir    = reflect(viewDirToFrag, water.normalM);
 
-        // Sky light factor from lightmap
-        float skyLightFactor = input.LightmapCoord.y;
-
-        // Sky fallback reflection
+        float  skyLightFactor  = input.LightmapCoord.y;
         float3 skyFallback     = GetReflectionFallback(reflectDir, SKY_REFLECTION_COLOR, skyLightFactor);
         float3 reflectionColor = skyFallback;
 
 #if WATER_REFLECT_QUALITY >= 2
-        // SSR ray marching
         float depth  = input.Position.z;
         float dither = InterleavedGradientNoiseForClouds(input.Position.xy);
 
@@ -122,12 +116,9 @@ PSOutput_Water main(PSInput_Water input)
             water.smoothness, dither, depth
         );
 
-        // Combine SSR hit with sky fallback (CR: mix(skyReflection, reflection.rgb, reflection.a))
         reflectionColor = lerp(skyFallback, ssr.color, ssr.alpha);
 #endif
 
-        // Blend reflection into water color using fresnelM
-        // CR: color.rgb = mix(color.rgb, reflection.rgb, fresnelM)
         waterColor = lerp(waterColor, reflectionColor, water.fresnel);
 #endif
 

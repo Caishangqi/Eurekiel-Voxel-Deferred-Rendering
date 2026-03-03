@@ -77,12 +77,17 @@ SSRResult ComputeSSR(
         return result;
 
     // --- Transform to view space ---
+    // Use gbufferView (world-to-camera, engine coordinate system)
+    // SSR_ViewToScreen handles gbufferRenderer conversion internally
     float3 viewPos    = mul(gbufferView, float4(worldPos, 1.0)).xyz;
     float3 viewNormal = normalize(mul((float3x3)gbufferView, normal));
-    float3 viewDirVS  = normalize(mul((float3x3)gbufferView, viewDir));
+
+    // CR style: use normalized viewPos as camera-to-fragment direction in view space
+    // This is more accurate than transforming world-space viewDir through gbufferView
+    float3 nViewPos = normalize(viewPos);
 
     // Reflected view direction in view space
-    float3 reflectDirVS = normalize(reflect(viewDirVS, viewNormal));
+    float3 reflectDirVS = normalize(reflect(nViewPos, viewNormal));
 
     // --- Bias start position along normal (avoid self-intersection) ---
     // CR: start = viewPos + normal * (lViewPos * 0.025 * (1-fresnel) + 0.05)
@@ -113,8 +118,11 @@ SSRResult ComputeSSR(
             abs(screenPos.y - 0.5) > SCREEN_EDGE.y)
             break;
 
-        // Sample scene depth and reconstruct view-space position at that pixel
-        float  sceneDepth   = depthtex0.Sample(sampler1, screenPos.xy).r;
+        // Sample OPAQUE scene depth (depthtex1 = pre-translucent depth copy)
+        // Must NOT use depthtex0 here: gbuffers_water writes to depthtex0 during rendering,
+        // causing false hits on other water pixels. depthtex1 only contains opaque geometry.
+        // Reference: CR reflections.glsl uses depthtex1 for SSR depth comparison.
+        float  sceneDepth   = depthtex1.Sample(sampler1, screenPos.xy).r;
         float3 sceneViewPos = ReconstructViewPosition(
             screenPos.xy, sceneDepth,
             gbufferProjectionInverse, gbufferRendererInverse);
