@@ -149,7 +149,12 @@ PSOutput main(PSInput input)
     if (!isSkyPixel)
     {
         if (isEyeInWater == EYE_IN_WATER)
-            litColor = ApplyUnderwaterFog(litColor, viewDistance, fogColor, fogStart, fogEnd);
+        {
+            // CR-style underwater distance fog (independent of engine fogMode/fogDensity)
+            // Uses squared exponential formula with time-dependent fog color
+            float sunVis2 = sunVisibility * sunVisibility;
+            litColor      = ApplyCRUnderwaterFog(litColor, viewDistance, sunVis2);
+        }
         else if (isEyeInWater == EYE_IN_LAVA)
             litColor = ApplyLavaFog(litColor, viewDistance);
         else if (isEyeInWater == EYE_IN_POWDER_SNOW)

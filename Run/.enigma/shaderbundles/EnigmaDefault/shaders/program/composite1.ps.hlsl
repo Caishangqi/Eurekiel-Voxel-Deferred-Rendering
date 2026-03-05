@@ -131,6 +131,8 @@ PSOutput main(PSInput input)
 
     // ====================================================================
     // Phase 5: Underwater Effects (isEyeInWater == 1)
+    // CR applies these in gamma space before pow(2.2). We're in linear space
+    // here, so we must linearize fog color to match deferred1's fogged terrain.
     // ====================================================================
     if (isEyeInWater == EYE_IN_WATER)
     {
@@ -139,35 +141,29 @@ PSOutput main(PSInput input)
         float3 underwaterMult = UNDERWATER_MULT_DAY * lerp(UNDERWATER_NIGHT_MULT, 1.0, sunVis2);
         float3 waterFogColor  = lerp(WATER_FOG_COLOR_NIGHT, WATER_FOG_COLOR_DAY, sunVis2);
 
-        // [STEP 1] Color attenuation -- blue-green underwater tint
-        sceneColor *= underwaterMult;
+        // Linearize fog color to match scene (already linear after pow(2.2) on line 88)
+        waterFogColor = pow(max(waterFogColor, 0.0), 2.2);
 
-        // [STEP 2] VL attenuation -- underwater light filtering
-        float3 uwMult071 = underwaterMult * 0.71;
-        float3 vlMult    = uwMult071 * uwMult071; // pow2 per-component
-        vl               *= vlMult;
-
-        // [STEP 3] Sky pixel replacement -- sky becomes water fog color
-        // Sky pixels have depth == 1.0 (far plane)
+        // [STEP 1] Sky pixel replacement BEFORE attenuation
+        // Sky/unloaded chunks (depth=1.0) get fog color, then underwaterMult like terrain
         if (depth >= 0.9999)
         {
             sceneColor = waterFogColor;
         }
 
-        // [STEP 4] Caustic overlay from shadowcolor0
-        // shadowcolor0 cleared to white (1,1,1) = no caustic effect
-        // Values < 1.0 indicate caustic pattern presence
-        float3 caustic = shadowcolor0.Sample(sampler0, input.TexCoord).rgb;
-        // Caustic modulates scene brightness (multiplicative on non-sky pixels)
-        if (depth < 0.9999)
-        {
-            sceneColor *= lerp(float3(1, 1, 1), caustic + 0.5, sunVisibility * 0.5);
-        }
+        // [STEP 2] Color attenuation -- applies to terrain AND sky uniformly
+        sceneColor *= underwaterMult;
 
-        // [STEP 5] Underwater VL from shadowcolor1
-        // shadowcolor1 cleared to black (0,0,0) = no VL contribution
-        float3 underwaterVL = shadowcolor1.Sample(sampler0, input.TexCoord).rgb;
-        vl                  += underwaterVL * WATER_VL_STRENGTH;
+        // [STEP 3] VL attenuation -- underwater light filtering
+        float3 uwMult071 = underwaterMult * 0.71;
+        float3 vlMult    = uwMult071 * uwMult071; // pow2 per-component
+        vl               *= vlMult;
+
+        // NOTE: Caustics (shadowcolor0) and underwater VL (shadowcolor1) are NOT
+        // sampled here. In CR architecture, shadowcolor is sampled inside the VL
+        // ray march using shadow-space UVs (shadowPosition.xy), not screen UVs.
+        // TODO: Integrate shadowcolor1 sampling into GetVolumetricLight() ray march
+        //       for proper colored underwater light shafts (CR volumetricLight.glsl:185).
     }
 
     // Additive blend: VL adds light to scene (HDR, no clamping)

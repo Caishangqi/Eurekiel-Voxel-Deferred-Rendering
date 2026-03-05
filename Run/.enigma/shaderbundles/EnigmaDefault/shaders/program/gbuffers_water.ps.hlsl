@@ -28,6 +28,7 @@
 #include "../lib/water.hlsl"
 #include "../lib/ssr.hlsl"
 #include "../lib/lighting.hlsl"
+#include "../lib/atmosphere.hlsl"
 
 // [RENDERTARGETS] 0,1,2,4
 // SV_TARGET0 -> colortex0, SV_TARGET1 -> colortex1,
@@ -151,8 +152,10 @@ PSOutput_Water main(PSInput_Water input)
 
         // ================================================================
         // Inline SSR + Reflection Blending (CR architecture)
+        // Underwater: reduce reflection strength to 50% (CR: reflectMult=0.5)
         // ================================================================
-        float3 waterColor = litWaterColor;
+        float  reflectMult = (isEyeInWater == EYE_IN_WATER) ? 0.25 : 1.0;
+        float3 waterColor  = litWaterColor;
 
 #if WATER_REFLECT_QUALITY >= 1
         float3 viewDirToFrag = normalize(input.WorldPos - cameraPosition);
@@ -174,8 +177,18 @@ PSOutput_Water main(PSInput_Water input)
         reflectionColor = lerp(skyFallback, ssr.color, ssr.alpha);
 #endif
 
-        waterColor = lerp(waterColor, reflectionColor, water.fresnel);
+        waterColor = lerp(waterColor, reflectionColor, water.fresnel * reflectMult);
 #endif
+
+        // ================================================================
+        // Underwater Distance Fog (CR: DoFog in gbuffers_water)
+        // When camera is underwater, water surface must fade into fog
+        // at distance, matching terrain fog from deferred1.
+        // ================================================================
+        if (isEyeInWater == EYE_IN_WATER)
+        {
+            waterColor = ApplyCRUnderwaterFog(waterColor, waterViewDist, sunVis2);
+        }
 
         output.Color = float4(waterColor, water.alpha);
     }

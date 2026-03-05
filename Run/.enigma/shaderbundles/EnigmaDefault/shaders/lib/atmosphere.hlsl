@@ -77,4 +77,38 @@ float3 ApplyAtmosphericFog(float3 sceneColor, float3 fogColor, float fogFactor)
     return lerp(sceneColor, fogColor, fogFactor);
 }
 
+// ============================================================================
+// CR-style Underwater Distance Fog
+// Hides unloaded chunks: at 96 blocks fog=98%, at 128 blocks fog=99.9%.
+// Combined with composite1 sky pixel replacement (depth=1.0 -> waterFogColor),
+// chunk boundaries become invisible underwater.
+// ============================================================================
+
+// Compute underwater fog factor using CR's squared exponential formula.
+// Near-field stays clear (squared term), distant objects fade smoothly.
+// Independent of engine fogMode/fogDensity uniforms.
+//
+// Reference: ComplementaryReimagined lib/atmospherics/fog/waterFog.glsl
+float GetUnderwaterFogFactor(float viewDistance)
+{
+    float dist = viewDistance;
+
+#if WATER_FOG_MULT != 100
+    dist *= WATER_FOG_MULT * 0.01;
+#endif
+
+    float fog = dist / WATER_UW_FOG_DISTANCE;
+    fog       *= fog; // Squared: preserves near-field clarity, dense at distance
+    return 1.0 - exp(-fog);
+}
+
+// Apply CR-style underwater distance fog to scene color.
+// Uses time-dependent fog color (day blue-green, night deep blue).
+float3 ApplyCRUnderwaterFog(float3 sceneColor, float viewDistance, float sunVisibility2)
+{
+    float  fogFactor  = GetUnderwaterFogFactor(viewDistance);
+    float3 uwFogColor = lerp(WATER_FOG_COLOR_NIGHT, WATER_FOG_COLOR_DAY, sunVisibility2);
+    return lerp(sceneColor, uwFogColor, fogFactor);
+}
+
 #endif // LIB_ATMOSPHERE_HLSL

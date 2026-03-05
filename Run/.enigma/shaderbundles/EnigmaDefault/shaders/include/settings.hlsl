@@ -358,11 +358,24 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 #endif
 
 #ifndef WATER_FOG_COLOR_DAY
-#define WATER_FOG_COLOR_DAY float3(0.05, 0.12, 0.18)      // Daytime underwater fog (blue-green)
+#define WATER_FOG_COLOR_DAY float3(0.25, 0.40, 0.55)      // Daytime underwater fog (gamma space, pow(2.2) in composite1)
 #endif
 
 #ifndef WATER_FOG_COLOR_NIGHT
-#define WATER_FOG_COLOR_NIGHT float3(0.01, 0.02, 0.04)    // Nighttime underwater fog (deep dark blue)
+#define WATER_FOG_COLOR_NIGHT float3(0.08, 0.12, 0.20)    // Nighttime underwater fog (gamma space, pow(2.2) in composite1)
+#endif
+
+//============================================================================//
+// Underwater Distance Fog (CR waterFog.glsl style)
+// Applied in deferred1 to terrain pixels when camera is underwater.
+// Formula: fog = dist / WATER_UW_FOG_DISTANCE; fog *= fog; 1 - exp(-fog)
+// Squared exponential gives clear near-field and smooth distant fade.
+// WATER_FOG_MULT (above) scales the input distance as percentage.
+// Reference: ComplementaryReimagined lib/atmospherics/fog/waterFog.glsl
+//============================================================================//
+
+#ifndef WATER_UW_FOG_DISTANCE
+#define WATER_UW_FOG_DISTANCE 32.0     // [16.0 24.0 32.0 48.0 64.0 96.0] Base fog distance (blocks, higher = clearer water)
 #endif
 
 //============================================================================//
