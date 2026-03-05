@@ -620,7 +620,6 @@
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\README.md"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle.json"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\fallback_rule.json"/>
-        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\materials.properties"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\shaders.properties"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\tools\setup.bat"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\tools\setup.sh"/>

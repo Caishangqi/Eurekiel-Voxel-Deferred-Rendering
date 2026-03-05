@@ -243,7 +243,7 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 #define GLASS_REFLECTIVITY 0.3
 
 #ifndef SSR_MAX_STEPS
-#define SSR_MAX_STEPS 30            // [1 - 512] Screen-space reflection steps (CR uses 38)
+#define SSR_MAX_STEPS 38            // [1 - 512] Screen-space reflection steps (CR uses 38)
 #endif
 
 #ifndef SSR_STEP_SIZE
@@ -251,7 +251,7 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 #endif
 
 #ifndef SSR_BINARY_STEPS
-#define SSR_BINARY_STEPS 6          // [1 - 10] Binary refinement steps (CR uses 10)
+#define SSR_BINARY_STEPS 10          // [1 - 10] Binary refinement steps (CR uses 10)
 #endif
 
 //============================================================================//
@@ -314,6 +314,55 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 
 #ifndef WATER_VL_STRENGTH
 #define WATER_VL_STRENGTH 1.0        // [0.0 0.25 0.5 0.75 1.0 1.5 2.0] Underwater volumetric light intensity
+#endif
+
+//============================================================================//
+// Water Depth Alpha Settings (CR waterFog formula)
+// Controls how water transparency varies with depth-to-seabed distance.
+// Shallow water is transparent (see underwater blocks), deep water is opaque.
+// Formula: alpha *= WATER_DEPTH_ALPHA_MIN + (1 - WATER_DEPTH_ALPHA_MIN) * waterFog
+//   where  waterFog = 1 - exp(-depthDiff * WATER_DEPTH_FOG_DENSITY)
+// Reference: ComplementaryReimagined water.glsl lines 179-180
+//============================================================================//
+
+#ifndef WATER_DEPTH_FOG_DENSITY
+#define WATER_DEPTH_FOG_DENSITY 0.075  // [0.025 0.05 0.075 0.1 0.15 0.2] Depth fog falloff rate (higher = opaque sooner)
+#endif
+
+#ifndef WATER_DEPTH_ALPHA_MIN
+#define WATER_DEPTH_ALPHA_MIN 0.6     // [0.1 0.15 0.2 0.25 0.3 0.4 0.5] Minimum alpha at zero depth (shore transparency floor)
+#endif
+
+//============================================================================//
+// Water Sky Reflection Colors (time-dependent)
+// Interpolated by sunVisibility^2: night color at midnight, day color at noon.
+// Used as fallback when SSR misses or WATER_REFLECT_QUALITY < 2.
+//============================================================================//
+
+#ifndef WATER_SKY_REFLECT_DAY
+#define WATER_SKY_REFLECT_DAY float3(0.35, 0.55, 0.85)    // Daytime sky reflection (blue sky)
+#endif
+
+#ifndef WATER_SKY_REFLECT_NIGHT
+#define WATER_SKY_REFLECT_NIGHT float3(0.02, 0.03, 0.06)  // Nighttime sky reflection (dark moonlit)
+#endif
+
+//============================================================================//
+// Underwater Color Settings (time-dependent, used in composite1)
+// Controls underwater tint and fog color, modulated by sunVisibility^2.
+// Night multiplier darkens underwater scene; fog color shifts to deep blue.
+//============================================================================//
+
+#ifndef UNDERWATER_NIGHT_MULT
+#define UNDERWATER_NIGHT_MULT 0.6      // [0.3 0.4 0.5 0.6 0.7 0.8 1.0] Night underwater brightness (fraction of day value)
+#endif
+
+#ifndef WATER_FOG_COLOR_DAY
+#define WATER_FOG_COLOR_DAY float3(0.05, 0.12, 0.18)      // Daytime underwater fog (blue-green)
+#endif
+
+#ifndef WATER_FOG_COLOR_NIGHT
+#define WATER_FOG_COLOR_NIGHT float3(0.01, 0.02, 0.04)    // Nighttime underwater fog (deep dark blue)
 #endif
 
 //============================================================================//

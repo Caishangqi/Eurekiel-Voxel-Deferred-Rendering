@@ -16,11 +16,8 @@
 // Water material mask threshold (241/255 = 0.9451)
 static const float WATER_MATERIAL_THRESHOLD = 240.0 / 255.0;
 
-// Underwater color attenuation (CR style)
-static const float3 UNDERWATER_MULT = float3(0.80, 0.87, 0.97) * 0.85;
-
-// Underwater fog color (deep water blue-green)
-static const float3 WATER_FOG_COLOR = float3(0.05, 0.12, 0.18);
+// Underwater color attenuation (CR style, base values)
+static const float3 UNDERWATER_MULT_DAY = float3(0.80, 0.87, 0.97) * 0.85;
 
 struct PSOutput
 {
@@ -137,11 +134,16 @@ PSOutput main(PSInput input)
     // ====================================================================
     if (isEyeInWater == EYE_IN_WATER)
     {
+        // Time-dependent underwater colors (night darker, day brighter)
+        float  sunVis2        = sunVisibility * sunVisibility;
+        float3 underwaterMult = UNDERWATER_MULT_DAY * lerp(UNDERWATER_NIGHT_MULT, 1.0, sunVis2);
+        float3 waterFogColor  = lerp(WATER_FOG_COLOR_NIGHT, WATER_FOG_COLOR_DAY, sunVis2);
+
         // [STEP 1] Color attenuation -- blue-green underwater tint
-        sceneColor *= UNDERWATER_MULT;
+        sceneColor *= underwaterMult;
 
         // [STEP 2] VL attenuation -- underwater light filtering
-        float3 uwMult071 = UNDERWATER_MULT * 0.71;
+        float3 uwMult071 = underwaterMult * 0.71;
         float3 vlMult    = uwMult071 * uwMult071; // pow2 per-component
         vl               *= vlMult;
 
@@ -149,7 +151,7 @@ PSOutput main(PSInput input)
         // Sky pixels have depth == 1.0 (far plane)
         if (depth >= 0.9999)
         {
-            sceneColor = WATER_FOG_COLOR;
+            sceneColor = waterFogColor;
         }
 
         // [STEP 4] Caustic overlay from shadowcolor0
