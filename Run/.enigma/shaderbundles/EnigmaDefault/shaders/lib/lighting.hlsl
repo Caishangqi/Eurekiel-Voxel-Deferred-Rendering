@@ -43,19 +43,24 @@ float GetNoonFactor(float inSunAngle)
 // Light & Ambient Color Functions
 //============================================================================//
 
-/// Day light color: lerp from sunset warm to noon neutral based on noonFactor
+/// Day light color: lerp from dynamic sunset to noon based on noonFactor
+/// CR: mix(sunsetClearLightColor, noonClearLightColor, noonFactor)
+///   where sunsetClearLightColor = pow(vec3(0.64, 0.45, 0.3), 1.5 + invNoonFactor) * 5.0
 float3 GetDayLightColor(float noonFactor)
 {
-    return lerp(SUNSET_LIGHT_COLOR, NOON_LIGHT_COLOR, noonFactor);
+    float  invNoonFac  = 1.0 - noonFactor;
+    float3 sunsetLight = pow(float3(0.64, 0.45, 0.3), 1.5 + invNoonFac) * 5.0;
+    return lerp(sunsetLight, NOON_LIGHT_COLOR, noonFactor);
 }
 
-/// Day ambient color: derived from skyColor with sunset tint blended in
+/// Day ambient color: CR uses pow(skyColor, 0.75) * 0.85 for noon
+/// CR: noonClearAmbientColor = pow(skyColor, vec3(0.75)) * 0.85
+///     sunsetClearAmbientColor = noonAmbient * vec3(1.21, 0.92, 0.76) * 0.95
 float3 GetDayAmbientColor(float3 inSkyColor, float noonFactor)
 {
-    // Sky color provides base ambient; at sunset, warm tint bleeds in
-    float3 skyAmbient    = inSkyColor * 1.4;
-    float3 sunsetAmbient = lerp(inSkyColor, SUNSET_LIGHT_COLOR * 0.5, 0.3);
-    return lerp(sunsetAmbient, skyAmbient, noonFactor);
+    float3 noonAmbient   = pow(max(inSkyColor, 0.001), 0.75) * 0.85;
+    float3 sunsetAmbient = noonAmbient * float3(1.21, 0.92, 0.76) * 0.95;
+    return lerp(sunsetAmbient, noonAmbient, noonFactor);
 }
 
 /// Night light color: moonlight, scaled by player brightness setting
@@ -132,26 +137,26 @@ float3 GetMinimumLighting(float skyLight, float vsBrightness, float inNightVisio
 // Diffuse Calculation (unchanged)
 //============================================================================//
 
-/// Calculate diffuse lighting factor
+/// Calculate diffuse lighting factor (shadow sampling gate)
+/// CR: no explicit underwater modifier — underwater darkening handled by
+/// composite1 underwaterMult + deferred1 water fog, not in lighting
 float GetDiffuse(float skyLight, float3 normal, float3 lightDir, float fogMix, float rainStrength, bool isUnderwater)
 {
-    float NdotL         = dot(normalize(normal), normalize(lightDir));
-    float baseDiffuse   = clamp(2.5 * NdotL, -0.3333, 1.0);
-    float skyFactor     = Rescale(skyLight, 0.3137, 0.6235);
-    float underwaterMod = isUnderwater ? 0.5 : 1.0;
-    float fogMod        = 1.0 - fogMix;
-    float rainMod       = 1.0 - rainStrength;
-    return underwaterMod * fogMod * rainMod * skyFactor * baseDiffuse;
+    float NdotL       = dot(normalize(normal), normalize(lightDir));
+    float baseDiffuse = clamp(2.5 * NdotL, -0.3333, 1.0);
+    float skyFactor   = Rescale(skyLight, 0.3137, 0.6235);
+    float fogMod      = 1.0 - fogMix;
+    float rainMod     = 1.0 - rainStrength;
+    return fogMod * rainMod * skyFactor * baseDiffuse;
 }
 
 /// Simplified diffuse for thin objects (leaves, grass, etc.)
 float GetDiffuseThin(float skyLight, float fogMix, float rainStrength, bool isUnderwater)
 {
-    float skyFactor     = Rescale(skyLight, 0.3137, 0.6235);
-    float underwaterMod = isUnderwater ? 0.5 : 1.0;
-    float fogMod        = 1.0 - fogMix;
-    float rainMod       = 1.0 - rainStrength;
-    return underwaterMod * fogMod * rainMod * skyFactor * 0.75;
+    float skyFactor = Rescale(skyLight, 0.3137, 0.6235);
+    float fogMod    = 1.0 - fogMix;
+    float rainMod   = 1.0 - rainStrength;
+    return fogMod * rainMod * skyFactor * 0.75;
 }
 
 //============================================================================//
