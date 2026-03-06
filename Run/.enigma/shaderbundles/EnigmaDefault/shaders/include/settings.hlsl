@@ -5,10 +5,28 @@
 #define INCLUDE_SETTINGS_HLSL
 
 //============================================================================//
+// Visual Style (CR SHADER_STYLE)
+// 1 = Reimagined: Stylized Minecraft look, perpendicular sun, vibrant colors
+// 4 = Unbound:    Semi-realistic fantasy, angled sun, muted tones
+// Reference: ComplementaryReimagined lib/common.glsl:14
+//============================================================================//
+
+#ifndef SHADER_STYLE
+#define SHADER_STYLE 1              // [1 4] 1=Reimagined, 4=Unbound
+#endif
+
+//============================================================================//
 // Celestial Settings
 //============================================================================//
 
-const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0]
+// Sun path rotation angle (engine directive, parsed at load time)
+// IMPORTANT: ConstDirectiveParser reads raw source — no preprocessor evaluation.
+//   This value MUST be a plain float literal. Cannot use #if or #define.
+//   Change this value to match your SHADER_STYLE:
+//     Reimagined (SHADER_STYLE 1): 0.0   (perpendicular, sun overhead, MC style)
+//     Unbound    (SHADER_STYLE 4): -40.0 (angled sun, realistic shadows)
+// Reference: CR common.glsl:441-445
+const float sunPathRotation = -40; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 90.0]
 
 //============================================================================//
 // Shadow Settings
@@ -376,7 +394,22 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 //============================================================================//
 
 #ifndef WATER_UW_FOG_DISTANCE
-#define WATER_UW_FOG_DISTANCE 32.0     // [16.0 24.0 32.0 48.0 64.0 96.0] Base fog distance (blocks, higher = clearer water)
+#define WATER_UW_FOG_DISTANCE 48.0     // [16.0 24.0 32.0 48.0 64.0 96.0] Base fog distance (blocks, higher = clearer water)
+#endif                                 // CR uses 48.0 with lightshafts active, 32.0 without
+
+//============================================================================//
+// Color Grading / Saturation (CR composite5 DoBSLColorSaturation)
+// Applied after tonemap in composite5. Reimagined uses default 1.0 values
+// which gives a subtle +7% saturation boost (saturationFactor = T_SATURATION + 0.07).
+// Reference: ComplementaryReimagined composite5.glsl:89-104, common.glsl:269-270
+//============================================================================//
+
+#ifndef T_SATURATION
+#define T_SATURATION 1.00           // [0.00 - 2.00] Color saturation (1.0 = CR default, +0.07 internal boost)
+#endif
+
+#ifndef T_VIBRANCE
+#define T_VIBRANCE 1.00             // [0.00 - 2.00] Selective vibrance (boosts muted colors more)
 #endif
 
 //============================================================================//
