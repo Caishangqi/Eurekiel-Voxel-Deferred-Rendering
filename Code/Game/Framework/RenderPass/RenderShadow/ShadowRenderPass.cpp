@@ -114,10 +114,31 @@ void ShadowRenderPass::BeginPass()
     {
         g_theRendererSubsystem->SetCustomImage(0, m_blockAtlasTexture.get());
     }
+
+    // Bind stage-scoped custom textures for shadow pass (noise.png, cloud-water.png)
+    // Save previous customImage state so global customTexture bindings survive
+    auto* bundle = g_theShaderBundleSubsystem->GetCurrentShaderBundle().get();
+    if (bundle && bundle->HasCustomTextures())
+    {
+        auto entries = bundle->GetCustomTexturesForStage("shadow");
+        for (const auto& entry : entries)
+        {
+            m_savedCustomImages[entry.textureSlot] = g_theRendererSubsystem->GetCustomImage(entry.textureSlot);
+            g_theRendererSubsystem->SetCustomImage(entry.textureSlot, entry.texture);
+            g_theRendererSubsystem->SetSamplerConfig(entry.metadata.samplerSlot, entry.metadata.samplerConfig);
+        }
+    }
 }
 
 void ShadowRenderPass::EndPass()
 {
+    // Restore saved customImage bindings before other state cleanup
+    for (const auto& [slotIndex, previousTexture] : m_savedCustomImages)
+    {
+        g_theRendererSubsystem->SetCustomImage(slotIndex, previousTexture);
+    }
+    m_savedCustomImages.clear();
+
     // Restore default back-face culling after shadow pass
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::CullBack());
 }

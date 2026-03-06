@@ -3,6 +3,7 @@
 #include "Engine/Graphic/Camera/ShadowCamera.hpp"
 #include "Engine/Math/Vec3.hpp"
 #include <memory>
+#include <unordered_map>
 
 // Forward declarations
 namespace enigma::voxel
@@ -77,6 +78,9 @@ private:
     std::unique_ptr<enigma::graphic::ShadowCamera>  m_shadowCamera;
     std::shared_ptr<enigma::graphic::ShaderProgram> m_shadowProgram;
     std::shared_ptr<enigma::graphic::D12Texture>    m_blockAtlasTexture;
+
+    // Stage-scoped custom texture save/restore (same pattern as CompositeRenderPass)
+    std::unordered_map<int, enigma::graphic::D12Texture*> m_savedCustomImages;
 
     // ========================================================================
     // Shadow Configuration Constants
