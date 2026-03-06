@@ -70,6 +70,17 @@ static const float3 VL_NIGHT_COLOR = float3(0.05, 0.08, 0.16);
 // Main Entry Point
 //============================================================================//
 
+// VL-specific shadow sampling: sharp binary comparison without distance fade.
+// Matches CR's texelFetch + 65536 approach (volumetricLight.glsl:176-177).
+// Regular SampleShadowMap has distance fade that softens the result,
+// preventing clean 0/1 values needed for the dual shadow test.
+// Returns: 1.0 = lit, 0.0 = shadowed
+float SampleShadowForVL(float3 shadowUV, Texture2D shadowTex, SamplerState samp)
+{
+    float shadowDepth = shadowTex.Sample(samp, shadowUV.xy).r;
+    return saturate((shadowDepth - shadowUV.z) * 65536.0);
+}
+
 // Compute screen-space volumetric light via shadow map ray marching.
 // Ray marches from camera toward the fragment in absolute world space,
 // sampling the shadow map at each step to accumulate lit segments.
@@ -85,8 +96,11 @@ static const float3 VL_NIGHT_COLOR = float3(0.05, 0.08, 0.16);
 // @param sunVisibility  Sun visibility [0,1] (computed from SdotU in caller)
 // @param shadowView     Shadow view matrix (expects absolute world positions)
 // @param shadowProj     Shadow projection matrix
-// @param shadowTex      Shadow depth texture (shadowtex1)
+// @param shadowTex0     Shadow depth texture including translucents (shadowtex0)
+// @param shadowTex1     Shadow depth texture opaque-only (shadowtex1)
+// @param shadowColTex   Shadow color texture for translucent light shafts (shadowcolor1)
 // @param samp           Shadow sampler state
+// @param eyeInWater     Eye-in-fluid state (EYE_IN_AIR/EYE_IN_WATER/etc.)
 // @return               float3 volumetric color (additive, ready for sceneColor +=)
 float3 GetVolumetricLight(
     float3       worldPos,
@@ -99,8 +113,11 @@ float3 GetVolumetricLight(
     float        sunVisibility,
     float4x4     shadowView,
     float4x4     shadowProj,
-    Texture2D    shadowTex,
-    SamplerState samp)
+    Texture2D    shadowTex0,
+    Texture2D    shadowTex1,
+    Texture2D    shadowColTex,
+    SamplerState samp,
+    int          eyeInWater)
 {
     // --- vlTime: sun elevation gate ---
     // Fades VL to zero when sun is near horizon to avoid shadow map grazing-angle artifacts.
@@ -114,12 +131,17 @@ float3 GetVolumetricLight(
     bool isDay       = sunVisibility >= 0.5;
     int  baseSamples = isDay ? VL_DAY_SAMPLES : VL_NIGHT_SAMPLES;
 
-    // vlFactor modulation: clouds reduce sample count for performance
-    // CR volumetricLight.glsl:47-48 — suppress day VL when sun is near/below horizon
-    // Prevents shadow map grazing-angle artifacts from causing VL light leaks
-    float vlSceneIntensity = (sunVisibility < 0.5) ? 0.0 : vlFactor;
-    int   sampleCount      = vlSceneIntensity < 0.5 ? baseSamples / 2 : baseSamples;
-    sampleCount            = max(sampleCount, 4);
+    // CR line 40: underwater forces vlSceneIntensity=1.0
+    // This bypasses noon reduction and uses uniform sample weighting underwater,
+    // ensuring colored light shafts through water remain visible at all sun angles.
+    // Above water: night=0.0, day=vlFactor (cloud modulation)
+    float vlSceneIntensity = (eyeInWater == EYE_IN_WATER)
+                                 ? 1.0
+                                 : (sunVisibility < 0.5)
+                                 ? 0.0
+                                 : vlFactor;
+    int sampleCount = vlSceneIntensity < 0.5 ? baseSamples / 2 : baseSamples;
+    sampleCount     = max(sampleCount, 4);
 
     // --- Directional modulation (CR approach) ---
     // Ref: CR volumetricLight.glsl:68-73
@@ -133,32 +155,47 @@ float3 GetVolumetricLight(
 
     // Combined directional multiplier
     float vlMult = VdotUM * VdotLM * vlTime;
-    vlMult       *= VL_STRENGTH;
+    // CR has no VL_STRENGTH — underwater needs full intensity for visible light shafts.
+    // Above water we apply VL_STRENGTH for tuning (CR relies on SALS instead).
+    if (eyeInWater != EYE_IN_WATER)
+        vlMult *= VL_STRENGTH;
 
     // --- Noon intensity reduction (CR volumetricLight.glsl:74) ---
-    // At noon noonFactor≈1 → invNoonFactor2≈0 → multiplier≈0.125 (12.5%)
-    // At sunrise/sunset noonFactor≈0 → invNoonFactor2≈1 → multiplier≈1.0 (100%)
-    // This prevents VL from being blindingly bright when the sun is overhead.
-    //
-    // NOTE: CR uses mix(reduction, 1.0, vlSceneIntensity) to bypass reduction when
-    // clouds are present, but CR's vlFactor is a global flat varying (corner-pixel
-    // temporal accumulation), NOT per-pixel cloudLinearDepth like ours.
-    // Our cloudLinearDepth defaults to 1.0 (no cloud) which would bypass the
-    // reduction entirely. So we apply the reduction unconditionally.
-    // Ref: CR common.glsl:681, CR volumetricLight.glsl:74
+    // At noon noonFactor~1 -> invNoonFactor2~0 -> base multiplier~0.125 (12.5%)
+    // At sunrise/sunset noonFactor~0 -> invNoonFactor2~1 -> base multiplier~1.0 (100%)
+    // CR uses mix(reduction, 1.0, vlSceneIntensity) but CR's vlFactor comes from SALS
+    // (scene-aware light shafts, starts at 0). Our vlFactor defaults to 1.0 (no cloud),
+    // so above-water mix would bypass reduction entirely. Only bypass underwater.
     float noonFactor     = sqrt(max(sin(sunAngle * TWO_PI), 0.0));
     float invNoonFactor  = 1.0 - noonFactor;
     float invNoonFactor2 = invNoonFactor * invNoonFactor;
-    vlMult               *= invNoonFactor2 * 0.875 + 0.125;
+    vlMult               *= (eyeInWater == EYE_IN_WATER) ? 1.0 : (invNoonFactor2 * 0.875 + 0.125);
 
     if (vlMult <= 0.001)
         return float3(0.0, 0.0, 0.0);
+
+    // --- VL Color: compute BEFORE loop (needed for vlColorReducer) ---
+    // Ref: CR lightAndAmbientColors.glsl:6-59, volumetricLight.glsl:38-59
+    float  noonFactorDM   = noonFactor * noonFactor;
+    float3 sunsetVLColor  = pow(float3(0.62, 0.39, 0.24), float3(1.5 + invNoonFactor, 1.5 + invNoonFactor, 1.5 + invNoonFactor)) * VL_SUNSET_COLOR_MULT;
+    float3 dayVLColor     = lerp(sunsetVLColor, VL_NOON_COLOR, noonFactorDM);
+    float  sunVisibility2 = sunVisibility * sunVisibility;
+    float3 vlColor        = lerp(VL_NIGHT_COLOR, dayVLColor, sunVisibility2);
+
+    // CR line 59: vlColorReducer prevents double-coloring of colored light shaft samples.
+    // Colored samples from shadowcolor1 already have color; without reducer they get
+    // tinted again by vlColor at the end. Reducer = 1/sqrt(vlColor) normalizes this.
+    float3 vlColorReducer = isDay ? (1.0 / sqrt(max(vlColor, 0.001))) : float3(1.0, 1.0, 1.0);
 
     // --- Ray marching setup ---
     float3 rayVec    = worldPos - cameraPos;
     float  rayLength = length(rayVec);
     float  maxDist   = min(rayLength, SHADOW_DISTANCE * 0.9);
-    float3 rayDir    = rayVec / max(rayLength, 0.001);
+    // CR line 106: underwater uses shorter ray march distance (80.0)
+    // Water attenuates light quickly, no need to march far
+    if (eyeInWater == EYE_IN_WATER)
+        maxDist = min(maxDist, 80.0);
+    float3 rayDir = rayVec / max(rayLength, 0.001);
 
     float3 rayStep    = (rayDir * maxDist) / float(sampleCount);
     float3 currentPos = cameraPos + rayStep * dither;
@@ -174,66 +211,83 @@ float3 GetVolumetricLight(
     {
         float3 shadowUV = WorldToShadowUV(currentPos, shadowView, shadowProj);
 
-        // VL-specific: treat out-of-bounds shadow samples as SHADOWED (0.0),
-        // not lit (1.0). SampleShadowMap returns 1.0 for invalid UVs which is
-        // correct for surface lighting but causes VL to leak through terrain
-        // at low sun angles where the shadow map projection is very elongated.
-        float shadowValue = 0.0;
+        // CR-style dual shadow test (volumetricLight.glsl:176-192):
+        // 1. shadowtex0 (includes water) — primary occlusion
+        // 2. shadowtex1 (opaque-only) — translucent shadow detection
+        // 3. shadowcolor1 — colored light shafts through water
+        float3 vlSample = float3(0.0, 0.0, 0.0);
         if (IsValidShadowUV(shadowUV))
         {
             float sampleDistSq = SquaredLength(currentPos - cameraPos);
             if (sampleDistSq < SHADOW_MAX_DIST_SQUARED)
-                shadowValue = SampleShadowMap(shadowUV, currentPos, shadowProjZ, shadowTex, samp);
+            {
+                // Above water: soft comparison (SampleShadowMap) for smooth VL without stripes
+                // Underwater: sharp binary (SampleShadowForVL) for clean dual shadow test
+                float shadow0 = (eyeInWater == EYE_IN_WATER)
+                                    ? SampleShadowForVL(shadowUV, shadowTex0, samp)
+                                    : SampleShadowMap(shadowUV, currentPos, shadowProjZ, shadowTex0, samp);
+                vlSample = float3(shadow0, shadow0, shadow0);
+
+                // Colored light shaft path: underwater only.
+                // Above water uses standard white VL (shadow0 value).
+                // CR runs this for both, but relies on translucentMult tinting
+                // (which we don't have) to avoid artifacts at water boundaries.
+                if (eyeInWater == EYE_IN_WATER)
+                {
+                    if (shadow0 < 0.5)
+                    {
+                        float shadow1 = SampleShadowForVL(shadowUV, shadowTex1, samp);
+                        if (shadow1 > 0.5)
+                        {
+                            // Colored light shaft through water (CR: colsample * 4.0, squared)
+                            float3 colSample = shadowColTex.Sample(samp, shadowUV.xy).rgb * 4.0;
+                            colSample        *= colSample;
+                            // CR line 190: normalize colored samples to prevent double-coloring
+                            colSample *= vlColorReducer;
+                            vlSample  = colSample;
+                        }
+                    }
+                    else
+                    {
+                        // CR line 208: underwater, zero out fully-lit (non-translucent) samples.
+                        // Underwater VL should only come from colored light shafts through
+                        // the water surface, not from plain white VL.
+                        vlSample = float3(0.0, 0.0, 0.0);
+                    }
+                }
+            }
         }
 
         // Per-sample weight: ramp from 0 to 3 over ray length, blend with uniform when scene-aware
-        float percentComplete = float(i + 1) / float(sampleCount);
-        float sampleMult      = lerp(percentComplete * 3.0, 1.0, vlSceneIntensity);
-        sampleMult            /= float(sampleCount);
+        // CR line 116: underwater uses 0.85 uniform weighting (slightly dimmer than above-water 1.0)
+        float percentComplete   = float(i + 1) / float(sampleCount);
+        float sampleMultIntense = (eyeInWater == EYE_IN_WATER) ? 0.85 : 1.0;
+        float sampleMult        = lerp(percentComplete * 3.0, sampleMultIntense, vlSceneIntensity);
+        sampleMult              /= float(sampleCount);
 
         // Near-camera fade: avoid VL popping at very close range
         float currentDist = length(currentPos - cameraPos);
         if (currentDist < 5.0)
             sampleMult *= smoothstep(0.0, 1.0, saturate(currentDist / 5.0));
 
-        volumetricLight += float4(shadowValue, shadowValue, shadowValue, shadowValue) * sampleMult;
+        volumetricLight += float4(vlSample, 0.0) * sampleMult;
         currentPos      += rayStep;
     }
 
-    // --- VL Color: time-aware dynamic color (CR approach) ---
-    // Ref: CR lightAndAmbientColors.glsl:6-59, volumetricLight.glsl:293-295
-    //
-    // CR uses noonFactor² for light shaft mixing (sharper transition than ground lighting)
-    // Sunset color uses pow() with invNoonFactor to deepen warm tones at low sun angles
-    float noonFactorDM = noonFactor * noonFactor; // light shaft factor (CR line 54)
-
-    // Sunset: warm orange, pow() deepens color at low angles
-    // Ref: CR lightAndAmbientColors.glsl:15
-    // Multiplier tuned: 6.8(CR original) → 3.0(too dim) → 5.5(balanced orange)
-    float3 sunsetVLColor = pow(float3(0.62, 0.39, 0.24), float3(1.5 + invNoonFactor, 1.5 + invNoonFactor, 1.5 + invNoonFactor)) * VL_SUNSET_COLOR_MULT;
-
-    // Day color: blend sunset → noon based on noonFactor²
-    float3 dayVLColor = lerp(sunsetVLColor, VL_NOON_COLOR, noonFactorDM);
-
-    // Final: blend night → day based on sunVisibility²
-    float  sunVisibility2 = sunVisibility * sunVisibility;
-    float3 vlColor        = lerp(VL_NIGHT_COLOR, dayVLColor, sunVisibility2);
-
-    if (!isDay)
-    {
-        vlMult *= VL_NIGHT_MULT;
-    }
-
     // --- VL Color post-processing (CR volumetricLight.glsl:294-295) ---
+    // vlColor base was computed before the loop; apply saturation/brightness here.
     // Saturation boost at sunset, reduce at noon
-    // Ref: CR line 294 — pow(vlColor, 0.5 + 0.5*invNoonFactor + 0.3*rain)
-    // We omit rainFactor (not available here), simplified to sunset saturation boost
     float satPower = 0.5 + 0.5 * invNoonFactor;
     vlColor        = pow(max(vlColor, 0.001), float3(satPower, satPower, satPower));
 
     // Brightness modulation: boost at sunset, reduce at noon
-    // Ref: CR line 295 — vlColor *= 1.0 - ... + sunVisibility * pow2(invNoonFactor) * invRainFactor
     vlColor *= 1.0 + sunVisibility * Pow2(invNoonFactor);
+
+    // Night intensity reduction (CR volumetricLight.glsl:50-54)
+    if (!isDay)
+    {
+        vlMult *= VL_NIGHT_MULT;
+    }
 
     // vlFactor intensity modulation: reduce brightness behind clouds
     vlMult *= vlFactor;

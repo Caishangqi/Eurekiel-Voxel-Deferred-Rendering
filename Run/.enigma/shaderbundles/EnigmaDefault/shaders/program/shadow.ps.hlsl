@@ -85,28 +85,38 @@ float ComputeCaustic(float2 shadowUV, float time)
 // ============================================================================
 /**
  * @brief Compute underwater volumetric light contribution
- * Dual-frequency noise sampling from customImage3 B+A channels (noisetex substitute).
- * Distance attenuation + sun visibility modulation.
+ * CR-style noise shaping with gentle distance factor (NOT exponential decay).
+ * Ref: ComplementaryReimagined shadow.glsl:130-151
  * @param worldPos World-space fragment position
  * @param time frameTimeCounter for animation
  * @param sunVis Sun visibility factor [0,1]
- * @return Blue-green VL color
+ * @return Blue-green VL color (bright enough for * 4.0 + squaring in VL ray march)
  */
 float3 ComputeUnderwaterVL(float3 worldPos, float time, float sunVis)
 {
-    Texture2D waterTex = GetCustomImage(3);
+    // CR uses noisetex .g channel for underwater light shafts (shadow.glsl:139-140)
+    // customImage4 = noise.png (CR's noisetex equivalent)
+    Texture2D noiseTex = GetCustomImage(4);
 
-    // Dual-frequency noise sampling (B and A channels as noise source)
-    float noise1  = waterTex.Sample(sampler0, worldPos.xy * 0.012 + time * 0.005).b;
-    float noise2  = waterTex.Sample(sampler0, worldPos.xy * 0.05 - time * 0.01).a;
-    float vlNoise = noise1 * 0.7 + noise2 * 0.3;
+    // Dual-frequency noise sampling with opposite time offsets
+    // CR uses worldPos.xz (MC horizontal plane). Our engine: +x fwd, +y left, +z up
+    // so horizontal plane = XY, matching CR's XZ
+    float2 waterWind  = float2(time * 0.01, 0.0);
+    float  noise1     = noiseTex.SampleLevel(sampler0, worldPos.xy * 0.012 - waterWind, 0.0).g;
+    float  noise2     = noiseTex.SampleLevel(sampler0, worldPos.xy * 0.05 + waterWind, 0.0).g;
+    float  waterNoise = noise1 + noise2;
 
-    // Distance attenuation from camera
-    float dist        = length(worldPos - cameraPosition);
-    float vlIntensity = vlNoise * exp(-dist * 0.02) * sunVis * WATER_VL_STRENGTH;
+    // CR-style distance factor (shadow.glsl:142-143)
+    // Gentle distance-based shaping — NOT exponential decay
+    // At dist=0: factor=2.5*1.3=3.25, at dist=68: factor=0.8333*1.3=1.08
+    float dist   = length(worldPos.xy - cameraPosition.xy);
+    float factor = max(2.5 - 0.025 * dist, 0.8333) * 1.3;
+    waterNoise   = pow(waterNoise * 0.5, factor) * factor * 1.3;
 
-    // Blue-green underwater light color (CR style)
-    float3 vlColor = float3(0.08, 0.12, 0.195) * vlIntensity;
+    // Blue-green underwater light color (CR shadow.glsl:148)
+    // Multiplied by (1 + sunVis) so noon is brighter than sunset
+    float3 vlColor = float3(0.08, 0.12, 0.195);
+    vlColor        *= waterNoise * (1.0 + sunVis) * WATER_VL_STRENGTH;
 
     return vlColor;
 }

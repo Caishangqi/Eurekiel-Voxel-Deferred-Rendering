@@ -274,6 +274,7 @@ const float sunPathRotation = -30.0; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.
 // Water Surface Settings (Reimagined Style)
 // Reference: ComplementaryReimagined water.glsl + shaders.properties
 // customImage3 = cloud-water.png (RG=water normals, B=cloud density, A=height)
+// customImage4 = noise.png (CR noisetex equivalent, G=underwater VL noise)
 //============================================================================//
 
 #ifndef WATER_STYLE

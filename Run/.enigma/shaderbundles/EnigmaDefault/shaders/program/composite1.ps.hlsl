@@ -82,11 +82,6 @@ PSOutput main(PSInput input)
     // colortex0 already contains water color with reflection blended in.
     // Future: opaque surface reflections (metals, ice) would be blended here from colortex7.
 
-    // Gamma -> Linear: deferred1 outputs gamma-space color (sRGB textures, gamma lighting).
-    // Must linearize before VL addition and tonemap (composite5 applies LinearToSRGB).
-    // Ref: CR composite1.glsl -- color = pow(color, vec3(2.2))
-    sceneColor = pow(max(sceneColor, 0.0), 2.2);
-
     // Read cloud linear depth from colortex5.a (written by deferred1)
     // vlFactor: 1.0 = no cloud (full VL), <1.0 = cloud present (reduced VL)
     float vlFactor = colortex5.Sample(sampler1, input.TexCoord).a;
@@ -94,6 +89,37 @@ PSOutput main(PSInput input)
     // Compute sunVisibility from SdotU (CR composite1.glsl:24)
     float SdotU         = dot(normalize(sunPosition), normalize(upPosition));
     float sunVisibility = clamp(SdotU + 0.0625, 0.0, 0.125) / 0.125;
+
+    // ====================================================================
+    // Underwater Effects — GAMMA SPACE (before pow(2.2))
+    // CR applies underwaterMult + sky replacement in gamma space (composite1.glsl:241-271)
+    // THEN linearizes with pow(2.2). This amplifies the darkening effect:
+    //   gamma 0.68 -> linear pow(0.68, 2.2) = 0.43 (57% reduction)
+    // vs applying in linear space: 0.68 (only 32% reduction)
+    // ====================================================================
+    if (isEyeInWater == EYE_IN_WATER)
+    {
+        float  sunVis2        = sunVisibility * sunVisibility;
+        float3 underwaterMult = UNDERWATER_MULT_DAY * lerp(UNDERWATER_NIGHT_MULT, 1.0, sunVis2);
+        float3 waterFogColor  = lerp(WATER_FOG_COLOR_NIGHT, WATER_FOG_COLOR_DAY, sunVis2);
+
+        // [STEP 1] Sky pixel replacement (gamma space, no linearization needed)
+        if (depth >= 0.9999)
+        {
+            sceneColor = waterFogColor;
+        }
+
+        // [STEP 2] Color attenuation in gamma space (CR composite1.glsl:269)
+        sceneColor *= underwaterMult;
+    }
+
+    // Gamma -> Linear: deferred1 outputs gamma-space color (sRGB textures, gamma lighting).
+    // Must linearize before VL addition and tonemap (composite5 applies LinearToSRGB).
+    // Ref: CR composite1.glsl -- color = pow(color, vec3(2.2))
+    // NOTE: Underwater effects applied ABOVE in gamma space, so underwaterMult
+    // gets amplified by pow(2.2) here, matching CR's effective attenuation.
+    sceneColor = pow(max(sceneColor, 0.0), 2.2);
+
     // Reconstruct world position
     float3 viewPos  = ReconstructViewPosition(input.TexCoord, depth, gbufferProjectionInverse, gbufferRendererInverse);
     float3 worldPos = mul(gbufferViewInverse, float4(viewPos, 1.0)).xyz;
@@ -115,14 +141,16 @@ PSOutput main(PSInput input)
     float dither = InterleavedGradientNoiseForClouds(input.Position.xy);
 
     // Volumetric light via shadow map ray marching
+    // CR-style: shadowtex0 (includes water) + shadowtex1 (opaque) + shadowcolor1 (colored shafts)
     float3 vl = GetVolumetricLight(
         worldPos, cameraPosition, VdotL, VdotU, SdotU, dither, vlFactor,
         sunVisibility,
         shadowView, shadowProjection,
-        shadowtex1, sampler1);
+        shadowtex0, shadowtex1, shadowcolor1, sampler1,
+        isEyeInWater);
 
     // ====================================================================
-    // Phase 5: Water Refraction (isEyeInWater == 0, above water surface)
+    // Water Refraction (isEyeInWater == 0, above water surface)
     // ====================================================================
     if (isEyeInWater == EYE_IN_AIR)
     {
@@ -130,40 +158,17 @@ PSOutput main(PSInput input)
     }
 
     // ====================================================================
-    // Phase 5: Underwater Effects (isEyeInWater == 1)
-    // CR applies these in gamma space before pow(2.2). We're in linear space
-    // here, so we must linearize fog color to match deferred1's fogged terrain.
+    // Underwater VL attenuation (linear space, after pow(2.2))
     // ====================================================================
     if (isEyeInWater == EYE_IN_WATER)
     {
-        // Time-dependent underwater colors (night darker, day brighter)
         float  sunVis2        = sunVisibility * sunVisibility;
         float3 underwaterMult = UNDERWATER_MULT_DAY * lerp(UNDERWATER_NIGHT_MULT, 1.0, sunVis2);
-        float3 waterFogColor  = lerp(WATER_FOG_COLOR_NIGHT, WATER_FOG_COLOR_DAY, sunVis2);
 
-        // Linearize fog color to match scene (already linear after pow(2.2) on line 88)
-        waterFogColor = pow(max(waterFogColor, 0.0), 2.2);
-
-        // [STEP 1] Sky pixel replacement BEFORE attenuation
-        // Sky/unloaded chunks (depth=1.0) get fog color, then underwaterMult like terrain
-        if (depth >= 0.9999)
-        {
-            sceneColor = waterFogColor;
-        }
-
-        // [STEP 2] Color attenuation -- applies to terrain AND sky uniformly
-        sceneColor *= underwaterMult;
-
-        // [STEP 3] VL attenuation -- underwater light filtering
+        // VL attenuation -- underwater light filtering
         float3 uwMult071 = underwaterMult * 0.71;
         float3 vlMult    = uwMult071 * uwMult071; // pow2 per-component
         vl               *= vlMult;
-
-        // NOTE: Caustics (shadowcolor0) and underwater VL (shadowcolor1) are NOT
-        // sampled here. In CR architecture, shadowcolor is sampled inside the VL
-        // ray march using shadow-space UVs (shadowPosition.xy), not screen UVs.
-        // TODO: Integrate shadowcolor1 sampling into GetVolumetricLight() ray march
-        //       for proper colored underwater light shafts (CR volumetricLight.glsl:185).
     }
 
     // Additive blend: VL adds light to scene (HDR, no clamping)
