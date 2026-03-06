@@ -80,9 +80,10 @@ PSOutput main(PSInput input)
             shadowtex1, sampler1,
             input.Position.xy);
 
-        litColor = saturate(litColor);
-        // NOTE: litColor is saturated here because lighting pipeline outputs [0,1].
-        // HDR values come from VL additive blend in composite1, not from lighting.
+        // NOTE: No saturate here. colortex0 is R16G16B16A16_FLOAT (HDR capable).
+        // CR also outputs HDR values (R11F_G11F_B10F) without clamping.
+        // Underwater darkening is handled by composite1 underwaterMult + pow(2.2),
+        // which naturally compresses HDR range. Tonemap in composite5 does HDR->LDR.
 
         // [R4.2] Atmospheric distance fog (overworld only, not underwater)
         if (isEyeInWater == EYE_IN_AIR)
