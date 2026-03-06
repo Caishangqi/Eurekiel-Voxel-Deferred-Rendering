@@ -107,4 +107,36 @@ float3 LottesTonemap(float3 color)
     return saturate(colorOut);
 }
 
+//============================================================================//
+// Color Saturation & Vibrance (CR composite5.glsl:89-104)
+// BSL-derived color grading applied after tonemap.
+// With defaults (T_SATURATION=1.0, T_VIBRANCE=1.0):
+//   - Vibrance lines cancel out (abs(1.0-1.0)=0)
+//   - Saturation: color * 1.07 - gray * 0.07 → subtle +7% boost
+//============================================================================//
+
+float3 ApplyColorSaturation(float3 color)
+{
+    float saturationFactor = T_SATURATION + 0.07;
+
+    float grayVibrance   = (color.r + color.g + color.b) / 3.0;
+    float graySaturation = grayVibrance;
+    if (saturationFactor < 1.0)
+        graySaturation = dot(color, float3(0.299, 0.587, 0.114));
+
+    float  mn        = min(color.r, min(color.g, color.b));
+    float  mx        = max(color.r, max(color.g, color.b));
+    float  sat       = (1.0 - (mx - mn)) * (1.0 - mx) * grayVibrance * 5.0;
+    float3 lightness = float3(1, 1, 1) * ((mn + mx) * 0.5);
+
+    // Vibrance: boost muted colors more than saturated ones
+    color = lerp(color, lerp(color, lightness, 1.0 - T_VIBRANCE), sat);
+    color = lerp(color, lightness, (1.0 - lightness) * (2.0 - T_VIBRANCE) / 2.0 * abs(T_VIBRANCE - 1.0));
+
+    // Saturation: uniform boost/reduce relative to gray
+    color = color * saturationFactor - graySaturation * (saturationFactor - 1.0);
+
+    return color;
+}
+
 #endif // LIB_TONEMAP_HLSL
