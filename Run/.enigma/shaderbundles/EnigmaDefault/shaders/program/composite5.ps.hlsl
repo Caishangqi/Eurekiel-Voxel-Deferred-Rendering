@@ -30,6 +30,9 @@ PSOutput main(PSInput input)
     // Apply Lottes tonemap: HDR → LDR
     float3 ldrColor = LottesTonemap(hdrColor);
 
+    // Apply color saturation/vibrance (CR DoBSLColorSaturation)
+    ldrColor = ApplyColorSaturation(ldrColor);
+
     output.color0 = float4(ldrColor, 1.0);
     return output;
 }
