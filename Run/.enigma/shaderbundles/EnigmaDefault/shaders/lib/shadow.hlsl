@@ -111,10 +111,12 @@ float SampleShadowMap(float3 shadowUV, float3 worldPos, float shadowProjZ, Textu
 
     // Shadow depth comparison: near-binary for correct occlusion
     // 0.2 = Z compression factor from GetShadowDistortion
-    // 256.0 = sharp transition — CR uses hardware shadow2D() (binary) for per-sample
-    // comparison and relies on PCF for softness. Our previous 3.0 was too soft,
-    // causing partial lit values at low sun angles where depth precision degrades.
-    float shadowAmount = saturate(256.0 * (shadowUV.z - shadowDepth) / (shadowProjZ * 0.2));
+    // 128.0 = sharp transition with hardware depth bias backing it up.
+    // Previous 256.0 was too aggressive without hardware bias, amplifying
+    // floating-point precision errors into visible shadow acne stripes.
+    // CR uses hardware shadow2D() (binary) + PCF for softness; our hardware
+    // depth bias (ShadowRenderPass.cpp) now handles the self-shadowing prevention.
+    float shadowAmount = saturate(128.0 * (shadowUV.z - shadowDepth) / (shadowProjZ * 0.2));
 
     return 1.0 - shadowFade * shadowAmount;
 }

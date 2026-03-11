@@ -107,7 +107,16 @@ void ShadowRenderPass::BeginPass()
     // At low sun angles, terrain top faces are nearly edge-on to the shadow camera.
     // With back-face culling, these faces project to thin slivers with gaps (light leaks).
     // At sunAngle >= 0.5, top faces become back-facing and get culled entirely.
-    g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
+    //
+    // [FIX] Hardware depth bias to prevent shadow acne (diagonal stripe self-shadowing).
+    // Without bias, floating-point precision causes surfaces to intermittently shadow themselves.
+    // slopeScaledDepthBias adapts to surface angle — steeper surfaces get more offset.
+    // depthBiasClamp prevents excessive bias at extreme grazing angles (peter-panning).
+    RasterizationConfig shadowRasterConfig  = RasterizationConfig::NoCull();
+    shadowRasterConfig.depthBias            = 4000;
+    shadowRasterConfig.slopeScaledDepthBias = 1.5f;
+    shadowRasterConfig.depthBiasClamp       = 0.01f;
+    g_theRendererSubsystem->SetRasterizationConfig(shadowRasterConfig);
 
     // Set block atlas for alpha testing
     if (m_blockAtlasTexture)

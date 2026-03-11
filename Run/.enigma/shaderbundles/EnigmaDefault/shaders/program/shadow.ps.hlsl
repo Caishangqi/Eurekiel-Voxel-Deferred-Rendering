@@ -140,9 +140,11 @@ PSOutput_Shadow main(PSInput_Shadow input)
 {
     PSOutput_Shadow output;
 
-    // [STEP 1] Sample texture for alpha testing (cutout geometry support)
+    // [STEP 1] Alpha testing for cutout geometry (leaves, fences, etc.)
+    // Without clip(), transparent pixels write depth and cast incorrect shadows.
     Texture2D gtexture = GetCustomImage(0);
     float4    texColor = gtexture.Sample(sampler1, input.TexCoord);
+    clip(texColor.a - 0.5);
 
     // [STEP 2] Compute shadow UV from clip position for caustic sampling
     // SV_POSITION.xy is in screen pixels; normalize to [0,1] using viewport
