@@ -32,6 +32,10 @@ const float sunPathRotation = -40; //[-90.0 -80.0 -70.0 -60.0 -50.0 -40.0 -30.0 
 // Shadow Settings
 //============================================================================//
 
+// Shadow map resolution (engine directive, parsed at load time by ConstDirectiveParser)
+// Iris pattern: const int shadowMapResolution = 2048;
+const int shadowMapResolution = 2048; //[512 1024 2048 4096 8192]
+
 #ifndef SHADOW_PIXEL
 #define SHADOW_PIXEL 0             // [0 - 2048] Pixelated shadow resolution (0 = smooth)
 #endif

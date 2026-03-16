@@ -18,6 +18,7 @@
 
 #include "Engine/Graphic/Bundle/ShaderBundle.hpp"
 #include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
+#include "Engine/Graphic/Target/ShadowTextureProvider.hpp"
 
 using namespace enigma::graphic;
 
@@ -137,6 +138,14 @@ void ShadowRenderPass::BeginPass()
             g_theRendererSubsystem->SetSamplerConfig(entry.metadata.samplerSlot, entry.metadata.samplerConfig);
         }
     }
+
+    // Set viewport to match shadow RT dimensions (may differ from swapchain size)
+    auto* shadowTexProvider = dynamic_cast<enigma::graphic::ShadowTextureProvider*>(
+        g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::ShadowTex));
+    if (shadowTexProvider)
+    {
+        g_theRendererSubsystem->SetViewport(shadowTexProvider->GetBaseWidth(), shadowTexProvider->GetBaseHeight());
+    }
 }
 
 void ShadowRenderPass::EndPass()
@@ -150,6 +159,10 @@ void ShadowRenderPass::EndPass()
 
     // Restore default back-face culling after shadow pass
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::CullBack());
+
+    // Restore viewport to swapchain dimensions after shadow pass
+    const auto& config = g_theRendererSubsystem->GetConfiguration();
+    g_theRendererSubsystem->SetViewport(config.renderWidth, config.renderHeight);
 }
 
 // ============================================================================
