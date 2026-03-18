@@ -72,9 +72,9 @@ SSRResult ComputeSSR(
     result.color = float3(0.0, 0.0, 0.0);
     result.alpha = 0.0;
 
-    // Skip sky pixels
-    if (depth >= 0.9999)
-        return result;
+    // No early sky-skip here (matches CR approach).
+    // Sky pixels naturally produce no hit; the loop exits via screen edge check.
+    // Hit validation below (hitScreenPos.z < 0.99997) handles the rest.
 
     // --- Transform to view space ---
     // Use gbufferView (world-to-camera, engine coordinate system)
@@ -182,26 +182,6 @@ SSRResult ComputeSSR(
     }
 
     return result;
-}
-
-// ============================================================================
-// Reflection Fallback
-// ============================================================================
-
-/// Sky-tinted fallback reflection for SSR misses.
-/// Provides a basic environment reflection based on the reflection direction.
-///
-/// @param reflectDir   Reflection direction (world space, normalized)
-/// @param skyColor     Current sky/ambient color
-/// @param skyLightFactor Sky light influence [0,1] (from lightmap or uniform)
-/// @return Fallback reflection color
-float3 GetReflectionFallback(float3 reflectDir, float3 skyColor, float skyLightFactor)
-{
-    // Upward-facing reflections receive more sky color (engine: +Z is up)
-    float upFactor = max(reflectDir.z, 0.0);
-    float skyBlend = lerp(0.3, 1.0, upFactor);
-
-    return skyColor * skyLightFactor * skyBlend;
 }
 
 #endif // LIB_SSR_HLSL

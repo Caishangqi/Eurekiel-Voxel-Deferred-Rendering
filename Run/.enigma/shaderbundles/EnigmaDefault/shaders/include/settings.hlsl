@@ -265,7 +265,7 @@ const int shadowMapResolution = 2048; //[512 1024 2048 4096 8192]
 #define GLASS_REFLECTIVITY 0.3
 
 #ifndef SSR_MAX_STEPS
-#define SSR_MAX_STEPS 38            // [1 - 512] Screen-space reflection steps (CR uses 38)
+#define SSR_MAX_STEPS 512            // [1 - 512] Screen-space reflection steps (CR uses 38, increased for longer reach)
 #endif
 
 #ifndef SSR_STEP_SIZE
@@ -368,6 +368,50 @@ const int shadowMapResolution = 2048; //[512 1024 2048 4096 8192]
 
 #ifndef WATER_SKY_REFLECT_NIGHT
 #define WATER_SKY_REFLECT_NIGHT float3(0.02, 0.03, 0.06)  // Nighttime sky reflection (dark moonlit)
+#endif
+
+//============================================================================//
+// Mirrored Image Reflection (Method 2 - CR reflections.glsl:185-233)
+// Projects reflected direction to screen space and samples colortex0.
+// Bridges the gap between SSR ray march (near) and sky fallback (far).
+//============================================================================//
+
+#ifndef MIRROR_VERTICAL_STRETCH
+#define MIRROR_VERTICAL_STRETCH 0.013   // Vertical stretch for mirror projection (CR: 0.013)
+#endif
+
+#ifndef MIRROR_DISTANCE_FOG_POWER
+#define MIRROR_DISTANCE_FOG_POWER 1.5   // [1.0 1.5 2.0 2.5] Distance fog curve exponent
+#endif
+
+#ifndef MIRROR_FOG_DENSITY
+#define MIRROR_FOG_DENSITY 3.0          // [1.0 2.0 3.0 4.0 5.0] Distance fog strength (exp(-density * fog))
+#endif
+
+//============================================================================//
+// Procedural Sky Reflection Colors (three-layer architecture)
+// Used as Layer 3 fallback when both SSR and mirrored image fade out.
+// Gradient from zenith to horizon with sunset warmth overlay.
+//============================================================================//
+
+#ifndef SKY_REFLECT_UP_DAY
+#define SKY_REFLECT_UP_DAY float3(0.25, 0.45, 0.85)       // Zenith blue (day)
+#endif
+
+#ifndef SKY_REFLECT_UP_NIGHT
+#define SKY_REFLECT_UP_NIGHT float3(0.01, 0.015, 0.04)    // Dark zenith (night)
+#endif
+
+#ifndef SKY_REFLECT_MID_DAY
+#define SKY_REFLECT_MID_DAY float3(0.55, 0.65, 0.80)      // Horizon haze (day)
+#endif
+
+#ifndef SKY_REFLECT_MID_NIGHT
+#define SKY_REFLECT_MID_NIGHT float3(0.03, 0.04, 0.07)    // Dark horizon (night)
+#endif
+
+#ifndef SKY_REFLECT_SUNSET
+#define SKY_REFLECT_SUNSET float3(0.8, 0.45, 0.25)        // Sunset warm overlay
 #endif
 
 //============================================================================//
