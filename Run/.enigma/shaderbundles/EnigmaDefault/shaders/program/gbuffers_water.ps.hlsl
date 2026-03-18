@@ -27,6 +27,7 @@
 #include "../lib/noise.hlsl"
 #include "../lib/water.hlsl"
 #include "../lib/ssr.hlsl"
+#include "../lib/reflection.hlsl"
 #include "../lib/lighting.hlsl"
 #include "../lib/atmosphere.hlsl"
 
@@ -141,43 +142,55 @@ PSOutput_Water main(PSInput_Water input)
         output.Material = float4(241.0 / 255.0, water.smoothness, WATER_REFLECTIVITY, water.fresnel);
 
         // ================================================================
-        // Time-dependent Sky Reflection Color
-        // Night: dark reflection matching moonlit sky
-        // Day: bright blue sky reflection
+        // Three-Layer Reflection Architecture (CR Reimagined style)
+        // Layer 1: SSR Ray March     (near, high quality)
+        // Layer 2: Mirrored Image    (mid, colortex0 reprojection)
+        // Layer 3: Procedural Sky    (far/fallback, atmospheric gradient)
+        // Underwater: reduce reflection strength to 25% (CR: reflectMult)
         // ================================================================
         float sunVis  = GetSunVisibility(sunPosition, upPosition);
         float sunVis2 = sunVis * sunVis;
+        float noonFac = GetNoonFactor(sunAngle);
 
-        float3 skyReflectColor = lerp(WATER_SKY_REFLECT_NIGHT, WATER_SKY_REFLECT_DAY, sunVis2);
-
-        // ================================================================
-        // Inline SSR + Reflection Blending (CR architecture)
-        // Underwater: reduce reflection strength to 50% (CR: reflectMult=0.5)
-        // ================================================================
         float  reflectMult = (isEyeInWater == EYE_IN_WATER) ? 0.25 : 1.0;
         float3 waterColor  = litWaterColor;
 
 #if WATER_REFLECT_QUALITY >= 1
+        // Shared view-space transforms (used by both SSR and Mirror)
         float3 viewDirToFrag = normalize(input.WorldPos - cameraPosition);
         float3 reflectDir    = reflect(viewDirToFrag, water.normalM);
+        float3 viewPos       = mul(gbufferView, float4(input.WorldPos, 1.0)).xyz;
+        float3 nViewPos      = normalize(viewPos);
+        float3 viewNormal    = normalize(mul((float3x3)gbufferView, water.normalM));
+        float3 reflectDirVS  = normalize(reflect(nViewPos, viewNormal));
+        float  lViewPos      = length(viewPos);
 
-        float  skyLightFactor  = input.LightmapCoord.y;
-        float3 skyFallback     = GetReflectionFallback(reflectDir, skyReflectColor, skyLightFactor);
-        float3 reflectionColor = skyFallback;
+        float skyLightFactor = input.LightmapCoord.y;
+        float dither         = InterleavedGradientNoiseForClouds(input.Position.xy);
+
+        // Layer 3: Procedural sky reflection (always computed)
+        float3 skyReflection = ComputeSkyReflection(
+            reflectDir, skyLightFactor, sunVis2, noonFac);
+
+        // Layer 2: Mirrored image reflection
+        SSRResult mirror = ComputeMirroredReflection(
+            viewPos, nViewPos, reflectDirVS, lViewPos, dither);
+
+        // Layer 1: SSR ray march (quality >= 2 only)
+        SSRResult ssr;
+        ssr.color = float3(0.0, 0.0, 0.0);
+        ssr.alpha = 0.0;
 
 #if WATER_REFLECT_QUALITY >= 2
-        float depth  = input.Position.z;
-        float dither = InterleavedGradientNoiseForClouds(input.Position.xy);
-
-        SSRResult ssr = ComputeSSR(
+        float depth = input.Position.z;
+        ssr         = ComputeSSR(
             input.WorldPos, water.normalM, viewDirToFrag,
-            water.smoothness, dither, depth
-        );
-
-        reflectionColor = lerp(skyFallback, ssr.color, ssr.alpha);
+            water.smoothness, dither, depth);
 #endif
 
-        waterColor = lerp(waterColor, reflectionColor, water.fresnel * reflectMult);
+        // Blend three layers: SSR -> Mirror -> Sky
+        ReflectionResult reflection = BlendReflectionLayers(ssr, mirror, skyReflection);
+        waterColor                  = lerp(waterColor, reflection.color, water.fresnel * reflectMult);
 #endif
 
         // ================================================================
