@@ -12,6 +12,7 @@
 #include "../lib/atmosphere.hlsl"
 #include "../lib/clouds.hlsl"
 #include "../lib/noise.hlsl"
+#include "../lib/ssao.hlsl"
 
 struct PSOutput
 {
@@ -47,6 +48,13 @@ PSOutput main(PSInput input)
 
     if (!isSkyPixel)
     {
+        // --- SSAO (CR deferred1 style) ---
+        // Computed from depth buffer, independent of baked vertex AO.
+        // Combined multiplicatively: finalAO = bakedAO * ssao
+        float ssaoDither = InterleavedGradientNoiseForClouds(input.Position.xy);
+        float ssao       = DoAmbientOcclusion(input.TexCoord, depthAll, ssaoDither);
+        ao               *= ssao;
+
         // Lightmap sampling
         float2 lightmapSample = colortex1.Sample(sampler0, input.TexCoord).rg;
         float  blockLight     = lightmapSample.r;

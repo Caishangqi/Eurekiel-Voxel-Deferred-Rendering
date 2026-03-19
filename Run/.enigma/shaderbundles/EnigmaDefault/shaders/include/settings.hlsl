@@ -257,6 +257,25 @@ const int shadowMapResolution = 2048; //[512 1024 2048 4096 8192]
 #endif
 
 //============================================================================//
+// SSAO Settings (CR deferred1 style)
+// Screen-space ambient occlusion via depth-based sampling.
+// Combines multiplicatively with baked vertex AO from colortex0.a.
+// Reference: ComplementaryReimagined deferred1.glsl DoAmbientOcclusion
+//============================================================================//
+
+#ifndef SSAO_QUALI
+#define SSAO_QUALI 3                    // [0 2 3] 0=off, 2=fast(4 samples), 3=quality(12 samples)
+#endif
+
+#ifndef SSAO_I
+#define SSAO_I 100                      // [0 25 50 75 100 125 150 200 250 300] Intensity (0=off, 100=default, 300=max)
+#endif
+
+// Derived: intensity power exponent (CR: SSAO_I * 0.004)
+#define SSAO_I_FACTOR 0.004
+#define SSAO_IM (SSAO_I * SSAO_I_FACTOR)
+
+//============================================================================//
 // Reflection Settings
 //============================================================================//
 
@@ -265,7 +284,7 @@ const int shadowMapResolution = 2048; //[512 1024 2048 4096 8192]
 #define GLASS_REFLECTIVITY 0.3
 
 #ifndef SSR_MAX_STEPS
-#define SSR_MAX_STEPS 512            // [1 - 512] Screen-space reflection steps (CR uses 38, increased for longer reach)
+#define SSR_MAX_STEPS 38            // [1 - 512] Screen-space reflection steps (CR uses 38, increased for longer reach)
 #endif
 
 #ifndef SSR_STEP_SIZE
@@ -442,7 +461,7 @@ const int shadowMapResolution = 2048; //[512 1024 2048 4096 8192]
 //============================================================================//
 
 #ifndef WATER_UW_FOG_DISTANCE
-#define WATER_UW_FOG_DISTANCE 48.0     // [16.0 24.0 32.0 48.0 64.0 96.0] Base fog distance (blocks, higher = clearer water)
+#define WATER_UW_FOG_DISTANCE 32.0     // [16.0 24.0 32.0 48.0 64.0 96.0] Base fog distance (blocks, higher = clearer water)
 #endif                                 // CR uses 48.0 with lightshafts active, 32.0 without
 
 //============================================================================//
