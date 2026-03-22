@@ -27,16 +27,11 @@
 #include "../@engine/core/core.hlsl"
 
 // [RENDERTARGETS] 0
-// Output to colortex0 (main color)
+// Output to colortex0 only (colortex3 reserved for translucentMult in gbuffers_water)
 
-/**
- * @brief Pixel Shader Output Structure
- * ShaderCodeGenerator reads RENDERTARGETS comment and generates this struct
- */
 struct PSOutput
 {
     float4 Color0 : SV_Target0; // colortex0: Cloud color (RGBA)
-    float4 Color1 : SV_Target1; // colortex3: Cloud color (RGBA)
 };
 
 /**
@@ -58,6 +53,5 @@ PSOutput main(VSOutput input)
 
     PSOutput output;
     output.Color0 = float4(0, 0, 0, 0);
-    output.Color1 = float4(0, 0, 0, 0);
     return output;
 }
