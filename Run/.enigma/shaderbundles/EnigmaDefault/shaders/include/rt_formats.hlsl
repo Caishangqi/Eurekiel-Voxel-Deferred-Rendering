@@ -24,6 +24,13 @@ const int colortex7Format = R16G16B16A16_FLOAT;
 */
 
 //============================================================================//
+// Mipmap Directives (parsed by PackRenderTargetDirectives)
+// Enable hardware mipmap generation for specific colortex.
+// Required for Bloom: composite2 reads colortex0 mipmaps for downsampling.
+//============================================================================//
+const bool colortex0MipmapEnabled = true;
+
+//============================================================================//
 // Clear Control Directives
 //============================================================================//
 const bool colortex0Clear = true;

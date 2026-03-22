@@ -101,6 +101,8 @@ float SampleShadowForVL(float3 shadowUV, Texture2D shadowTex, SamplerState samp)
 // @param shadowColTex   Shadow color texture for translucent light shafts (shadowcolor1)
 // @param samp           Shadow sampler state
 // @param eyeInWater     Eye-in-fluid state (EYE_IN_AIR/EYE_IN_WATER/etc.)
+// @param translucentMult Per-pixel translucent color filter from colortex3 (1.0 = no translucent surface)
+// @param depth0          Linear distance to translucent surface (depthtex0), used for water surface detection
 // @return               float3 volumetric color (additive, ready for sceneColor +=)
 float3 GetVolumetricLight(
     float3       worldPos,
@@ -117,7 +119,9 @@ float3 GetVolumetricLight(
     Texture2D    shadowTex1,
     Texture2D    shadowColTex,
     SamplerState samp,
-    int          eyeInWater)
+    int          eyeInWater,
+    float3       translucentMult,
+    float        depth0)
 {
     // --- vlTime: sun elevation gate ---
     // Fades VL to zero when sun is near horizon to avoid shadow map grazing-angle artifacts.
@@ -230,29 +234,50 @@ float3 GetVolumetricLight(
 
                 // Colored light shaft path: underwater only.
                 // Above water uses standard white VL (shadow0 value).
-                // CR runs this for both, but relies on translucentMult tinting
-                // (which we don't have) to avoid artifacts at water boundaries.
+                // CR volumetricLight.glsl:176-214: dual shadow test + translucentMult tinting
                 if (eyeInWater == EYE_IN_WATER)
                 {
+                    bool isColoredShaft = false;
+
                     if (shadow0 < 0.5)
                     {
                         float shadow1 = SampleShadowForVL(shadowUV, shadowTex1, samp);
                         if (shadow1 > 0.5)
                         {
                             // Colored light shaft through water (CR: colsample * 4.0, squared)
+                            // These come from the shadow map (light-space) and must be preserved
+                            // regardless of screen-space translucentMult.
                             float3 colSample = shadowColTex.Sample(samp, shadowUV.xy).rgb * 4.0;
                             colSample        *= colSample;
-                            // CR line 190: normalize colored samples to prevent double-coloring
-                            colSample *= vlColorReducer;
-                            vlSample  = colSample;
+                            colSample        *= vlColorReducer;
+                            vlSample         = colSample;
+                            isColoredShaft   = true;
                         }
                     }
                     else
                     {
-                        // CR line 208: underwater, zero out fully-lit (non-translucent) samples.
-                        // Underwater VL should only come from colored light shafts through
-                        // the water surface, not from plain white VL.
-                        vlSample = float3(0.0, 0.0, 0.0);
+                        // Fully lit (shadow0 >= 0.5): white VL only valid if pixel has
+                        // a translucent surface. Without water surface in screen-space,
+                        // white VL underwater is physically incorrect.
+                        bool hasTranslucent = any(translucentMult < 0.999);
+                        if (!hasTranslucent)
+                            vlSample = float3(0.0, 0.0, 0.0);
+                    }
+
+                    // CR line 196-205 + 214: tint and attenuate samples past water surface
+                    // Only applies when screen-space water surface exists
+                    bool hasTranslucent = any(translucentMult < 0.999);
+                    if (hasTranslucent)
+                    {
+                        float currentDist = length(currentPos - cameraPos);
+                        if (currentDist > depth0)
+                        {
+                            float3 translucentMultM = translucentMult * 2.8;
+                            float3 tinter           = pow(max(translucentMultM, 0.001),
+                                                float3(sunVisibility * 3.0, sunVisibility * 3.0, sunVisibility * 3.0));
+                            vlSample *= tinter;
+                            vlSample *= translucentMult;
+                        }
                     }
                 }
             }

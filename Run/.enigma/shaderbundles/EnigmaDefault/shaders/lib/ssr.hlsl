@@ -162,7 +162,7 @@ SSRResult ComputeSSR(
         if (border > 0.001)
         {
             // Sample reflected scene color at hit point
-            result.color = colortex0.Sample(sampler0, hitScreenPos.xy).rgb;
+            result.color = colortex0.SampleLevel(sampler0, hitScreenPos.xy, 0).rgb;
 
             // Edge factor: smooth luminance-adaptive fade (CR reflections.glsl:169)
             // pow8(cdist) for gradual falloff
