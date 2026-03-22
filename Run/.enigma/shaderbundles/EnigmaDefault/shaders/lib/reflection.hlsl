@@ -89,7 +89,7 @@ SSRResult ComputeMirroredReflection(
         return result;
 
     // Sample reflected scene color
-    result.color = colortex0.Sample(sampler0, screenR).rgb;
+    result.color = colortex0.SampleLevel(sampler0, screenR, 0).rgb;
 
     // Edge fade: pow8 for smooth screen-border falloff (CR reflections.glsl:220)
     float2 cdist      = abs(screenR - 0.5) / SCREEN_EDGE;
