@@ -55,7 +55,7 @@ float3 ApplyWaterRefraction(float2 uv, float3 sceneColor, float depth)
         return sceneColor; // Offset left water region, keep original
 
     // Resample scene at refracted UV (already linearized)
-    float3 refractedColor = colortex0.Sample(sampler0, refractedUV).rgb;
+    float3 refractedColor = colortex0.SampleLevel(sampler0, refractedUV, 0).rgb;
     refractedColor        = pow(max(refractedColor, 0.0), 2.2);
 
     return refractedColor;
@@ -75,7 +75,7 @@ PSOutput main(PSInput input)
     /* RENDERTARGETS: 0,5 */
 
     // Read scene color from deferred/composite output
-    float3 sceneColor = colortex0.Sample(sampler0, input.TexCoord).rgb;
+    float3 sceneColor = colortex0.SampleLevel(sampler0, input.TexCoord, 0).rgb;
     float  depth      = depthtex0.Sample(sampler1, input.TexCoord).r;
 
     // Water reflection is now computed inline in gbuffers_water (CR architecture).
@@ -85,6 +85,10 @@ PSOutput main(PSInput input)
     // Read cloud linear depth from colortex5.a (written by deferred1)
     // vlFactor: 1.0 = no cloud (full VL), <1.0 = cloud present (reduced VL)
     float vlFactor = colortex5.Sample(sampler1, input.TexCoord).a;
+
+    // Read translucentMult from colortex3 (written by gbuffers_water, TM5723 inverted)
+    // 1.0 = no translucent surface, <1.0 = water/translucent present with color filter
+    float3 translucentMult = 1.0 - colortex3.Sample(sampler1, input.TexCoord).rgb;
 
     // Compute sunVisibility from SdotU (CR composite1.glsl:24)
     float SdotU         = dot(normalize(sunPosition), normalize(upPosition));
@@ -124,6 +128,11 @@ PSOutput main(PSInput input)
     float3 viewPos  = ReconstructViewPosition(input.TexCoord, depth, gbufferProjectionInverse, gbufferRendererInverse);
     float3 worldPos = mul(gbufferViewInverse, float4(viewPos, 1.0)).xyz;
 
+    // Linear distance to nearest surface including translucents (water surface)
+    // Used by VL to detect when ray steps pass through the water surface
+    // CR: depth0 = GetDepth(z0)
+    float depth0Linear = length(viewPos);
+
     // View direction (camera-relative, world space)
     // [FIX] worldPos is ABSOLUTE in our engine -- subtract cameraPosition
     float3 nViewDir = normalize(worldPos - cameraPosition);
@@ -142,12 +151,14 @@ PSOutput main(PSInput input)
 
     // Volumetric light via shadow map ray marching
     // CR-style: shadowtex0 (includes water) + shadowtex1 (opaque) + shadowcolor1 (colored shafts)
+    // translucentMult + depth0Linear enable proper underwater VL tinting and surface detection
     float3 vl = GetVolumetricLight(
         worldPos, cameraPosition, VdotL, VdotU, SdotU, dither, vlFactor,
         sunVisibility,
         shadowView, shadowProjection,
         shadowtex0, shadowtex1, shadowcolor1, sampler1,
-        isEyeInWater);
+        isEyeInWater,
+        translucentMult, depth0Linear);
 
     // ====================================================================
     // Water Refraction (isEyeInWater == 0, above water surface)
