@@ -31,9 +31,9 @@
 #include "../lib/lighting.hlsl"
 #include "../lib/atmosphere.hlsl"
 
-// [RENDERTARGETS] 0,1,2,4
+// [RENDERTARGETS] 0,1,2,3,4
 // SV_TARGET0 -> colortex0, SV_TARGET1 -> colortex1,
-// SV_TARGET2 -> colortex2, SV_TARGET3 -> colortex4
+// SV_TARGET2 -> colortex2, SV_TARGET3 -> colortex3, SV_TARGET4 -> colortex4
 
 // ============================================================================
 // Pixel Shader Structures
@@ -56,7 +56,8 @@ struct PSOutput_Water
     float4 Color : SV_TARGET0; // colortex0: Final color (reflection blended) + Alpha
     float4 Lightmap : SV_TARGET1; // colortex1: Lightmap
     float4 Normal : SV_TARGET2; // colortex2: World Normal (SNORM)
-    float4 Material : SV_TARGET3; // colortex4: MaterialMask(R) + Smoothness(G) + Reflectivity(B) + fresnelM(A)
+    float4 TranslucentMult : SV_TARGET3; // colortex3: 1.0 - translucentMult (CR TM5723 trick)
+    float4 Material : SV_TARGET4; // colortex4: MaterialMask(R) + Smoothness(G) + Reflectivity(B) + fresnelM(A)
 };
 
 PSOutput_Water main(PSInput_Water input)
@@ -203,6 +204,29 @@ PSOutput_Water main(PSInput_Water input)
             waterColor = ApplyCRUnderwaterFog(waterColor, waterViewDist, sunVis2);
         }
 
+        // ================================================================
+        // TranslucentMult for VL colored light shafts (CR water.glsl:11-13, 243-245)
+        // Encodes how light is filtered when passing through the water surface.
+        // Used by composite1 VL raymarching to tint underwater god rays.
+        // Written as 1.0 - value (TM5723 trick: clear=0 inverts to 1.0 = no effect).
+        // ================================================================
+        float3 translucentMult = normalize(max(abs(input.Color.rgb), 0.001));
+        // sqrt2 approximation: CR uses sqrt2(glColor) = pow(glColor, 0.25)
+        translucentMult   = sqrt(translucentMult);
+        translucentMult.g *= 0.88; // CR water.glsl:13
+
+        // Fresnel attenuation: less light passes through at grazing angles
+        // CR water.glsl:245 (WATER_STYLE != 1 path)
+        translucentMult *= 1.0 - 0.9 * max(0.5 * sqrt(fresnel4), fresnel4);
+
+        // Distance fade: at far distances, translucentMult -> 1.0 (no effect)
+        // CR gbuffers_water.glsl:250
+        float distFade  = saturate(Pow2(Pow2(waterViewDist / far)));
+        translucentMult = lerp(translucentMult, float3(1.0, 1.0, 1.0), distFade);
+
+        // Store inverted (TM5723): colortex3 clears to 0, so 1-tm gives 1.0 for non-water pixels
+        output.TranslucentMult = float4(1.0 - translucentMult, 1.0);
+
         output.Color = float4(waterColor, water.alpha);
     }
     else
@@ -212,9 +236,10 @@ PSOutput_Water main(PSInput_Water input)
         // ================================================================
         float4 finalColor = texColor * input.Color;
 
-        output.Color    = finalColor;
-        output.Normal   = float4(0, 0, 0, 0);
-        output.Material = float4(0, 0, 0, 0);
+        output.Color           = finalColor;
+        output.Normal          = float4(0, 0, 0, 0);
+        output.TranslucentMult = float4(0, 0, 0, 0); // Inverts to 1.0 = no translucent effect
+        output.Material        = float4(0, 0, 0, 0);
     }
 
     return output;
