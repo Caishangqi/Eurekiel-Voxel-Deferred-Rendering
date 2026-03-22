@@ -32,7 +32,7 @@ PSOutput main(PSInput input)
     // --- GBuffer Sampling ---
     float depthAll = depthtex0.Sample(sampler1, input.TexCoord).r;
 
-    float4 albedoAO = colortex0.Sample(sampler0, input.TexCoord);
+    float4 albedoAO = colortex0.SampleLevel(sampler0, input.TexCoord, 0);
     float3 albedo   = albedoAO.rgb;
     float  ao       = albedoAO.a;
 
