@@ -223,6 +223,8 @@
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\composite.vs.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\composite1.ps.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\composite1.vs.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\composite4.ps.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\composite4.vs.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\composite5.ps.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\composite5.vs.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\final.ps.hlsl"/>
@@ -496,6 +498,9 @@
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\ssr.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\water.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\reflection.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\program\composite4.ps.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\program\composite4.vs.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\bloom.hlsl"/>
         <ClCompile Include="Framework\GameObject\ImguiPlayerDebugInfo.cpp" />
         <ClCompile Include="Framework\Imgui\ImguiGameLogic.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiGameSettings.cpp"/>
