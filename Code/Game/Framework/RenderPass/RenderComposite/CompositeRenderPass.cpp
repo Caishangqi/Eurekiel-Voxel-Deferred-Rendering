@@ -72,8 +72,17 @@ void CompositeRenderPass::OnShaderBundleUnloaded()
 
 void CompositeRenderPass::BeginPass()
 {
-    // Depth/shadow SRV transitions handled by DeferredRenderPass::BeginPass()
-    // CompositeRenderPass only needs post-processing setup
+    // [FIX] Transition depthtex0/1 to SRV for composite sampling (SSR, VL, etc.)
+    // DeferredRenderPass::EndPass() restored them to DEPTH_WRITE for translucent passes
+    auto* depthProvider = static_cast<enigma::graphic::DepthTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::DepthTex));
+    depthProvider->GetDepthTexture(0)->TransitionToShaderResource();
+    depthProvider->GetDepthTexture(1)->TransitionToShaderResource();
+
+    // [FIX] Transition shadowtex0/1 to SRV for composite VL
+    auto* shadowProvider = static_cast<enigma::graphic::ShadowTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::ShadowTex));
+    shadowProvider->GetDepthTexture(0)->TransitionToShaderResource();
+    shadowProvider->GetDepthTexture(1)->TransitionToShaderResource();
+
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Disabled());
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Opaque());
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());

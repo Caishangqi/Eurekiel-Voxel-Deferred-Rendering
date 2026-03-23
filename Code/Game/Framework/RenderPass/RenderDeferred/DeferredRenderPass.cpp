@@ -109,9 +109,16 @@ void DeferredRenderPass::EndPass()
 
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::CullBack());
 
-    // NOTE: Depth/shadow textures are NOT restored here.
-    // CompositeRenderPass (composite1 VL) still needs them as SRV.
-    // CompositeRenderPass::EndPass() handles the restore to DEPTH_WRITE.
+    // [FIX] Restore depthtex0/1 to DEPTH_WRITE for translucent passes (water, cloud)
+    // TerrainTranslucentRenderPass and CloudRenderPass need depthtex0 as DSV
+    auto* depthProvider = static_cast<DepthTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::DepthTex));
+    depthProvider->GetDepthTexture(0)->TransitionToDepthWrite();
+    depthProvider->GetDepthTexture(1)->TransitionToDepthWrite();
+
+    // [FIX] Restore shadowtex0/1 to DEPTH_WRITE
+    auto* shadowProvider = static_cast<ShadowTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::ShadowTex));
+    shadowProvider->GetDepthTexture(0)->TransitionToDepthWrite();
+    shadowProvider->GetDepthTexture(1)->TransitionToDepthWrite();
 }
 
 void DeferredRenderPass::OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle)

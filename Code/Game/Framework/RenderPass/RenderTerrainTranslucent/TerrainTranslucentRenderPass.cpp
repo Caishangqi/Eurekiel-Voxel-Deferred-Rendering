@@ -127,8 +127,9 @@ void TerrainTranslucentRenderPass::OnShaderBundleUnloaded()
 
 void TerrainTranslucentRenderPass::BeginPass()
 {
-    // Copy depth texture before rendering translucent objects
-    g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::DepthTex)->Copy(0, 1);
+    // [FIX] Depth copy (depthtex0 -> depthtex1) already done in TerrainCutoutRenderPass::EndPass()
+    // No need to copy again here - DeferredRenderPass runs between cutout and translucent
+    // but does not modify depthtex0 content (only transitions state)
 
     // Save current render states for restoration
     m_savedDepthConfig = g_theRendererSubsystem->GetDepthConfig();
