@@ -2,7 +2,7 @@
 /// Reference: ComplementaryReimagined composite4.glsl, composite5.glsl
 ///
 /// Architecture:
-///   composite2 (generation): BloomTile() reads colortex0 mipmaps, writes 7-LOD tile atlas to colortex3
+///   composite4 (generation): BloomTile() reads colortex0 hardware mipmaps, writes 7-LOD tile atlas to colortex3
 ///   composite5 (application): GetBloomTile() reads atlas from colortex3, DoBloom() composites onto scene
 ///
 /// Tile Atlas Layout (normalized UV space):
@@ -39,9 +39,10 @@ float2 GetBloomRescale()
 }
 
 //============================================================================//
-// Bloom Tile Generation (composite2)
-// Reads colortex0 with 7x7 Gaussian blur at the given LOD level.
-// Hardware mipmaps provide implicit downsampling via UV scaling.
+// Bloom Tile Generation (composite4)
+// Reads colortex0 at the given mip level with 7x7 Gaussian blur.
+// Hardware mipmaps (colortex0MipmapEnabled) provide pre-filtered downsampling;
+// the Gaussian kernel adds additional blur on top for smooth bloom falloff.
 // Reference: CR composite4.glsl:31-50
 //============================================================================//
 
@@ -66,11 +67,11 @@ float3 BloomTile(float lod, float2 offset, float2 scaledCoord)
                 float  wg          = bloomWeight[i + 3] * bloomWeight[j + 3];
                 float2 pixelOffset = float2(i, j) * pixelSize;
                 float2 bloomCoord  = (scaledCoord - offset + pixelOffset) * scale;
-                // SampleLevel mip 0: the 7x7 Gaussian kernel provides sufficient
-                // low-pass filtering. Hardware mip selection (Sample) would give
-                // slightly better quality at high LODs but requires mipmap generation
-                // to run between composite1 and composite4.
-                bloom += colortex0.SampleLevel(sampler0, bloomCoord, 0).rgb * wg;
+                // Sample from hardware mip level matching this LOD.
+                // At mip `lod`, each texel covers exp2(lod) original pixels,
+                // so kernel offsets of 1 screen pixel * scale = 1 mip texel,
+                // giving a proper 7-texel Gaussian blur at each resolution.
+                bloom += colortex0.SampleLevel(sampler0, bloomCoord, lod).rgb * wg;
             }
         }
         bloom /= 4096.0; // Normalize: 64 * 64
