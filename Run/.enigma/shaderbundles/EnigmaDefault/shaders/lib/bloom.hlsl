@@ -71,7 +71,7 @@ float3 BloomTile(float lod, float2 offset, float2 scaledCoord)
                 // At mip `lod`, each texel covers exp2(lod) original pixels,
                 // so kernel offsets of 1 screen pixel * scale = 1 mip texel,
                 // giving a proper 7-texel Gaussian blur at each resolution.
-                bloom += colortex0.SampleLevel(sampler0, bloomCoord, lod).rgb * wg;
+                bloom += colortex0.SampleLevel(linearClampSampler, bloomCoord, lod).rgb * wg;
             }
         }
         bloom /= 4096.0; // Normalize: 64 * 64
@@ -94,7 +94,7 @@ float3 GetBloomTile(float lod, float2 coord, float2 offset, float2 rescale)
     float2 bloomCoord = coord / scale + offset;
     bloomCoord        = clamp(bloomCoord, offset, 1.0 / scale + offset);
 
-    float3 bloom = colortex3.Sample(sampler0, bloomCoord / rescale).rgb;
+    float3 bloom = colortex3.Sample(linearClampSampler, bloomCoord / rescale).rgb;
     bloom        *= bloom; // x^2
     bloom        *= bloom; // x^4
     return bloom * 128.0; // Undo the /128 from generation

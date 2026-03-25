@@ -51,7 +51,7 @@ Game::Game()
     /// Set the game state
 
     // Set CursorMode
-    g_theInput->SetCursorMode(CursorMode::FPS);
+    g_theInput->SetCursorMode(CursorMode::POINTER);
 
     /// Prepare clock;
     m_gameClock = std::make_unique<Clock>(Clock::GetSystemClock());
@@ -63,7 +63,7 @@ Game::Game()
     /// Prepare player
     m_player                = std::make_unique<PlayerCharacter>(this);
     m_player->m_position    = Vec3(-20, 9, 75);
-    m_player->m_orientation = EulerAngles(-64, 33, 0);
+    m_player->m_orientation = EulerAngles(-160, -8, 0);
 
     /// Scene (Test Only)
     m_scene = std::make_unique<SceneUnitTest_StencilXRay>();
