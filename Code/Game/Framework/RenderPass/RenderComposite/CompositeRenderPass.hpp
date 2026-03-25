@@ -29,6 +29,9 @@ protected:
 private:
     std::vector<std::shared_ptr<enigma::graphic::ShaderProgram>> m_shaderPrograms;
 
+    // Post-pass mipmap generation for mipmapped render targets
+    void generateMipmapsForMarkedTargets();
+
     // Saved customImage state for stage-scoped texture restore in EndPass
     // Key: customImage slot index, Value: previous D12Texture* at that slot
     std::unordered_map<int, enigma::graphic::D12Texture*> m_savedCustomImages;

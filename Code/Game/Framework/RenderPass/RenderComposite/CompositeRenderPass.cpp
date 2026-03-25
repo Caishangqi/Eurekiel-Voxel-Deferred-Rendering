@@ -8,6 +8,8 @@
 #include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Graphic/Target/D12RenderTarget.hpp"
+#include "Engine/Graphic/Target/ColorTextureProvider.hpp"
+#include "Engine/Graphic/Target/RenderTargetProviderCommon.hpp"
 #include "Engine/Graphic/Target/DepthTextureProvider.hpp"
 #include "Engine/Graphic/Target/ShadowTextureProvider.hpp"
 #include "Game/GameCommon.hpp"
@@ -52,6 +54,10 @@ void CompositeRenderPass::Execute()
 
             // Reset blend state for next program
             g_theRendererSubsystem->SetBlendConfig(BlendConfig::Opaque());
+
+            // Generate mipmaps between composite sub-passes so later passes
+            // (e.g. composite4 bloom) can read hardware mipmaps written by earlier passes
+            generateMipmapsForMarkedTargets();
         }
     }
     EndPass();
@@ -126,4 +132,27 @@ void CompositeRenderPass::EndPass()
     auto* shadowProvider = static_cast<enigma::graphic::ShadowTextureProvider*>(g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::ShadowTex));
     shadowProvider->GetDepthTexture(0)->TransitionToDepthWrite();
     shadowProvider->GetDepthTexture(1)->TransitionToDepthWrite();
+}
+
+void CompositeRenderPass::generateMipmapsForMarkedTargets()
+{
+    auto* colorProvider = static_cast<enigma::graphic::ColorTextureProvider*>(
+        g_theRendererSubsystem->GetRenderTargetProvider(RenderTargetType::ColorTex));
+    if (!colorProvider)
+        return;
+
+    for (int i = 0; i < enigma::graphic::MAX_COLOR_TEXTURES; ++i)
+    {
+        auto rt = colorProvider->GetRenderTarget(i);
+        if (rt && rt->IsMipmapEnabled())
+        {
+            rt->GenerateMainMips();
+
+            // MipmapGenerator leaves texture in PIXEL_SHADER_RESOURCE.
+            // Do NOT transition back to RENDER_TARGET here -- the next composite
+            // sub-pass may need to READ this texture (e.g. composite4 reads
+            // colortex0 mipmaps for bloom). PrepareForRendering() will auto-
+            // transition to RENDER_TARGET when a later pass writes to it.
+        }
+    }
 }
