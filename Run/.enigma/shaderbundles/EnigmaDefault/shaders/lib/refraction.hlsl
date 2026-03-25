@@ -75,9 +75,13 @@ float3 DoWaterRefraction(float2 uv, float3     sceneColor, float z0, float z1,
     refractNoise *= 0.015; // Reimagined style base scale
 
     // [Stage 2: Check] Depth-based attenuation: reduce refraction in shallow water
-    // approxDif = distance between water surface (z0) and opaque geometry (z1)
-    float approxDif = GetApproxDistance(z1) - GetApproxDistance(z0);
-    refractNoise    *= clamp(approxDif, 0.0, 1.0);
+    // approxDif = linear distance between water surface (z0) and opaque geometry (z1)
+    // If z0 == z1, depthtex1 may not properly exclude water — skip attenuation
+    if (abs(z1 - z0) > 0.00001)
+    {
+        float approxDif = GetApproxDistance(z1) - GetApproxDistance(z0);
+        refractNoise    *= clamp(approxDif, 0.0, 1.0);
+    }
 
     float2 refractCoord = clamp(uv + refractNoise, 0.001, 0.999);
 
@@ -85,12 +89,6 @@ float3 DoWaterRefraction(float2 uv, float3     sceneColor, float z0, float z1,
     float offsetMatMask = colortex4.Sample(sampler1, refractCoord).r;
     if (offsetMatMask < WATER_MATERIAL_THRESHOLD)
         return sceneColor;
-
-    // Double-validate: check depth difference at refracted coords
-    float z0check        = depthtex0.Sample(sampler1, refractCoord).r;
-    float z1check        = depthtex1.Sample(sampler1, refractCoord).r;
-    float approxDifCheck = GetApproxDistance(z1check) - GetApproxDistance(z0check);
-    refractNoise         *= clamp(approxDifCheck, 0.0, 1.0);
 
     // [Stage 3: Sample] Final refracted color
     refractCoord          = clamp(uv + refractNoise, 0.001, 0.999);

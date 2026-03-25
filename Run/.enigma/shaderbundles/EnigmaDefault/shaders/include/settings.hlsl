@@ -47,7 +47,7 @@ const int shadowMapResolution = 2048; //[512 1024 2048 4096 8192]
 // PCF shadow filtering quality
 // -1 = off (hard shadows), 0 = basic 4-tap, 1-5 = circular PCF with increasing samples
 #ifndef SHADOW_QUALITY
-#define SHADOW_QUALITY 5            // [-1 0 1 2 3 4 5]
+#define SHADOW_QUALITY 6            // [-1 0 1 2 3 4 5]
 #endif
 
 // PCF kernel radius (larger = softer but more blurry)
