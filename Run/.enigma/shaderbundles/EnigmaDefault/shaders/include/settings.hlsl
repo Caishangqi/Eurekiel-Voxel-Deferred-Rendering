@@ -339,7 +339,7 @@ const int shadowMapResolution = 2048; //[512 1024 2048 4096 8192]
 #endif
 
 #ifndef WATER_REFRACTION_INTENSITY
-#define WATER_REFRACTION_INTENSITY 100 // [0 25 50 75 100 150 200] Screen-space refraction distortion strength
+#define WATER_REFRACTION_INTENSITY 200 // [0 25 50 75 100 150 200] Screen-space refraction distortion strength
 #endif
 
 #ifndef WATER_MAT_QUALITY
@@ -356,6 +356,15 @@ const int shadowMapResolution = 2048; //[512 1024 2048 4096 8192]
 
 #ifndef WATER_VL_STRENGTH
 #define WATER_VL_STRENGTH 1.0        // [0.0 0.25 0.5 0.75 1.0 1.5 2.0] Underwater volumetric light intensity
+#endif
+
+// Underwater screen-space distortion (sinusoidal UV warp when camera is submerged)
+// Uses UNDERWATER_DISTORTION_STRENGTH for strength. Comment out to disable.
+// Reference: CR final.glsl lines 89-92
+#define UNDERWATER_DISTORTION
+
+#ifndef UNDERWATER_DISTORTION_STRENGTH
+#define UNDERWATER_DISTORTION_STRENGTH 200 // [0 25 50 75 100 150 200 300] Screen warp intensity when underwater (0=off)
 #endif
 
 //============================================================================//

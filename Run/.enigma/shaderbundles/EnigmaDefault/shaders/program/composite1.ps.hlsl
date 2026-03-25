@@ -12,9 +12,7 @@
 #include "../lib/shadow.hlsl"
 #include "../lib/noise.hlsl"
 #include "../lib/volumetricLight.hlsl"
-
-// Water material mask threshold (241/255 = 0.9451)
-static const float WATER_MATERIAL_THRESHOLD = 240.0 / 255.0;
+#include "../lib/refraction.hlsl"
 
 // Underwater color attenuation (CR style, base values)
 static const float3 UNDERWATER_MULT_DAY = float3(0.80, 0.87, 0.97) * 0.85;
@@ -24,45 +22,6 @@ struct PSOutput
     float4 color0 : SV_Target0; // colortex0
     float4 color1 : SV_Target1; // colortex5 (mapped via RENDERTARGETS: 0,5)
 };
-
-// ============================================================================
-// Water Refraction (isEyeInWater == 0, looking at water from above)
-// ============================================================================
-
-/// Compute refracted scene color by offsetting UV based on depth difference.
-/// Validates that the offset pixel is still water via colortex4 material mask.
-float3 ApplyWaterRefraction(float2 uv, float3 sceneColor, float depth)
-{
-#if WATER_REFRACTION_INTENSITY > 0
-    // Check if current pixel is water (colortex4.r material mask)
-    float matMask = colortex4.Sample(sampler1, uv).r;
-    if (matMask < WATER_MATERIAL_THRESHOLD)
-        return sceneColor;
-
-    // Read water normal from colortex2 for refraction direction
-    float3 waterNormal = colortex2.Sample(sampler1, uv).rgb;
-
-    // UV offset proportional to normal XY perturbation and refraction intensity
-    float  refrScale = WATER_REFRACTION_INTENSITY * 0.01;
-    float2 uvOffset  = waterNormal.xy * refrScale * 0.02;
-
-    // Validate offset UV: must still be water
-    float2 refractedUV = uv + uvOffset;
-    refractedUV        = clamp(refractedUV, 0.001, 0.999);
-
-    float offsetMatMask = colortex4.Sample(sampler1, refractedUV).r;
-    if (offsetMatMask < WATER_MATERIAL_THRESHOLD)
-        return sceneColor; // Offset left water region, keep original
-
-    // Resample scene at refracted UV (already linearized)
-    float3 refractedColor = colortex0.SampleLevel(sampler0, refractedUV, 0).rgb;
-    refractedColor        = pow(max(refractedColor, 0.0), 2.2);
-
-    return refractedColor;
-#else
-    return sceneColor;
-#endif
-}
 
 // ============================================================================
 // Main Entry
@@ -77,6 +36,7 @@ PSOutput main(PSInput input)
     // Read scene color from deferred/composite output
     float3 sceneColor = colortex0.SampleLevel(sampler0, input.TexCoord, 0).rgb;
     float  depth      = depthtex0.Sample(sampler1, input.TexCoord).r;
+    float  depth1     = depthtex1.Sample(sampler1, input.TexCoord).r; // Opaque-only depth (for refraction)
 
     // Water reflection is now computed inline in gbuffers_water (CR architecture).
     // colortex0 already contains water color with reflection blended in.
@@ -162,10 +122,12 @@ PSOutput main(PSInput input)
 
     // ====================================================================
     // Water Refraction (isEyeInWater == 0, above water surface)
+    // CR-style noise-based refraction with depth validation (lib/refraction.hlsl)
     // ====================================================================
     if (isEyeInWater == EYE_IN_AIR)
     {
-        sceneColor = ApplyWaterRefraction(input.TexCoord, sceneColor, depth);
+        sceneColor = DoWaterRefraction(input.TexCoord, sceneColor, depth, depth1,
+                                       viewPos, depth0Linear);
     }
 
     // ====================================================================

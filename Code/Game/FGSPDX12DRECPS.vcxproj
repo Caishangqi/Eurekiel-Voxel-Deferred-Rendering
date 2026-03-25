@@ -501,6 +501,7 @@
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\program\composite4.ps.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\program\composite4.vs.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\bloom.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\refraction.hlsl"/>
         <ClCompile Include="Framework\GameObject\ImguiPlayerDebugInfo.cpp" />
         <ClCompile Include="Framework\Imgui\ImguiGameLogic.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiGameSettings.cpp"/>
