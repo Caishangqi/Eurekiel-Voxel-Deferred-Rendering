@@ -504,6 +504,21 @@ const int shadowMapResolution = 2048; //[512 1024 2048 4096 8192]
 #endif
 
 //============================================================================//
+// Rainbow Settings (CR rainbow.glsl style)
+// Procedural spectral arc at ~42 degrees from anti-solar point.
+// Appears when sun is at low angle. Weather modulation planned (wetness/rain).
+// Reference: ComplementaryReimagined lib/atmospherics/rainbow.glsl
+//============================================================================//
+
+#ifndef RAINBOWS
+#define RAINBOWS 3                  // [0 1 3] 0=off, 1=after rain (needs weather), 3=always when sun is low
+#endif
+
+#ifndef RAINBOW_DIAMETER
+#define RAINBOW_DIAMETER 3.00       // [0.50 0.75 1.00 1.25 1.50 2.00 3.00 4.00] Arc width multiplier (1.0 = natural 42-degree)
+#endif
+
+//============================================================================//
 // Computed Constants (static const for HLSL)
 //============================================================================//
 

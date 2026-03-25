@@ -13,6 +13,9 @@
 #include "../lib/noise.hlsl"
 #include "../lib/volumetricLight.hlsl"
 #include "../lib/refraction.hlsl"
+#if RAINBOWS > 0
+#include "../lib/rainbow.hlsl"
+#endif
 
 // Underwater color attenuation (CR style, base values)
 static const float3 UNDERWATER_MULT_DAY = float3(0.80, 0.87, 0.97) * 0.85;
@@ -147,6 +150,18 @@ PSOutput main(PSInput input)
     // Additive blend: VL adds light to scene (HDR, no clamping)
     // Tonemap in composite5 will handle HDR -> LDR conversion
     sceneColor += vl;
+
+    // ====================================================================
+    // Rainbow (procedural spectral arc, CR rainbow.glsl)
+    // Underwater attenuation handled inside GetRainbow() via sqrt(VdotU)
+    // ====================================================================
+#if RAINBOWS > 0
+    sceneColor += GetRainbow(translucentMult, nViewDir,
+                             depth, depth1, depth0Linear,
+                             VdotL, VdotU, SdotU, sunAngle,
+                             vlFactor, dither,
+                             wetness, rainStrength);
+#endif
 
     output.color0 = float4(sceneColor, 1.0);
     output.color1 = float4(0.0, 0.0, 0.0, vlFactor);
