@@ -519,6 +519,42 @@ const int shadowMapResolution = 2048; //[512 1024 2048 4096 8192]
 #endif
 
 //============================================================================//
+// Subsurface Scattering Settings (CR mainLighting.glsl style)
+// Backlit translucency for thin surfaces (leaves, grass, flowers).
+// When sun is behind foliage, light transmits through creating warm glow.
+// Reference: ComplementaryReimagined lib/lighting/mainLighting.glsl lines 244-257
+//============================================================================//
+
+#ifndef SSS_STRENGTH
+#define SSS_STRENGTH 150              // [0 25 50 75 100 150 200 300] SSS intensity (0=off, 100=CR default)
+#endif
+
+//============================================================================//
+// Sun/Moon Sky Glare Settings (CR sky.glsl Fresnel-like halo)
+// Atmospheric glare around sun/moon, visible at block edges against sky.
+// Reference: ComplementaryReimagined lib/atmospherics/sky.glsl lines 57-88
+//============================================================================//
+
+#ifndef SUN_GLARE_STRENGTH
+#define SUN_GLARE_STRENGTH 150        // [0 25 50 75 100 125 150 200 300] Glare intensity (0=off, 100=CR default)
+#endif
+
+#ifndef SUN_GLARE_VISFACTOR
+#define SUN_GLARE_VISFACTOR 75        // [25 50 75 100 150 200] Fresnel visibility factor (75=CR default 0.075, higher=wider halo)
+#endif
+
+//============================================================================//
+// Texture Mipmap Settings
+//============================================================================//
+
+// Negative LOD bias: shifts mip selection toward sharper (lower) levels.
+// Preserves more texture detail at distance, at the cost of slight aliasing.
+// 0.0 = hardware default, -0.5 = ~1 extra mip level of detail, -1.0 = very sharp.
+#ifndef MIP_LOD_BIAS
+#define MIP_LOD_BIAS -0.5               // [-1.0 -0.75 -0.5 -0.25 0.0]
+#endif
+
+//============================================================================//
 // Computed Constants (static const for HLSL)
 //============================================================================//
 

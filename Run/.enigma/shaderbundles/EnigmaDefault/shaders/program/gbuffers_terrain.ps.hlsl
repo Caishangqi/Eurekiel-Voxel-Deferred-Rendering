@@ -11,6 +11,7 @@
  */
 
 #include "../@engine/core/core.hlsl"
+#include "../include/settings.hlsl"
 
 // [RENDERTARGETS] 0,1,2
 // Output: colortex0 (Albedo), colortex1 (Lightmap), colortex2 (Normal)
@@ -53,7 +54,7 @@ PSOutput_Terrain main(PSInput_Terrain input)
 
     // [STEP 1] Sample terrain atlas (customImage0 = gtexture)
     Texture2D gtexture = GetCustomImage(0);
-    float4    texColor = gtexture.Sample(sampler1, input.TexCoord);
+    float4    texColor = gtexture.SampleBias(sampler1, input.TexCoord, MIP_LOD_BIAS);
 
     // [STEP 2] Alpha test - discard transparent pixels
     if (texColor.a < 0.1)

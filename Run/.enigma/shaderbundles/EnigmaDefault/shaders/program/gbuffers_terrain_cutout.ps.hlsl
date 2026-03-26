@@ -23,6 +23,7 @@
  */
 
 #include "../@engine/core/core.hlsl"
+#include "../include/settings.hlsl"
 
 // [RENDERTARGETS] 0,1,2
 // Output: colortex0 (Albedo), colortex1 (Lightmap), colortex2 (Normal)
@@ -33,6 +34,7 @@
 
 // Iris AlphaTests.ONE_TENTH_ALPHA = 0.1
 #define ALPHA_TEST_THRESHOLD 0.1
+
 
 // ============================================================================
 // Terrain Cutout Pixel Shader Structures
@@ -75,13 +77,21 @@ PSOutput_TerrainCutout main(PSInput_TerrainCutout input)
 {
     PSOutput_TerrainCutout output;
 
-    // [STEP 1] Sample terrain atlas (customImage0 = gtexture)
+    // [STEP 1] Sample terrain atlas with Point texel + Linear mip sampler
+    // sampler5: pixel-perfect texels (Minecraft style) + smooth mip LOD transitions
     Texture2D gtexture = GetCustomImage(0);
-    float4    texColor = gtexture.Sample(sampler1, input.TexCoord);
+    float4    texColor = gtexture.SampleBias(sampler5, input.TexCoord, MIP_LOD_BIAS);
 
-    // [STEP 2] Alpha test - CRITICAL for cutout rendering
-    // Iris uses ONE_TENTH_ALPHA (0.1) for leaves, grass, etc.
-    if (texColor.a < ALPHA_TEST_THRESHOLD)
+    // [STEP 2] Mip-aware alpha test - smooth LOD transition for cutout rendering
+    // Standard hard alpha test creates a visible "pop line" at mip level boundaries
+    // because averaged alpha drops below threshold at a specific distance.
+    // fwidth() measures screen-space rate of change of alpha, which correlates with
+    // mip level. Rescaling alpha by this derivative creates a smooth transition
+    // instead of a hard cutoff, eliminating the LOD pop artifact.
+    // Reference: "Improved Alpha-Tested Magnification" (Valve/NVIDIA technique)
+    float alphaDerivative = max(fwidth(texColor.a), 0.001);
+    float smoothAlpha = saturate((texColor.a - ALPHA_TEST_THRESHOLD) / alphaDerivative + 0.5);
+    if (smoothAlpha < 0.5)
     {
         discard;
     }
@@ -96,8 +106,9 @@ PSOutput_TerrainCutout main(PSInput_TerrainCutout input)
     // colortex0: Albedo RGB + AO in alpha channel (for composite pass)
     output.Color0 = float4(albedoRGB, ao);
 
-    // colortex1: Lightmap data (R=blocklight, G=skylight, B=0, A=1)
-    output.Color1 = float4(input.LightmapCoord.x, input.LightmapCoord.y, 0.0, 1.0);
+    // colortex1: Lightmap data (R=blocklight, G=skylight, B=subsurface flag, A=1)
+    // B=1.0 marks this pixel as thin/translucent for SSS in deferred1
+    output.Color1 = float4(input.LightmapCoord.x, input.LightmapCoord.y, 1.0, 1.0);
 
     // colortex2: World normal (SNORM format handles [-1,1] natively)
     output.Color2 = float4(normalize(input.Normal), 1.0);
