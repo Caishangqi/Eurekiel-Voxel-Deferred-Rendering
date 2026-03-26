@@ -201,7 +201,8 @@ float3 CalculateLighting(
     float4x4     shadowProj,
     Texture2D    shadowTex,
     SamplerState samp,
-    float2       screenPos)
+    float2       screenPos,
+    float        subsurfaceMode = 0.0)
 {
     // --- Time factors ---
     float sunVis   = GetSunVisibility(sunPosition, upPosition);
@@ -262,7 +263,37 @@ float3 CalculateLighting(
     float3 totalLight    = blockLighting + sceneLighting * sceneLighting + minLighting;
     float3 finalDiffuse  = sqrt(ao * ao * totalLight);
 
-    return albedo * finalDiffuse;
+    float3 result = albedo * finalDiffuse;
+
+    // --- Subsurface Scattering highlight (CR mainLighting.glsl:244-257) ---
+    // Backlit translucency for thin surfaces (leaves, grass, flowers).
+    // VdotL: view direction aligned with light = looking through foliage toward sun.
+    // pow(VdotL, 10) creates sharp falloff — only strong backlit angles contribute.
+    // CR uses normalize(pow(lightColor, 0.37)) for highlight — warmer and more saturated
+    // than raw lightColor, which is desaturated by day/night blending.
+#if SSS_STRENGTH > 0
+    if (subsurfaceMode > 0.5 && !isUnderwater)
+    {
+        float3 viewDir     = normalize(worldPos - cameraPosition);
+        float  VdotL       = dot(viewDir, normalize(lightDir));
+        float  lightFactor = pow(max(VdotL, 0.0), 10.0);
+        float  sssHL       = lightFactor * 0.6 * (SSS_STRENGTH * 0.01);
+
+        // Warm highlight color: compress dynamic range then normalize
+        // This makes the color more saturated/warm than the general lightColor
+        // CR mainLighting.glsl:34:
+        //   highlightColor = normalize(pow(lightColor, vec3(0.37)))
+        //                  * (0.3 + 1.5 * sunVisibility2) * (1.0 - 0.85 * rainFactor)
+        float3 highlightColor = normalize(pow(max(lightColor, 0.001), 0.37));
+        highlightColor *= (0.3 + 1.5 * sunVis2) * (1.0 - 0.85 * rainStrength);
+
+        // Modulate by shadow, time factors, and sky light gate
+        // Without these, SSS would glow through solid geometry and in caves
+        result += albedo * highlightColor * sssHL * shadowMult;
+    }
+#endif
+
+    return result;
 }
 
 #endif // LIB_LIGHTING_HLSL

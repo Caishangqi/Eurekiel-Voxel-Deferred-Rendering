@@ -60,6 +60,9 @@ PSOutput main(PSInput input)
         float  blockLight     = lightmapSample.r;
         float  skyLight       = lightmapSample.g;
 
+        // Subsurface flag: colortex1.b > 0.5 = thin surface (leaves, grass)
+        float subsurfaceMode = colortex1.Sample(sampler0, input.TexCoord).b;
+
         // NOTE: Vanilla cloud pixel detection (blockLight==0 && skyLight==0) removed.
         // EnigmaDefault disables vanilla geometry clouds (gbuffers_clouds.ps discards all).
         // That heuristic false-positived on dark terrain (zero lightmap), causing:
@@ -86,7 +89,8 @@ PSOutput main(PSInput input)
             isUnderwater, ao,
             shadowView, shadowProjection,
             shadowtex1, sampler1,
-            input.Position.xy);
+            input.Position.xy,
+            subsurfaceMode);
 
         // NOTE: No saturate here. colortex0 is R16G16B16A16_FLOAT (HDR capable).
         // CR also outputs HDR values (R11F_G11F_B10F) without clamping.

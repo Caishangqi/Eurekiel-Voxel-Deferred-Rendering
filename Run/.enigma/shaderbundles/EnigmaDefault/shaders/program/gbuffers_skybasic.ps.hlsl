@@ -38,6 +38,9 @@
 #include "../@engine/core/core.hlsl"
 #include "../@engine/include/common_uniforms.hlsl"
 #include "../@engine/include/celestial_uniforms.hlsl"
+#include "../include/settings.hlsl"
+#include "../lib/common.hlsl"
+#include "../lib/skyGlare.hlsl"
 
 struct PSOutput
 {
@@ -169,6 +172,37 @@ PSOutput main(PSInput input)
         // [FALLBACK] Default to sky color
         // ---------------------------------------------------------------------
         finalColor = skyColor;
+    }
+
+    // ==========================================================================
+    // [STEP 1.5] Sun/Moon Glare — upper sky dome only
+    // ==========================================================================
+    // Glare fades to zero near the horizon via smoothstep on VdotU.
+    // This prevents a visible seam where the upper dome (fogColor base) meets
+    // the lower void dome (black base). Both domes share the same shader but
+    // have different base colors at the horizon — fading glare before the
+    // boundary eliminates the discontinuity.
+    // SUNSET and STARS early-return above, so this only runs for SKY/VOID.
+    // ==========================================================================
+    if (renderStage == RENDER_STAGE_SKY)
+    {
+        float3 sunDirWorld = normalize(mul((float3x3)gbufferViewInverse, sunPosition));
+        float3 upDirWorld  = normalize(mul((float3x3)gbufferViewInverse, upPosition));
+        float3 nViewDir    = normalize(input.WorldPos);
+
+        float SdotU      = dot(normalize(sunPosition), normalize(upPosition));
+        float sunVis     = saturate((SdotU + 0.0625) / 0.125);
+        float shadowTime = Pow4(abs(sunVis * 2.0 - 1.0));
+        float noonFac    = sqrt(max(sin(sunAngle * TWO_PI), 0.0));
+
+        float3 glare = GetSkyGlare(nViewDir, sunDirWorld, sunVis, shadowTime, noonFac);
+
+        // Fade glare near horizon to prevent seam with void dome
+        // Wider fade range = glare starts fading higher above horizon
+        float VdotU       = dot(nViewDir, upDirWorld);
+        float horizonFade = smoothstep(0.0, 0.25, VdotU);
+
+        finalColor += glare * horizonFade;
     }
 
     // ==========================================================================
