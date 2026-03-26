@@ -111,7 +111,7 @@ Game::Game()
     auto generator = std::make_unique<SimpleMinerGenerator>();
     //auto generator = std::make_unique<FlatWorldGenerator>();
     m_world = std::make_unique<World>("world", 6693073380, std::move(generator));
-    m_world->SetChunkActivationRange(settings.GetInt("video.simulationDistance", 6));
+    m_world->SetChunkActivationRange(settings.GetInt("video.simulationDistance", 9));
 
     /// Register ImGUI
     g_theImGui->RegisterWindow("GameSetting", [this]()
