@@ -34,7 +34,7 @@ TerrainRenderPass::TerrainRenderPass()
     const Image* atlasImage = g_theResource->GetAtlas("blocks")->GetAtlasImage();
     if (atlasImage)
     {
-        m_blockAtlasTexture = D3D12RenderSystem::CreateTexture2D(*const_cast<Image*>(atlasImage), TextureUsage::ShaderResource, "blockAtlas");
+        m_blockAtlasTexture = D3D12RenderSystem::CreateTexture2DWithMips(*const_cast<Image*>(atlasImage), TextureUsage::ShaderResource, "blockAtlas", 4);
     }
 
     // Register Terrain vertex layout

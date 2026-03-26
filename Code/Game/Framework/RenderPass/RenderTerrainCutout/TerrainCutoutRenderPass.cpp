@@ -21,6 +21,7 @@
 #include "Engine/Graphic/Bundle/ShaderBundle.hpp"
 #include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
 #include "Engine/Graphic/Core/DX12/D3D12RenderSystem.hpp"
+#include "Engine/Graphic/Mipmap/MipmapConfig.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
@@ -49,10 +50,12 @@ TerrainCutoutRenderPass::TerrainCutoutRenderPass()
     const Image* atlasImage = g_theResource->GetAtlas("blocks")->GetAtlasImage();
     if (atlasImage)
     {
-        m_blockAtlasTexture = D3D12RenderSystem::CreateTexture2D(
+        m_blockAtlasTexture = D3D12RenderSystem::CreateTexture2DWithMips(
             *const_cast<Image*>(atlasImage),
             TextureUsage::ShaderResource,
-            "blockAtlas_cutout"
+            "blockAtlas_cutout",
+            4,
+            MipmapConfig::AlphaWeighted()
         );
     }
 

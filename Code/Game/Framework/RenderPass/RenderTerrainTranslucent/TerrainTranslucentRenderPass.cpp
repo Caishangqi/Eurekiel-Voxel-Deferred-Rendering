@@ -48,10 +48,11 @@ TerrainTranslucentRenderPass::TerrainTranslucentRenderPass()
     const Image* atlasImage = g_theResource->GetAtlas("blocks")->GetAtlasImage();
     if (atlasImage)
     {
-        m_blockAtlasTexture = D3D12RenderSystem::CreateTexture2D(
+        m_blockAtlasTexture = D3D12RenderSystem::CreateTexture2DWithMips(
             *const_cast<Image*>(atlasImage),
             TextureUsage::ShaderResource,
-            "blockAtlas_translucent"
+            "blockAtlas_translucent",
+            4
         );
     }
 }
