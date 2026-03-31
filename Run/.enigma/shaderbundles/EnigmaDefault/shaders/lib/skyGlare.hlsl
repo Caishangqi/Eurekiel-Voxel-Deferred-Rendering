@@ -50,12 +50,13 @@ float3 GetSkyGlare(float3 nViewDir, float3 sunDirWorld,
     float VdotSM4 = pow(abs(VdotS), glareScatter);
 
     // Fresnel-like inverse formula: bright core, smooth falloff
-    float visfactor = 0.075;
+    // SUN_GLARE_VISFACTOR: 75 = CR default 0.075, higher = wider halo
+    float visfactor = SUN_GLARE_VISFACTOR * 0.001;
     float glare = visfactor / (1.0 - (1.0 - visfactor) * VdotSM4) - visfactor;
     glare *= 0.7;
 
-    // --- Glare color (CR sky.glsl:70-72) ---
-    // Moon: cool blue-grey, Sun: warm yellow-orange shifting to cyan at noon
+    // --- Glare color (CR sky.glsl:71) ---
+    // Moon: cool blue-grey, Sun: warm yellow-orange shifting toward white at noon
     float3 moonColor = float3(0.38, 0.4, 0.5) * 0.3;
     float3 sunColor  = float3(1.5, 0.7, 0.3) + float3(0.0, 0.5, 0.5) * noonFactor;
     float3 glareColor = lerp(moonColor, sunColor, sunVis);
@@ -72,7 +73,7 @@ float3 GetSkyGlare(float3 nViewDir, float3 sunDirWorld,
     float glareLuma = Luma(glareColor);
     glareColor = lerp(glareColor, float3(glareLuma, glareLuma, glareLuma), glareDesatFactor);
 
-    return glareColor * glare * shadowTime;
+    return glareColor * glare * shadowTime * (SUN_GLARE_STRENGTH * 0.01);
 }
 
 #endif // LIB_SKY_GLARE_HLSL
