@@ -129,10 +129,23 @@ void CloudRenderPass::Execute()
 
         m_cachedParams = params;
         m_needsRebuild = false;
+
+        // [PERF] Upload to GPU vertex buffer once, avoid ring buffer memcpy every frame
+        if (!m_geometry->vertices.empty())
+        {
+            size_t dataSize = m_geometry->vertices.size() * sizeof(Vertex);
+            m_gpuVertexBuffer = D3D12RenderSystem::CreateVertexBuffer(
+                dataSize, sizeof(Vertex), m_geometry->vertices.data(), "CloudVertexBuffer"
+            );
+        }
+        else
+        {
+            m_gpuVertexBuffer.reset();
+        }
     }
 
     // Render cloud mesh
-    if (m_geometry && !m_geometry->vertices.empty())
+    if (m_gpuVertexBuffer && m_gpuVertexBuffer->GetVertexCount() > 0)
     {
         // [IMPORTANT] ModelMatrix Calculation
         // Geometry is in LOCAL space [-radius*12, +radius*12], must translate to WORLD space.
@@ -161,10 +174,9 @@ void CloudRenderPass::Execute()
         perObjectUniform.modelColor[3]      = config.opacity; // Use opacity from config
         g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniform);
 
-        // Render (blend already set in BeginPass)
-        // [REFACTOR] Pair-based RT binding
+        // [PERF] Draw from pre-uploaded GPU buffer (no ring buffer memcpy)
         g_theRendererSubsystem->UseProgram(m_cloudsShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::ColorTex, 3}, {RenderTargetType::DepthTex, 0}});
-        g_theRendererSubsystem->DrawVertexArray(m_geometry->vertices);
+        g_theRendererSubsystem->DrawVertexBuffer(m_gpuVertexBuffer);
     }
 
     EndPass();

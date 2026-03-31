@@ -34,6 +34,7 @@
 
 #include "CloudConfigParser.hpp"
 #include "Engine/Graphic/Core/EnigmaGraphicCommon.hpp"
+#include "Engine/Graphic/Resource/Buffer/D12VertexBuffer.hpp"
 #include "Engine/Math/Vec3.hpp"
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
 
@@ -273,6 +274,9 @@ private:
 
     // Cached geometry parameters (for rebuild detection)
     CloudGeometryParameters m_cachedParams;
+
+    // [PERF] Pre-uploaded GPU vertex buffer (avoids ring buffer memcpy every frame)
+    std::shared_ptr<enigma::graphic::D12VertexBuffer> m_gpuVertexBuffer;
 
     // Rebuild flag (set by texture load or parameter change)
     bool m_needsRebuild = true;
