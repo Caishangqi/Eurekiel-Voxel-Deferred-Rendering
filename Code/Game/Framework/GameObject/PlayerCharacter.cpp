@@ -17,7 +17,7 @@ PlayerCharacter::PlayerCharacter(Game* parent) : GameObject(parent)
     constexpr float DEFAULT_FOV          = 90.0f;
     constexpr float DEFAULT_ASPECT_RATIO = 16.0f / 9.0f;
     constexpr float DEFAULT_NEAR_PLANE   = 0.01f;
-    float           DEFAULT_FAR_PLANE    = (float)(settings.GetInt("video.simulationDistance", 6) + 2) * enigma::voxel::Chunk::CHUNK_SIZE_X;
+    float           DEFAULT_FAR_PLANE    = (float)(settings.GetInt("video.simulationDistance", 9) + 2) * enigma::voxel::Chunk::CHUNK_SIZE_X;
 
     m_camera = std::make_unique<PerspectiveCamera>(
         Vec3::ZERO, // Initial position
