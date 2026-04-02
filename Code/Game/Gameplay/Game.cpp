@@ -121,7 +121,7 @@ Game::Game()
 
     g_theImGui->RegisterWindow("DebugOverlay", [this]()
     {
-        ImguiLeftDebugOverlay::ShowWindow(&m_showGameSettings);
+        ImguiLeftDebugOverlay::ShowWindow(&m_showDebugOverlay);
     });
 
     g_theImGui->RegisterWindow("Example", [this]()

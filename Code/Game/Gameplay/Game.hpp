@@ -82,6 +82,7 @@ public:
 
 private:
     bool m_showGameSettings = false; // [Task 18] Toggle for ImGui Game Settings window (F1 key)
+    bool m_showDebugOverlay = true; // Toggle for debug overlay (independent from GameSettings)
 #pragma endregion
 #pragma region RESOURCES
     void RegisterBlocks();
