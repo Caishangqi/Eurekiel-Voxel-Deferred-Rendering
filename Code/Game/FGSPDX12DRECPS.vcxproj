@@ -504,6 +504,7 @@
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\refraction.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\rainbow.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\skyGlare.hlsl" />
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\pipelineSettings.hlsl"/>
         <ClCompile Include="Framework\GameObject\ImguiPlayerDebugInfo.cpp" />
         <ClCompile Include="Framework\Imgui\ImguiGameLogic.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiGameSettings.cpp"/>

@@ -7,7 +7,7 @@
 #include "../@engine/core/core.hlsl"
 #include "../@engine/lib/fog.hlsl"
 #include "../@engine/lib/math.hlsl"
-#include "../include/rt_formats.hlsl"
+#include "../lib/pipelineSettings.hlsl"
 #include "../lib/lighting.hlsl"
 #include "../lib/atmosphere.hlsl"
 #include "../lib/clouds.hlsl"

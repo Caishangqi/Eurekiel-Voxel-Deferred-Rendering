@@ -4,6 +4,8 @@
 #ifndef LIB_COMMON_HLSL
 #define LIB_COMMON_HLSL
 
+#include "pipelineSettings.hlsl"
+
 // Pseudo-random number generators
 float Random(float2 v)
 {
