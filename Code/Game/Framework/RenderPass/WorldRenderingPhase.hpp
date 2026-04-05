@@ -63,7 +63,7 @@ enum class WorldRenderingPhase : uint32_t
 // =============================================================================
 // Helper function to convert enum to int for shader uniform
 // =============================================================================
-inline int ToRenderStage(WorldRenderingPhase phase)
+constexpr int ToRenderStage(WorldRenderingPhase phase) noexcept
 {
     return static_cast<int>(phase);
 }

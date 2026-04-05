@@ -21,8 +21,14 @@ public:
     virtual void Execute() = 0;
 
 protected:
-    virtual void BeginPass() = 0;
-    virtual void EndPass() = 0;
+    virtual void BeginPass();
+    virtual void EndPass();
+
+    // Scope helpers let subclasses reuse the default pass boundary hookup
+    // and opt into explicit subpass transitions inside Execute().
+    void BeginPassScope(const char* debugName = nullptr);
+    void AdvancePassScope(const char* debugName = nullptr);
+    void EndPassScope();
 
     // ShaderBundle event callbacks - override in subclasses
     virtual void OnShaderBundleLoaded(enigma::graphic::ShaderBundle* newBundle);

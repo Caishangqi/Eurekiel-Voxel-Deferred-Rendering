@@ -1,5 +1,6 @@
 #pragma once
 #include "Engine/Math/Vec3.hpp"
+#include "Game/Framework/RenderPass/WorldRenderingPhase.hpp"
 
 // =============================================================================
 // CommonConstantBuffer - Iris CommonUniforms Compatible Constant Buffer
@@ -8,6 +9,14 @@
 // [Purpose]
 //   Provides common rendering data to shaders, strictly matching Iris CommonUniforms.java
 //   Reference: Iris CommonUniforms.java generalCommonUniforms() (lines 130-171)
+//
+// [In-Place Maintenance Contract]
+//   COMMON_UNIFORM remains the only CPU-side canonical state.
+//   - Rows 0-7 and row 9 are frame-derived rows seeded by Game.cpp once per frame.
+//   - Row 8 is the pass patch row. RenderPass code updates renderStage before each
+//     pass or subpass commit.
+//   - This file documents row ownership only. It does not introduce a bridge object
+//     or a second shader-visible common buffer.
 //
 // [Shader Side Declaration]
 //   Corresponds to HLSL: cbuffer CommonUniforms : register(b8, space1)
@@ -50,48 +59,55 @@
 
 struct CommonConstantBuffer
 {
-    // ==================== Row 0: Sky Color (16 bytes) ====================
+    static constexpr int kRowCount               = 10;
+    static constexpr int kFrameDerivedRowBegin   = 0;
+    static constexpr int kFrameDerivedRowEnd     = 7;
+    static constexpr int kPassPatchRow           = 8;
+    static constexpr int kFrameDerivedTailRow    = 9;
+    static constexpr int kDefaultRenderStage     = ToRenderStage(WorldRenderingPhase::NONE);
+
+    // ==================== Row 0: Sky Color (16 bytes, frame-derived) ====================
     // Iris CommonUniforms.java:167 - skyColor
     // CPU-calculated sky color based on time, weather, dimension
     alignas(16) Vec3 skyColor;
     float            _pad0;
 
-    // ==================== Row 1: Player State Flags (16 bytes) ====================
+    // ==================== Row 1: Player State Flags (16 bytes, frame-derived) ====================
     // Iris CommonUniforms.java:136-137, 138
     alignas(16) int hideGUI; // Line 136: GUI hidden (F1 toggle)
     int             isRightHanded; // Line 137: Main hand is RIGHT
     int             isEyeInWater; // Line 138: 0=air, 1=water, 2=lava, 3=powder_snow
     int             _pad1;
 
-    // ==================== Row 2: Player Visual Effects (16 bytes) ====================
+    // ==================== Row 2: Player Visual Effects (16 bytes, frame-derived) ====================
     // Iris CommonUniforms.java:139-142
     alignas(16) float blindness; // Line 139: Blindness effect (0.0-1.0)
     float             darknessFactor; // Line 140: Darkness effect (0.0-1.0)
     float             darknessLightFactor; // Line 141: Darkness light factor (0.0-1.0)
     float             nightVision; // Line 142: Night vision effect (0.0-1.0)
 
-    // ==================== Row 3: Player Action Flags (16 bytes) ====================
+    // ==================== Row 3: Player Action Flags (16 bytes, frame-derived) ====================
     // Iris CommonUniforms.java:143-146
     alignas(16) int is_sneaking; // Line 143: Player is crouching
     int             is_sprinting; // Line 144: Player is sprinting
     int             is_hurt; // Line 145: Player hurtTime > 0
     int             is_invisible; // Line 146: Player is invisible
 
-    // ==================== Row 4: Player Action Flags 2 (16 bytes) ====================
+    // ==================== Row 4: Player Action Flags 2 (16 bytes, frame-derived) ====================
     // Iris CommonUniforms.java:147-148, 151
     alignas(16) int is_burning; // Line 147: Player is on fire
     int             is_on_ground; // Line 148: Player is on ground
     float           screenBrightness; // Line 151: Gamma setting (0.0+)
     float           _pad2;
 
-    // ==================== Row 5: Player Mood (16 bytes) ====================
+    // ==================== Row 5: Player Mood (16 bytes, frame-derived) ====================
     // Iris CommonUniforms.java:158-159
     alignas(16) float playerMood; // Line 158: Player mood (0.0-1.0)
     float             constantMood; // Line 159: Constant mood baseline (0.0-1.0)
     float             _pad3;
     float             _pad4;
 
-    // ==================== Row 6: Eye Brightness (16 bytes) ====================
+    // ==================== Row 6: Eye Brightness (16 bytes, frame-derived) ====================
     // Iris CommonUniforms.java:160-161
     // eyeBrightness: x = block light * 16, y = sky light * 16 (range 0-240)
     alignas(16) int eyeBrightnessX; // Line 160: Block light
@@ -99,23 +115,24 @@ struct CommonConstantBuffer
     int             eyeBrightnessSmoothX; // Line 161: Smoothed block light
     int             eyeBrightnessSmoothY; // Line 161: Smoothed sky light
 
-    // ==================== Row 7: Weather (16 bytes) ====================
+    // ==================== Row 7: Weather (16 bytes, frame-derived) ====================
     // Iris CommonUniforms.java:165-166
     alignas(16) float rainStrength; // Line 165: Rain intensity (0.0-1.0)
     float             wetness; // Line 166: Wetness factor (smoothed rainStrength)
     float             _pad5;
     float             _pad6;
 
-    // ==================== Row 8: Render Stage (16 bytes) ====================
+    // ==================== Row 8: Render Stage (16 bytes, pass patch) ====================
     // Iris CommonUniforms.java:108 (addDynamicUniforms)
-    // Current rendering phase for shader program differentiation
+    // Current rendering phase for shader program differentiation.
+    // This is the only pass-scoped patch row in the buffer.
     // IMPORTANT: Do NOT use array here - HLSL cbuffer arrays pad each element to 16 bytes!
     alignas(16) int renderStage; // WorldRenderingPhase ordinal
     int             _pad7_0;
     int             _pad7_1;
     int             _pad7_2;
 
-    // ==================== Row 9: Time Counters (16 bytes) ====================
+    // ==================== Row 9: Time Counters (16 bytes, frame-derived) ====================
     // Iris CommonUniforms.java:118 (frameCounter), :119 (frameTime)
     // Iris SystemTimeUniforms.java:63 (frameTimeCounter)
     // Used by cloud wind animation and other time-based shader effects
@@ -164,7 +181,7 @@ struct CommonConstantBuffer
           , _pad5(0.0f)
           , _pad6(0.0f)
           // Row 8: Render Stage
-          , renderStage(0)
+          , renderStage(kDefaultRenderStage)
           , _pad7_0(0)
           , _pad7_1(0)
           , _pad7_2(0)

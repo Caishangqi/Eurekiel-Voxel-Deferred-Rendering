@@ -2,6 +2,8 @@
 #include "Engine/Graphic/Bundle/ShaderBundleEvents.hpp"
 #include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
 #include "Engine/Graphic/Bundle/ShaderBundle.hpp"
+#include "Engine/Core/EngineCommon.hpp"
+#include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 
 // ----------------------------------------------------------------------------
 SceneRenderPass::SceneRenderPass()
@@ -13,6 +15,18 @@ SceneRenderPass::SceneRenderPass()
 SceneRenderPass::~SceneRenderPass()
 {
     UnsubscribeFromShaderBundleEvents();
+}
+
+// ----------------------------------------------------------------------------
+void SceneRenderPass::BeginPass()
+{
+    BeginPassScope();
+}
+
+// ----------------------------------------------------------------------------
+void SceneRenderPass::EndPass()
+{
+    EndPassScope();
 }
 
 // ----------------------------------------------------------------------------
@@ -55,6 +69,42 @@ void SceneRenderPass::OnShaderBundleLoaded(enigma::graphic::ShaderBundle* /*newB
 void SceneRenderPass::OnShaderBundleUnloaded()
 {
     // Default: no-op. Subclasses override to clear cached pointers.
+}
+
+// ----------------------------------------------------------------------------
+void SceneRenderPass::BeginPassScope(const char* debugName)
+{
+    if (!g_theRendererSubsystem)
+    {
+        ERROR_RECOVERABLE("SceneRenderPass::BeginPassScope called without RendererSubsystem");
+        return;
+    }
+
+    g_theRendererSubsystem->BeginPassScope(debugName);
+}
+
+// ----------------------------------------------------------------------------
+void SceneRenderPass::AdvancePassScope(const char* debugName)
+{
+    if (!g_theRendererSubsystem)
+    {
+        ERROR_RECOVERABLE("SceneRenderPass::AdvancePassScope called without RendererSubsystem");
+        return;
+    }
+
+    g_theRendererSubsystem->AdvancePassScope(debugName);
+}
+
+// ----------------------------------------------------------------------------
+void SceneRenderPass::EndPassScope()
+{
+    if (!g_theRendererSubsystem)
+    {
+        ERROR_RECOVERABLE("SceneRenderPass::EndPassScope called without RendererSubsystem");
+        return;
+    }
+
+    g_theRendererSubsystem->EndPassScope();
 }
 
 // ----------------------------------------------------------------------------

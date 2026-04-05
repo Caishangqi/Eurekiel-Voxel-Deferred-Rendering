@@ -1,6 +1,7 @@
 ﻿#include "Game.hpp"
 
 #include <memory>
+#include "Engine/Core/ErrorWarningAssert.hpp"
 #include "Engine/Core/VertexUtils.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
@@ -37,6 +38,42 @@
 #include "Generator/SimpleMinerGenerator.hpp"
 #include "Generator/FlatWorldGenerator.hpp"
 #include "ThirdParty/imgui/imgui.h"
+
+namespace
+{
+    bool g_hasSeededCommonUniformFramePartition = false;
+
+    void MarkCommonUniformFramePartitionDirty()
+    {
+        g_hasSeededCommonUniformFramePartition = false;
+    }
+
+    void EnsureCommonUniformFramePartitionSeeded()
+    {
+        if (!g_hasSeededCommonUniformFramePartition)
+        {
+            ERROR_AND_DIE("Common uniform frame partition was not seeded before pass commit");
+        }
+    }
+
+    void SeedCommonUniformFramePartition()
+    {
+        if (!g_theRendererSubsystem)
+        {
+            ERROR_AND_DIE("Game::SeedCommonUniformFramePartition called without RendererSubsystem");
+        }
+
+        auto* uniformManager = g_theRendererSubsystem->GetUniformManager();
+        if (!uniformManager)
+        {
+            ERROR_AND_DIE("Game::SeedCommonUniformFramePartition called without UniformManager");
+        }
+
+        COMMON_UNIFORM.renderStage = CommonConstantBuffer::kDefaultRenderStage;
+        uniformManager->UploadBuffer(COMMON_UNIFORM);
+        g_hasSeededCommonUniformFramePartition = true;
+    }
+}
 
 
 CommonConstantBuffer COMMON_UNIFORM     = CommonConstantBuffer();
@@ -111,7 +148,7 @@ Game::Game()
     auto generator = std::make_unique<SimpleMinerGenerator>();
     //auto generator = std::make_unique<FlatWorldGenerator>();
     m_world = std::make_unique<World>("world", 6693073380, std::move(generator));
-    m_world->SetChunkActivationRange(settings.GetInt("video.simulationDistance", 9));
+    m_world->SetChunkActivationRange(settings.GetInt("video.simulationDistance", 8));
 
     /// Register ImGUI
     g_theImGui->RegisterWindow("GameSetting", [this]()
@@ -132,7 +169,7 @@ Game::Game()
 
     /// Prepare Uniforms
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<FogUniforms>(2, UpdateFrequency::PerFrame, BufferSpace::Custom);
-    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(8, UpdateFrequency::PerObject, BufferSpace::Custom);
+    g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CommonConstantBuffer>(8, UpdateFrequency::PerPass, BufferSpace::Custom);
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<WorldTimeUniforms>(1, UpdateFrequency::PerFrame, BufferSpace::Custom);
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<WorldInfoUniforms>(3, UpdateFrequency::PerFrame, BufferSpace::Custom);
 
@@ -208,6 +245,7 @@ void Game::Update()
     COMMON_UNIFORM.frameCounter     = s_frameCounter;
     COMMON_UNIFORM.frameTime        = deltaTime;
     COMMON_UNIFORM.frameTimeCounter = s_frameTimeCounter;
+    MarkCommonUniformFramePartitionDirty();
 
 #ifdef SCENE_TEST
     UpdateScene();
@@ -218,6 +256,8 @@ void Game::Render()
 {
     // [STEP 1] Setup Camera (Player updates camera matrices)
     m_player->Render();
+    SeedCommonUniformFramePartition();
+
     if (!m_enableSceneTest)
     {
         /// Upload the Global Uniform
@@ -238,6 +278,8 @@ void Game::Render()
 
 void Game::RenderWorld()
 {
+    EnsureCommonUniformFramePartitionSeeded();
+
     // ========================================
     // Deferred Rendering Pipeline (Iris-compatible order)
     // Ref: IrisRenderingPipeline.java beginTranslucents() / finalizeLevelRendering()
@@ -279,6 +321,7 @@ void Game::RenderWorld()
 
 void Game::RenderDebug()
 {
+    EnsureCommonUniformFramePartitionSeeded();
     m_debugRenderPass->Execute();
 }
 

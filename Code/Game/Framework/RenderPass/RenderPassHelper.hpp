@@ -16,5 +16,10 @@ public:
     RenderPassHelper(const RenderPassHelper&)            = delete; // Prevent copy
     RenderPassHelper& operator=(const RenderPassHelper&) = delete; // Prevent assignment
 public:
-    static std::vector<std::pair<RenderTargetType, int>> GetRenderTargetColorFromIndex(std::vector<uint32_t> inIntIndexList, RenderTargetType inRTType);
+    static std::vector<std::pair<RenderTargetType, int>> GetRenderTargetColorFromIndex(const std::vector<uint32_t>& inIntIndexList, RenderTargetType inRTType);
+    static std::vector<std::pair<RenderTargetType, int>> BuildRenderTargets(
+        const std::vector<uint32_t>& inColorIndexList,
+        RenderTargetType             inColorRTType,
+        RenderTargetType             inDepthRTType,
+        int                          inDepthIndex);
 };
