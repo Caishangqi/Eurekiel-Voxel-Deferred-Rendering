@@ -90,8 +90,7 @@ void ImguiLeftDebugOverlay::ShowWindow(bool* pOpen)
         float        currentFPS   = gameClock->GetFrameRate();
         PushFrameSample(deltaSeconds, totalSeconds);
 
-        if (currentFPS > s_maxFrameReached)
-            s_maxFrameReached = currentFPS;
+        if (currentFPS > s_maxFrameReached) s_maxFrameReached = currentFPS;
 
         // Update smoothed display values at fixed interval (anti-flicker)
         if (totalSeconds - s_lastDisplayUpdate >= DISPLAY_UPDATE_INTERVAL)
