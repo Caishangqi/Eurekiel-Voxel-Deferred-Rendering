@@ -12,6 +12,7 @@
 #include "Engine/Graphic/Target/DepthTextureProvider.hpp"
 #include "Engine/Graphic/Target/ShadowTextureProvider.hpp"
 #include "Game/GameCommon.hpp"
+#include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
 #include "Game/Framework/RenderPass/RenderPassHelper.hpp"
 #include "Game/Gameplay/Game.hpp"
 using namespace enigma::graphic;
@@ -28,10 +29,27 @@ DeferredRenderPass::~DeferredRenderPass()
 void DeferredRenderPass::Execute()
 {
     BeginPass();
+
+    bool hasProgramScope = false;
+    auto beginProgramScope = [this, &hasProgramScope](const char* debugName)
+    {
+        if (hasProgramScope)
+        {
+            AdvancePassScope(debugName);
+        }
+
+        hasProgramScope = true;
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
+        COMMON_UNIFORM.renderStage = CommonConstantBuffer::kDefaultRenderStage;
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
+    };
+
     for (auto program : m_shaderPrograms)
     {
         if (program)
         {
+            beginProgramScope(program->GetName().c_str());
+
             const auto& directives = program->GetDirectives();
 
             // Apply per-program blend from shaders.properties
@@ -78,11 +96,6 @@ void DeferredRenderPass::BeginPass()
 
     g_theRendererSubsystem->SetRasterizationConfig(RasterizationConfig::NoCull());
 
-    // Upload uniforms needed by deferred lighting
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(FOG_UNIFORM);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(WORLD_INFO_UNIFORM);
-
     // Bind stage-scoped custom textures for deferred pass
     // Save previous customImage state so global customTexture bindings survive
     auto* bundle = g_theShaderBundleSubsystem->GetCurrentShaderBundle().get();
@@ -96,10 +109,17 @@ void DeferredRenderPass::BeginPass()
             g_theRendererSubsystem->SetSamplerConfig(entry.metadata.samplerSlot, entry.metadata.samplerConfig);
         }
     }
+
+    SceneRenderPass::BeginPass();
+
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(FOG_UNIFORM);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(WORLD_INFO_UNIFORM);
 }
 
 void DeferredRenderPass::EndPass()
 {
+    SceneRenderPass::EndPass();
+
     // Restore saved customImage bindings before other state cleanup
     for (const auto& [slotIndex, previousTexture] : m_savedCustomImages)
     {

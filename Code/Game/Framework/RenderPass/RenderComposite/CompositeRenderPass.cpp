@@ -13,6 +13,7 @@
 #include "Engine/Graphic/Target/DepthTextureProvider.hpp"
 #include "Engine/Graphic/Target/ShadowTextureProvider.hpp"
 #include "Game/GameCommon.hpp"
+#include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
 #include "Game/Framework/RenderPass/RenderPassHelper.hpp"
 #include "Game/Gameplay/Game.hpp"
 
@@ -28,10 +29,27 @@ CompositeRenderPass::~CompositeRenderPass()
 void CompositeRenderPass::Execute()
 {
     BeginPass();
+
+    bool hasProgramScope = false;
+    auto beginProgramScope = [this, &hasProgramScope](const char* debugName)
+    {
+        if (hasProgramScope)
+        {
+            AdvancePassScope(debugName);
+        }
+
+        hasProgramScope = true;
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
+        COMMON_UNIFORM.renderStage = CommonConstantBuffer::kDefaultRenderStage;
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
+    };
+
     for (auto program : m_shaderPrograms)
     {
         if (program)
         {
+            beginProgramScope(program->GetName().c_str());
+
             const auto& directives = program->GetDirectives();
 
             // Apply per-program blend from shaders.properties
@@ -110,10 +128,14 @@ void CompositeRenderPass::BeginPass()
             g_theRendererSubsystem->SetSamplerConfig(entry.metadata.samplerSlot, entry.metadata.samplerConfig);
         }
     }
+
+    SceneRenderPass::BeginPass();
 }
 
 void CompositeRenderPass::EndPass()
 {
+    SceneRenderPass::EndPass();
+
     // Restore saved customImage bindings before other state cleanup
     for (const auto& [slotIndex, previousTexture] : m_savedCustomImages)
     {

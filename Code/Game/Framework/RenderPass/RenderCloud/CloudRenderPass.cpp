@@ -38,6 +38,8 @@
 #include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Resource/VertexLayout/Layouts/Vertex_PCUTBNLayout.hpp"
 #include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
+#include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
+#include "Game/Framework/RenderPass/WorldRenderingPhase.hpp"
 
 // ========================================
 // Constants (Defaults, overridden by CloudConfig)
@@ -77,12 +79,10 @@ void CloudRenderPass::Execute()
     const CloudConfig& config = m_configParser->GetParsedConfig();
 
     // Skip rendering if disabled
-    if (!config.enabled)
+    if (!config.enabled || !m_cloudsShader)
     {
         return;
     }
-
-    BeginPass();
 
     // Get camera position
     Vec3 cameraPos = g_theGame->m_player->m_position;
@@ -144,40 +144,43 @@ void CloudRenderPass::Execute()
         }
     }
 
-    // Render cloud mesh
-    if (m_gpuVertexBuffer && m_gpuVertexBuffer->GetVertexCount() > 0)
+    if (!m_gpuVertexBuffer || m_gpuVertexBuffer->GetVertexCount() == 0)
     {
-        // [IMPORTANT] ModelMatrix Calculation
-        // Geometry is in LOCAL space [-radius*12, +radius*12], must translate to WORLD space.
-        // ModelMatrix positions geometry center at camera XY (with sub-cell offset) at cloud height.
-        // After gbufferModelView transform: Final = (cameraPos - subCell) - cameraPos = -subCell
-        // This matches Sodium's translate(-viewPosX, -viewPosY, -viewPosZ) approach.
-        float subCellX = worldX - cellX * 12.0f;
-        float subCellY = worldY - cellY * 12.0f;
-
-        float translateX = cameraPos.x - subCellX;
-        float translateY = cameraPos.y - subCellY;
-        float translateZ = config.height; // Use height from config
-
-        Mat44 modelMatrix = Mat44::MakeTranslation3D(Vec3(translateX, translateY, translateZ));
-
-        // Calculate cloud color based on time of day
-        Vec3 cloudColor = g_theGame->m_timeProvider->CalculateCloudColor(0.0f, 0.0f);
-
-        // Upload uniforms
-        PerObjectUniforms perObjectUniform;
-        perObjectUniform.modelMatrix        = modelMatrix;
-        perObjectUniform.modelMatrixInverse = modelMatrix.GetInverse();
-        perObjectUniform.modelColor[0]      = cloudColor.x;
-        perObjectUniform.modelColor[1]      = cloudColor.y;
-        perObjectUniform.modelColor[2]      = cloudColor.z;
-        perObjectUniform.modelColor[3]      = config.opacity; // Use opacity from config
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniform);
-
-        // [PERF] Draw from pre-uploaded GPU buffer (no ring buffer memcpy)
-        g_theRendererSubsystem->UseProgram(m_cloudsShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::ColorTex, 3}, {RenderTargetType::DepthTex, 0}});
-        g_theRendererSubsystem->DrawVertexBuffer(m_gpuVertexBuffer);
+        return;
     }
+
+    BeginPass();
+
+    // [IMPORTANT] ModelMatrix Calculation
+    // Geometry is in LOCAL space [-radius*12, +radius*12], must translate to WORLD space.
+    // ModelMatrix positions geometry center at camera XY (with sub-cell offset) at cloud height.
+    // After gbufferModelView transform: Final = (cameraPos - subCell) - cameraPos = -subCell
+    // This matches Sodium's translate(-viewPosX, -viewPosY, -viewPosZ) approach.
+    float subCellX = worldX - cellX * 12.0f;
+    float subCellY = worldY - cellY * 12.0f;
+
+    float translateX = cameraPos.x - subCellX;
+    float translateY = cameraPos.y - subCellY;
+    float translateZ = config.height; // Use height from config
+
+    Mat44 modelMatrix = Mat44::MakeTranslation3D(Vec3(translateX, translateY, translateZ));
+
+    // Calculate cloud color based on time of day
+    Vec3 cloudColor = g_theGame->m_timeProvider->CalculateCloudColor(0.0f, 0.0f);
+
+    // Upload uniforms
+    PerObjectUniforms perObjectUniform;
+    perObjectUniform.modelMatrix        = modelMatrix;
+    perObjectUniform.modelMatrixInverse = modelMatrix.GetInverse();
+    perObjectUniform.modelColor[0]      = cloudColor.x;
+    perObjectUniform.modelColor[1]      = cloudColor.y;
+    perObjectUniform.modelColor[2]      = cloudColor.z;
+    perObjectUniform.modelColor[3]      = config.opacity; // Use opacity from config
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniform);
+
+    // [PERF] Draw from pre-uploaded GPU buffer (no ring buffer memcpy)
+    g_theRendererSubsystem->UseProgram(m_cloudsShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::ColorTex, 3}, {RenderTargetType::DepthTex, 0}});
+    g_theRendererSubsystem->DrawVertexBuffer(m_gpuVertexBuffer);
 
     EndPass();
 }
@@ -213,8 +216,13 @@ void CloudRenderPass::BeginPass()
     float cloudFar = std::max(m_cachedFar, 1000.f);
     camera->SetNearFar(m_cachedNear, cloudFar);
 
+    SceneRenderPass::BeginPass();
+
     camera->UpdateMatrixUniforms(MATRICES_UNIFORM);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
+
+    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::CLOUDS);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 }
 
 /// Restore default render states and camera projection
@@ -224,12 +232,12 @@ void CloudRenderPass::EndPass()
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::Disabled());
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Opaque());
 
-    // Restore original near/far so subsequent passes use the player camera's projection
+    SceneRenderPass::EndPass();
+
+    // Restore original near/far so subsequent passes recompute their own scope matrices
+    // from the player camera state instead of relying on a restore upload from Cloud.
     auto camera = g_theGame->m_player->GetCamera();
     camera->SetNearFar(m_cachedNear, m_cachedFar);
-
-    camera->UpdateMatrixUniforms(MATRICES_UNIFORM);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
 }
 
 /// Load clouds.png and create CloudTextureData for CPU-side geometry generation

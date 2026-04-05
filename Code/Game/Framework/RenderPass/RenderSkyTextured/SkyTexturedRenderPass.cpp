@@ -82,34 +82,33 @@ void SkyTexturedRenderPass::Execute()
     celestialData.shadowLightPosition = g_theGame->m_timeProvider->CalculateShadowLightPosition(gbufferModelView);
     celestialData.upPosition          = g_theGame->m_timeProvider->CalculateUpPosition(gbufferModelView);
     celestialData.colorModulator      = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
-    // Upload view matrix with zero translation for celestial rendering
+    bool hasRenderedStage = false;
+    auto beginSkyScope = [this, &hasRenderedStage](const char* debugName)
     {
-        MatricesUniforms matUniform;
-        g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matUniform);
-        matUniform.gbufferView.SetTranslation3D(Vec3(0.0f, 0.0f, 0.0f));
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matUniform);
+        if (hasRenderedStage)
+        {
+            AdvancePassScope(debugName);
+        }
+
+        hasRenderedStage = true;
+    };
+
+    if (ShouldRenderStars())
+    {
+        g_theRendererSubsystem->UseProgram(m_skyBasicShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::DepthTex, 0}});
+        beginSkyScope("SkyTextured::Stars");
+        RenderStars();
     }
 
-    // Stars use skybasic shader (rendered before sun/moon, behind celestial bodies)
-    g_theRendererSubsystem->UseProgram(m_skyBasicShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::DepthTex, 0}});
-    RenderStars();
-
-    // Sun/Moon use skytextured shader with additive blending
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Additive());
     g_theRendererSubsystem->UseProgram(m_skyTexturedShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::DepthTex, 0}});
+
+    beginSkyScope("SkyTextured::Sun");
     RenderSun();
+
+    beginSkyScope("SkyTextured::Moon");
     RenderMoon();
-
-    // Restore normal camera matrices for subsequent passes
-    {
-        g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
-    }
-
-    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::NONE);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 
     EndPass();
 }
@@ -119,6 +118,8 @@ void SkyTexturedRenderPass::BeginPass()
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Disabled());
     g_theRendererSubsystem->SetCustomImage(0, nullptr);
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
+
+    SceneRenderPass::BeginPass();
 }
 
 void SkyTexturedRenderPass::EndPass()
@@ -126,6 +127,8 @@ void SkyTexturedRenderPass::EndPass()
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::Disabled());
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Opaque());
+
+    SceneRenderPass::EndPass();
 }
 
 void SkyTexturedRenderPass::RenderSun()
@@ -160,7 +163,7 @@ void SkyTexturedRenderPass::RenderSun()
 
 void SkyTexturedRenderPass::RenderMoon()
 {
-    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::SUN);
+    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::MOON);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 
     constexpr float MOON_DISTANCE = -100.0f;
@@ -180,6 +183,9 @@ void SkyTexturedRenderPass::RenderMoon()
 
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectData);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matricesUniforms);
+
+    celestialData.colorModulator = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
     int moonPhase = g_theGame->m_timeProvider->GetDayCount() % 8;
 

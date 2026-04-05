@@ -34,6 +34,7 @@
 #include "Engine/Voxel/World/TerrainVertexLayout.hpp"
 #include "Engine/Voxel/World/World.hpp"
 #include "Game/GameCommon.hpp"
+#include "Game/Framework/RenderPass/WorldRenderingPhase.hpp"
 #include "Game/Gameplay/Game.hpp"
 
 using namespace enigma::graphic;
@@ -68,8 +69,6 @@ TerrainCutoutRenderPass::~TerrainCutoutRenderPass()
 
 void TerrainCutoutRenderPass::Execute()
 {
-    BeginPass();
-
     // Get world from game
     enigma::voxel::World* world = g_theGame ? g_theGame->GetWorld() : nullptr;
     if (!world)
@@ -77,7 +76,7 @@ void TerrainCutoutRenderPass::Execute()
         return; // No world, skip render
     }
 
-    g_theRendererSubsystem->SetCustomImage(0, m_blockAtlasTexture.get());
+    BeginPass();
 
     const auto& chunks = world->GetLoadedChunks();
     for (auto it = chunks.begin(); it != chunks.end(); ++it)
@@ -143,13 +142,22 @@ void TerrainCutoutRenderPass::BeginPass()
     // Enable depth testing and writing (same as solid terrain)
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
 
+    SceneRenderPass::BeginPass();
+
     // [REFACTOR] Update only gbuffer matrices in global MATRICES_UNIFORM
     g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
+
+    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::TERRAIN_CUTOUT);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
+
+    g_theRendererSubsystem->SetCustomImage(0, m_blockAtlasTexture.get());
 }
 
 void TerrainCutoutRenderPass::EndPass()
 {
+    SceneRenderPass::EndPass();
+
     // [FIX] Depth copy: depthtex0 -> depthtex1 (noTranslucents)
     // Must happen AFTER cutout rendering so depthtex1 contains Solid + Cutout depth
     // Reference: Iris pipeline - depthtex1 = depth without translucent objects

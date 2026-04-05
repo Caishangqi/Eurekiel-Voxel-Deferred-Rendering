@@ -19,6 +19,8 @@
 #include "Engine/Graphic/Bundle/ShaderBundle.hpp"
 #include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
 #include "Engine/Graphic/Target/ShadowTextureProvider.hpp"
+#include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
+#include "Game/Framework/RenderPass/RenderPassHelper.hpp"
 
 using namespace enigma::graphic;
 
@@ -95,8 +97,7 @@ void ShadowRenderPass::BeginPass()
     // Set TerrainVertexLayout for shadow rendering (same as terrain pass)
     g_theRendererSubsystem->SetVertexLayout(TerrainVertexLayout::Get());
 
-    // Use shadow program with shadowtex0, shadowcolor0, and shadowcolor1 render targets
-    // shadow.ps.hlsl outputs: SV_TARGET0 -> shadowcolor0 (caustics), SV_TARGET1 -> shadowcolor1 (underwater VL)
+    // Shadow pass interprets draw buffer indices as shadowcolor attachments, not colortex attachments.
     if (m_shadowProgram)
     {
         g_theRendererSubsystem->UseProgram(m_shadowProgram, {{RenderTargetType::ShadowTex, 0}, {RenderTargetType::ShadowColor, 0}, {RenderTargetType::ShadowColor, 1}});
@@ -147,10 +148,17 @@ void ShadowRenderPass::BeginPass()
     {
         g_theRendererSubsystem->SetViewport(shadowTexProvider->GetBaseWidth(), shadowTexProvider->GetBaseHeight());
     }
+
+    SceneRenderPass::BeginPass();
+
+    COMMON_UNIFORM.renderStage = CommonConstantBuffer::kDefaultRenderStage;
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 }
 
 void ShadowRenderPass::EndPass()
 {
+    SceneRenderPass::EndPass();
+
     // Restore saved customImage bindings before other state cleanup
     for (const auto& [slotIndex, previousTexture] : m_savedCustomImages)
     {

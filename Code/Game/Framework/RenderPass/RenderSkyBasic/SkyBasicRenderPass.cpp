@@ -60,6 +60,14 @@ void SkyBasicRenderPass::Execute()
 
     BeginPass();
 
+    auto uploadSkyScopeMatrices = [this]()
+    {
+        MatricesUniforms matUniform;
+        g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matUniform);
+        matUniform.gbufferView.SetTranslation3D(Vec3(0.0f, 0.0f, 0.0f));
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matUniform);
+    };
+
     // Upload CelestialConstantBuffer
     Mat44 gbufferModelView = g_theGame->m_player->GetCamera()->GetViewMatrix();
 
@@ -73,7 +81,6 @@ void SkyBasicRenderPass::Execute()
     celestialData.shadowLightPosition = g_theGame->m_timeProvider->CalculateShadowLightPosition(gbufferModelView);
     celestialData.upPosition          = g_theGame->m_timeProvider->CalculateUpPosition(gbufferModelView);
     celestialData.colorModulator      = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
     // Upload CommonConstantBuffer
     COMMON_UNIFORM.skyColor         = SkyColorHelper::CalculateSkyColor(celestialData.celestialAngle);
@@ -83,26 +90,27 @@ void SkyBasicRenderPass::Execute()
     COMMON_UNIFORM.nightVision      = 0.0f;
     COMMON_UNIFORM.blindness        = 0.0f;
     COMMON_UNIFORM.darknessFactor   = 0.0f;
-    COMMON_UNIFORM.renderStage      = ToRenderStage(WorldRenderingPhase::NONE);
 
     WriteSkyColorToRT();
 
     g_theRendererSubsystem->UseProgram(m_skyBasicShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::DepthTex, 0}});
 
+    uploadSkyScopeMatrices();
+    RenderSkyDome();
+
+    if (ShouldRenderVoidDome())
     {
-        MatricesUniforms matUniform;
-        g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matUniform);
-        matUniform.gbufferView.SetTranslation3D(Vec3(0.0f, 0.0f, 0.0f));
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matUniform);
+        AdvancePassScope("SkyBasic::SkyVoid");
+        uploadSkyScopeMatrices();
+        RenderVoidDome();
     }
 
-    RenderSkyDome();
-    RenderVoidDome();
-    RenderSunsetStrip();
-
-    // Restore renderStage
-    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::NONE);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
+    if (ShouldRenderSunsetStrip(celestialData.sunAngle))
+    {
+        AdvancePassScope("SkyBasic::Sunset");
+        uploadSkyScopeMatrices();
+        RenderSunsetStrip();
+    }
 
     EndPass();
 }
@@ -112,6 +120,8 @@ void SkyBasicRenderPass::BeginPass()
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Disabled());
     g_theRendererSubsystem->SetCustomImage(0, nullptr);
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
+
+    SceneRenderPass::BeginPass();
 }
 
 void SkyBasicRenderPass::EndPass()
@@ -119,6 +129,8 @@ void SkyBasicRenderPass::EndPass()
     g_theRendererSubsystem->SetDepthConfig(DepthConfig::Enabled());
     g_theRendererSubsystem->SetStencilTest(StencilTestDetail::Disabled());
     g_theRendererSubsystem->SetBlendConfig(BlendConfig::Opaque());
+
+    SceneRenderPass::EndPass();
 }
 
 void SkyBasicRenderPass::WriteSkyColorToRT()
@@ -139,6 +151,9 @@ void SkyBasicRenderPass::WriteSkyColorToRT()
 
 void SkyBasicRenderPass::RenderSkyDome()
 {
+    celestialData.colorModulator = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
+
     COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::SKY);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 
@@ -151,12 +166,12 @@ void SkyBasicRenderPass::RenderSkyDome()
 
 void SkyBasicRenderPass::RenderVoidDome()
 {
-    if (ShouldRenderVoidDome())
-    {
-        COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::SKY_VOID);
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
-        g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
-    }
+    celestialData.colorModulator = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
+
+    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::SKY_VOID);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
+    g_theRendererSubsystem->DrawVertexArray(m_voidDomeVertices);
 }
 
 void SkyBasicRenderPass::RenderSunsetStrip()

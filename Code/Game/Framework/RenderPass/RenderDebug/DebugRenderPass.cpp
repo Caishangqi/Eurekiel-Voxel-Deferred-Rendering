@@ -10,6 +10,8 @@
 #include "Engine/Math/Sphere.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Framework/GameObject/Geometry.hpp"
+#include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
+#include "Game/Framework/RenderPass/WorldRenderingPhase.hpp"
 #include "Game/Framework/RenderPass/RenderShadow/ShadowRenderPass.hpp"
 #include "Game/Gameplay/Game.hpp"
 
@@ -98,14 +100,21 @@ void DebugRenderPass::BeginPass()
     g_theRendererSubsystem->UseProgram(sp_debugShader, {{RenderTargetType::ColorTex, 0}, {RenderTargetType::DepthTex, 0}});
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 
+    SceneRenderPass::BeginPass();
+
     m_player = g_theGame->m_player.get();
     // [REFACTOR] Update only gbuffer matrices in global MATRICES_UNIFORM
     m_player->GetCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
+
+    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::DEBUG);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
 }
 
 void DebugRenderPass::EndPass()
 {
+    SceneRenderPass::EndPass();
+
     //g_theRendererSubsystem->PresentRenderTarget(0, RenderTargetType::ColorTex);
 }
 

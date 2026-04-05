@@ -33,6 +33,7 @@
 #include "Engine/Resource/Atlas/TextureAtlas.hpp"
 #include "Engine/Voxel/World/TerrainVertexLayout.hpp"
 #include "Engine/Voxel/World/World.hpp"
+#include "Game/Framework/RenderPass/WorldRenderingPhase.hpp"
 
 using namespace enigma::graphic;
 
@@ -72,9 +73,6 @@ void TerrainTranslucentRenderPass::Execute()
     }
 
     BeginPass();
-
-    // Bind block atlas texture
-    g_theRendererSubsystem->SetCustomImage(0, m_blockAtlasTexture.get());
 
     // Iterate visible chunks and render translucent meshes
     const auto& chunks = world->GetLoadedChunks();
@@ -145,13 +143,20 @@ void TerrainTranslucentRenderPass::BeginPass()
     rts.push_back({RenderTargetType::DepthTex, 0});
     g_theRendererSubsystem->UseProgram(m_waterShader, rts);
 
+    SceneRenderPass::BeginPass();
+
     // [REFACTOR] Update only gbuffer matrices in global MATRICES_UNIFORM
     g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
 
+    COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::TERRAIN_TRANSLUCENT);
+    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
+
     // Setup blend and depth states for translucent rendering
     SetupBlendState();
     SetupDepthState();
+
+    g_theRendererSubsystem->SetCustomImage(0, m_blockAtlasTexture.get());
 
     // Bind stage-scoped custom textures for gbuffers_water (e.g. water normal texture on slot 3)
     auto* bundle = g_theShaderBundleSubsystem->GetCurrentShaderBundle().get();
@@ -169,6 +174,8 @@ void TerrainTranslucentRenderPass::BeginPass()
 
 void TerrainTranslucentRenderPass::EndPass()
 {
+    SceneRenderPass::EndPass();
+
     // Restore saved customImage bindings
     for (const auto& [slotIndex, previousTexture] : m_savedCustomImages)
     {
