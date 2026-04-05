@@ -25,7 +25,10 @@ SkyBasicRenderPass::SkyBasicRenderPass()
     m_skyDomeVertices  = SkyGeometryHelper::GenerateSkyDisc(16.0f);
     m_voidDomeVertices = SkyGeometryHelper::GenerateSkyDisc(-16.0f);
 
-    // Register CelestialConstantBuffer (SkyBasic owns registration, executes first)
+    // Register CelestialConstantBuffer (SkyBasic owns registration, executes first).
+    // TODO(perf): This is a sky-only Custom-space buffer. Once custom descriptor
+    // pages are keyed by per-program slot usage, unrelated passes should stop
+    // treating slot 9 as part of their descriptor-page state.
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<CelestialConstantBuffer>(
         9,
         enigma::graphic::UpdateFrequency::PerObject,
