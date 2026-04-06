@@ -7,6 +7,9 @@
 #include "ImguiGameSettings.hpp"
 #include "ImguiGameLogic.hpp"
 #include "ImguiSceneRendering.hpp"
+#include "ImguiSettingChunkBatching.hpp"
+#include "Game/GameCommon.hpp"
+#include "Game/Gameplay/Game.hpp"
 #include "ThirdParty/imgui/imgui.h"
 
 /**
@@ -39,6 +42,14 @@ void ImguiGameSettings::ShowWindow(bool* pOpen)
         {
             // Call Scene Rendering UI
             ImguiSceneRendering::Show();
+
+            ImGui::EndTabItem();
+        }
+
+        // [TAB 3] Chunk Batching Tab
+        if (ImGui::BeginTabItem("Chunk Batching"))
+        {
+            ImguiSettingChunkBatching::Show(g_theGame ? g_theGame->GetWorld() : nullptr);
 
             ImGui::EndTabItem();
         }

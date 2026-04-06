@@ -511,6 +511,7 @@
         <ClCompile Include="Framework\Imgui\ImguiGameLogic.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiGameSettings.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiLeftDebugOverlay.cpp" />
+        <ClCompile Include="Framework\Imgui\ImguiSettingChunkBatching.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiSceneRendering.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudConfigParser.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudGeometryHelper.cpp"/>
@@ -559,6 +560,7 @@
         <ClInclude Include="Framework\Imgui\ImguiGameLogic.hpp"/>
         <ClInclude Include="Framework\Imgui\ImguiGameSettings.hpp"/>
         <ClInclude Include="Framework\Imgui\ImguiLeftDebugOverlay.hpp" />
+        <ClInclude Include="Framework\Imgui\ImguiSettingChunkBatching.hpp"/>
         <ClInclude Include="Framework\Imgui\ImguiSceneRendering.hpp"/>
         <ClInclude Include="Framework\RenderPass\ConstantBuffer\CelestialConstantBuffer.hpp"/>
         <ClInclude Include="Framework\RenderPass\ConstantBuffer\CommonConstantBuffer.hpp"/>

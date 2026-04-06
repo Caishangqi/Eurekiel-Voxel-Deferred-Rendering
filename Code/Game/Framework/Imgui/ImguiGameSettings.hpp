@@ -7,6 +7,7 @@
  * - Main settings window with TabBar structure
  * - "Game Logic" Tab: Time system, gameplay parameters
  * - "Scene Rendering" Tab: Sky, cloud, sun/moon rendering parameters
+ * - "Chunk Batching" Tab: runtime batching controls and stats
  * - Static-only class (no instantiation)
  *
  * Architecture:
@@ -14,8 +15,10 @@
  *   ├── TabBar
  *   │   ├── Tab: "Game Logic"
  *   │   │   └── ImguiGameLogic::Show()
- *   │   └── Tab: "Scene Rendering"
- *   │       └── ImguiSceneRendering::Show()
+ *   │   ├── Tab: "Scene Rendering"
+ *   │   │   └── ImguiSceneRendering::Show()
+ *   │   └── Tab: "Chunk Batching"
+ *   │       └── ImguiSettingChunkBatching::Show(world)
  *
  * Usage:
  * @code
@@ -33,7 +36,7 @@
  * Responsibilities:
  * - Create main settings window
  * - Manage TabBar structure
- * - Coordinate Game Logic and Scene Rendering tabs
+ * - Coordinate Game Logic, Scene Rendering, and Chunk Batching tabs
  * - Handle window visibility state
  */
 class ImguiGameSettings
@@ -50,17 +53,21 @@ public:
      *
      * Window Structure:
      * - Main Window: "Game Settings"
-     * - TabBar with 2 tabs:
+     * - TabBar with 3 tabs:
      *   1. "Game Logic" - Time system, gameplay parameters
      *   2. "Scene Rendering" - Sky, cloud, sun/moon parameters
+     *   3. "Chunk Batching" - runtime batching controls and stats
      *
      * Tab Nesting:
      * BeginTabBar("GameSettingsTabs")
      *   ├── BeginTabItem("Game Logic")
      *   │   ├── ImguiGameLogic::Show()
      *   │   └── EndTabItem()
-     *   └── BeginTabItem("Scene Rendering")
-     *       ├── ImguiSceneRendering::Show()
+     *   ├── BeginTabItem("Scene Rendering")
+     *   │   ├── ImguiSceneRendering::Show()
+     *   │   └── EndTabItem()
+     *   └── BeginTabItem("Chunk Batching")
+     *       ├── ImguiSettingChunkBatching::Show(world)
      *       └── EndTabItem()
      * EndTabBar()
      */
