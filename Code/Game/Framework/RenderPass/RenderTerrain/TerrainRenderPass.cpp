@@ -15,6 +15,8 @@
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Resource/ResourceSubsystem.hpp"
 #include "Engine/Resource/Atlas/TextureAtlas.hpp"
+#include "Engine/Voxel/Chunk/ChunkBatchCollector.hpp"
+#include "Engine/Voxel/Chunk/ChunkBatchRenderer.hpp"
 #include "Engine/Voxel/World/TerrainVertexLayout.hpp"
 #include "Engine/Voxel/World/World.hpp"
 #include "Game/GameCommon.hpp"
@@ -48,30 +50,22 @@ TerrainRenderPass::~TerrainRenderPass()
 
 void TerrainRenderPass::Execute()
 {
-    // Get world from game
     enigma::voxel::World* world = g_theGame ? g_theGame->GetWorld() : nullptr;
     if (!world)
     {
-        return; // No world, skip render
+        return;
     }
 
-    BeginPass(); // [FIX] Set layout, shader, depth mode before rendering
+    BeginPass();
 
-    const auto& chunks = world->GetLoadedChunks();
-    for (auto it = chunks.begin(); it != chunks.end(); it++)
-    {
-        auto ChunkMesh = it->second->GetChunkMesh();
-        if (!ChunkMesh || ChunkMesh->IsEmpty()) continue;
-        if (it->second->GetState() != enigma::voxel::ChunkState::Active) continue;
-        auto              opaqueTerrainVertexBuffer = ChunkMesh->GetOpaqueD12VertexBuffer();
-        auto              opaqueTerrainIndexBuffer  = ChunkMesh->GetOpaqueD12IndexBuffer();
-        PerObjectUniforms perObjectUniforms;
-        perObjectUniforms.modelMatrix        = it->second->GetModelToWorldTransform();
-        perObjectUniforms.modelMatrixInverse = perObjectUniforms.modelMatrix.GetInverse();
-        Rgba8::WHITE.GetAsFloats(perObjectUniforms.modelColor);
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniforms);
-        g_theRendererSubsystem->DrawVertexBuffer(opaqueTerrainVertexBuffer, opaqueTerrainIndexBuffer);
-    }
+    enigma::voxel::ChunkBatchViewContext viewContext;
+    viewContext.world  = world;
+    viewContext.camera = (g_theGame && g_theGame->m_player) ? g_theGame->m_player->GetCamera() : nullptr;
+
+    const enigma::voxel::ChunkBatchCollection       collection = enigma::voxel::ChunkBatchCollector::Collect(
+        viewContext,
+        enigma::voxel::ChunkBatchLayer::Opaque);
+    world->MutableChunkBatchStats().batchedDraws += enigma::voxel::ChunkBatchRenderer::Submit(collection);
 
     EndPass();
 }

@@ -31,6 +31,8 @@
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Resource/ResourceSubsystem.hpp"
 #include "Engine/Resource/Atlas/TextureAtlas.hpp"
+#include "Engine/Voxel/Chunk/ChunkBatchCollector.hpp"
+#include "Engine/Voxel/Chunk/ChunkBatchRenderer.hpp"
 #include "Engine/Voxel/World/TerrainVertexLayout.hpp"
 #include "Engine/Voxel/World/World.hpp"
 #include "Game/Framework/RenderPass/WorldRenderingPhase.hpp"
@@ -65,7 +67,6 @@ TerrainTranslucentRenderPass::~TerrainTranslucentRenderPass()
 
 void TerrainTranslucentRenderPass::Execute()
 {
-    // Get world from game
     enigma::voxel::World* world = g_theGame ? g_theGame->GetWorld() : nullptr;
     if (!world)
     {
@@ -74,39 +75,14 @@ void TerrainTranslucentRenderPass::Execute()
 
     BeginPass();
 
-    // Iterate visible chunks and render translucent meshes
-    const auto& chunks = world->GetLoadedChunks();
-    for (auto it = chunks.begin(); it != chunks.end(); ++it)
-    {
-        auto chunkMesh = it->second->GetChunkMesh();
-        if (!chunkMesh || !chunkMesh->HasTranslucentGeometry())
-        {
-            continue;
-        }
-        if (it->second->GetState() != enigma::voxel::ChunkState::Active)
-        {
-            continue;
-        }
+    enigma::voxel::ChunkBatchViewContext viewContext;
+    viewContext.world  = world;
+    viewContext.camera = (g_theGame && g_theGame->m_player) ? g_theGame->m_player->GetCamera() : nullptr;
 
-        // Get translucent vertex/index buffers
-        auto translucentVertexBuffer = chunkMesh->GetTranslucentD12VertexBuffer();
-        auto translucentIndexBuffer  = chunkMesh->GetTranslucentD12IndexBuffer();
-
-        if (!translucentVertexBuffer || !translucentIndexBuffer)
-        {
-            continue;
-        }
-
-        // Upload per-object uniforms (model matrix)
-        PerObjectUniforms perObjectUniforms;
-        perObjectUniforms.modelMatrix        = it->second->GetModelToWorldTransform();
-        perObjectUniforms.modelMatrixInverse = perObjectUniforms.modelMatrix.GetInverse();
-        Rgba8::WHITE.GetAsFloats(perObjectUniforms.modelColor);
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniforms);
-
-        // Draw translucent geometry
-        g_theRendererSubsystem->DrawVertexBuffer(translucentVertexBuffer, translucentIndexBuffer);
-    }
+    const enigma::voxel::ChunkBatchCollection       collection = enigma::voxel::ChunkBatchCollector::Collect(
+        viewContext,
+        enigma::voxel::ChunkBatchLayer::Translucent);
+    world->MutableChunkBatchStats().batchedDraws += enigma::voxel::ChunkBatchRenderer::Submit(collection);
 
     EndPass();
 }

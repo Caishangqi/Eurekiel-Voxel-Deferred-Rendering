@@ -31,6 +31,8 @@
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Resource/ResourceSubsystem.hpp"
 #include "Engine/Resource/Atlas/TextureAtlas.hpp"
+#include "Engine/Voxel/Chunk/ChunkBatchCollector.hpp"
+#include "Engine/Voxel/Chunk/ChunkBatchRenderer.hpp"
 #include "Engine/Voxel/World/TerrainVertexLayout.hpp"
 #include "Engine/Voxel/World/World.hpp"
 #include "Game/GameCommon.hpp"
@@ -69,40 +71,22 @@ TerrainCutoutRenderPass::~TerrainCutoutRenderPass()
 
 void TerrainCutoutRenderPass::Execute()
 {
-    // Get world from game
     enigma::voxel::World* world = g_theGame ? g_theGame->GetWorld() : nullptr;
     if (!world)
     {
-        return; // No world, skip render
+        return;
     }
 
     BeginPass();
 
-    const auto& chunks = world->GetLoadedChunks();
-    for (auto it = chunks.begin(); it != chunks.end(); ++it)
-    {
-        auto chunkMesh = it->second->GetChunkMesh();
-        if (!chunkMesh) continue;
-        if (it->second->GetState() != enigma::voxel::ChunkState::Active) continue;
+    enigma::voxel::ChunkBatchViewContext viewContext;
+    viewContext.world  = world;
+    viewContext.camera = (g_theGame && g_theGame->m_player) ? g_theGame->m_player->GetCamera() : nullptr;
 
-        // [KEY DIFFERENCE] Use Cutout buffers instead of Opaque
-        if (!chunkMesh->HasCutoutGeometry()) continue;
-
-        auto cutoutVertexBuffer = chunkMesh->GetCutoutD12VertexBuffer();
-        auto cutoutIndexBuffer  = chunkMesh->GetCutoutD12IndexBuffer();
-
-        if (!cutoutVertexBuffer || !cutoutIndexBuffer) continue;
-
-        // Upload per-object uniforms (model matrix)
-        PerObjectUniforms perObjectUniforms;
-        perObjectUniforms.modelMatrix        = it->second->GetModelToWorldTransform();
-        perObjectUniforms.modelMatrixInverse = perObjectUniforms.modelMatrix.GetInverse();
-        Rgba8::WHITE.GetAsFloats(perObjectUniforms.modelColor);
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniforms);
-
-        // Draw cutout geometry
-        g_theRendererSubsystem->DrawVertexBuffer(cutoutVertexBuffer, cutoutIndexBuffer);
-    }
+    const enigma::voxel::ChunkBatchCollection       collection = enigma::voxel::ChunkBatchCollector::Collect(
+        viewContext,
+        enigma::voxel::ChunkBatchLayer::Cutout);
+    world->MutableChunkBatchStats().batchedDraws += enigma::voxel::ChunkBatchRenderer::Submit(collection);
 
     EndPass();
 }

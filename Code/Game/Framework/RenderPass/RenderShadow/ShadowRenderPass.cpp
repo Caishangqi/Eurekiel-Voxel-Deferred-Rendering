@@ -20,6 +20,8 @@
 #include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
 #include "Engine/Graphic/Target/ShadowTextureProvider.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/CommonConstantBuffer.hpp"
+#include "Engine/Voxel/Chunk/ChunkBatchCollector.hpp"
+#include "Engine/Voxel/Chunk/ChunkBatchRenderer.hpp"
 #include "Game/Framework/RenderPass/RenderPassHelper.hpp"
 
 using namespace enigma::graphic;
@@ -211,48 +213,28 @@ void ShadowRenderPass::UpdateShadowCamera()
 
 void ShadowRenderPass::RenderShadowMap()
 {
-    // Get world from game
     enigma::voxel::World* world = g_theGame ? g_theGame->GetWorld() : nullptr;
     if (!world)
     {
-        return; // No world, skip shadow render
+        return;
     }
 
-    const auto& chunks = world->GetLoadedChunks();
+    enigma::voxel::ChunkBatchViewContext viewContext;
+    viewContext.world  = world;
+    viewContext.camera = m_shadowCamera.get();
 
     // ========================================================================
     // Pass 1: Render Opaque + Cutout → shadowtex0
     // [Iris Ref] ShadowRenderer.java:464-469 - solid, cutout, cutoutMipped
     // ========================================================================
-    for (auto it = chunks.begin(); it != chunks.end(); ++it)
-    {
-        auto chunkMesh = it->second->GetChunkMesh();
-        if (!chunkMesh || chunkMesh->IsEmpty()) continue;
-        if (it->second->GetState() != enigma::voxel::ChunkState::Active) continue;
-
-        // Upload per-object uniforms (model matrix)
-        PerObjectUniforms perObjectUniforms;
-        perObjectUniforms.modelMatrix        = it->second->GetModelToWorldTransform();
-        perObjectUniforms.modelMatrixInverse = perObjectUniforms.modelMatrix.GetInverse();
-        Rgba8::WHITE.GetAsFloats(perObjectUniforms.modelColor);
-        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniforms);
-
-        // Draw Opaque
-        auto opaqueVertexBuffer = chunkMesh->GetOpaqueD12VertexBuffer();
-        auto opaqueIndexBuffer  = chunkMesh->GetOpaqueD12IndexBuffer();
-        if (opaqueVertexBuffer && opaqueIndexBuffer)
-        {
-            g_theRendererSubsystem->DrawVertexBuffer(opaqueVertexBuffer, opaqueIndexBuffer);
-        }
-
-        // Draw Cutout (hollow objects such as leaves)
-        auto cutoutVertexBuffer = chunkMesh->GetCutoutD12VertexBuffer();
-        auto cutoutIndexBuffer  = chunkMesh->GetCutoutD12IndexBuffer();
-        if (cutoutVertexBuffer && cutoutIndexBuffer)
-        {
-            g_theRendererSubsystem->DrawVertexBuffer(cutoutVertexBuffer, cutoutIndexBuffer);
-        }
-    }
+    enigma::voxel::ChunkBatchCollection opaqueCutoutCollection = enigma::voxel::ChunkBatchCollector::Collect(
+        viewContext,
+        enigma::voxel::ChunkBatchLayer::Opaque);
+    opaqueCutoutCollection.Append(enigma::voxel::ChunkBatchCollector::Collect(
+        viewContext,
+        enigma::voxel::ChunkBatchLayer::Cutout));
+    auto& stats = world->MutableChunkBatchStats();
+    stats.batchedDraws += enigma::voxel::ChunkBatchRenderer::Submit(opaqueCutoutCollection);
 
     // ========================================================================
     // Copy shadowtex0 → shadowtex1 (freeze pre-translucent depth)
@@ -266,27 +248,10 @@ void ShadowRenderPass::RenderShadowMap()
     // [Iris Ref] ShadowRenderer.java:540-542 - translucent layer
     // shadowtex1 remains "frozen" with opaque+cutout depth only
     // ========================================================================
-    for (auto it = chunks.begin(); it != chunks.end(); ++it)
-    {
-        auto chunkMesh = it->second->GetChunkMesh();
-        if (!chunkMesh || chunkMesh->IsEmpty()) continue;
-        if (it->second->GetState() != enigma::voxel::ChunkState::Active) continue;
-
-        // Draw Translucent (translucent objects such as water)
-        auto translucentVertexBuffer = chunkMesh->GetTranslucentD12VertexBuffer();
-        auto translucentIndexBuffer  = chunkMesh->GetTranslucentD12IndexBuffer();
-        if (translucentVertexBuffer && translucentIndexBuffer)
-        {
-            // Upload per-object uniforms (model matrix)
-            PerObjectUniforms perObjectUniforms;
-            perObjectUniforms.modelMatrix        = it->second->GetModelToWorldTransform();
-            perObjectUniforms.modelMatrixInverse = perObjectUniforms.modelMatrix.GetInverse();
-            Rgba8::WHITE.GetAsFloats(perObjectUniforms.modelColor);
-            g_theRendererSubsystem->GetUniformManager()->UploadBuffer(perObjectUniforms);
-
-            g_theRendererSubsystem->DrawVertexBuffer(translucentVertexBuffer, translucentIndexBuffer);
-        }
-    }
+    const enigma::voxel::ChunkBatchCollection translucentCollection = enigma::voxel::ChunkBatchCollector::Collect(
+        viewContext,
+        enigma::voxel::ChunkBatchLayer::Translucent);
+    stats.batchedDraws += enigma::voxel::ChunkBatchRenderer::Submit(translucentCollection);
 }
 
 Vec3 ShadowRenderPass::SnapToGrid(const Vec3& pos, float interval)
