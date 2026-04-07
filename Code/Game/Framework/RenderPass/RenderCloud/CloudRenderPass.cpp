@@ -25,6 +25,7 @@
 #include "CloudGeometryHelper.hpp"
 #include "Engine/Core/Image.hpp"
 #include "Engine/Core/VertexUtils.hpp"
+#include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Math/Mat44.hpp"
 #include "Engine/Math/MathUtils.hpp"
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
@@ -85,7 +86,13 @@ void CloudRenderPass::Execute()
     }
 
     // Get camera position
-    Vec3 cameraPos = g_theGame->m_player->m_position;
+    auto* renderCamera = g_theGame ? g_theGame->GetRenderCamera() : nullptr;
+    if (!renderCamera)
+    {
+        return;
+    }
+
+    Vec3 cameraPos = renderCamera->GetPosition();
 
     // Get cloud animation time (includes tickDelta and CLOUD_TIME_SCALE)
     // Apply speed multiplier from config
@@ -209,7 +216,7 @@ void CloudRenderPass::BeginPass()
     g_theRendererSubsystem->SetVertexLayout(Vertex_PCUTBNLayout::Get());
 
     // Extend far plane for cloud visibility (player camera far ~ 128 blocks, clouds at z=192+)
-    auto camera  = g_theGame->m_player->GetCamera();
+    auto camera  = g_theGame->GetRenderCamera();
     m_cachedNear = camera->GetNearPlane();
     m_cachedFar  = camera->GetFarPlane();
 
@@ -236,7 +243,7 @@ void CloudRenderPass::EndPass()
 
     // Restore original near/far so subsequent passes recompute their own scope matrices
     // from the player camera state instead of relying on a restore upload from Cloud.
-    auto camera = g_theGame->m_player->GetCamera();
+    auto camera = g_theGame->GetRenderCamera();
     camera->SetNearFar(m_cachedNear, m_cachedFar);
 }
 

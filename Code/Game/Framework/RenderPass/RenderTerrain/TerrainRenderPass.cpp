@@ -60,7 +60,7 @@ void TerrainRenderPass::Execute()
 
     enigma::voxel::ChunkBatchViewContext viewContext;
     viewContext.world  = world;
-    viewContext.camera = (g_theGame && g_theGame->m_player) ? g_theGame->m_player->GetCamera() : nullptr;
+    viewContext.camera = g_theGame ? g_theGame->GetChunkBatchCullingCamera() : nullptr;
 
     const enigma::voxel::ChunkBatchCollection       collection = enigma::voxel::ChunkBatchCollector::Collect(
         viewContext,
@@ -88,8 +88,11 @@ void TerrainRenderPass::BeginPass()
     SceneRenderPass::BeginPass();
 
     // [REFACTOR] Update only gbuffer matrices in global MATRICES_UNIFORM
-    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
+    if (g_theGame && g_theGame->GetRenderCamera())
+    {
+        g_theGame->GetRenderCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
+    }
 
     COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::TERRAIN_SOLID);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);

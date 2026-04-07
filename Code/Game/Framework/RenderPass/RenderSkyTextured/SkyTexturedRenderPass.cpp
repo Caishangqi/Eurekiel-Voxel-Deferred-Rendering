@@ -1,5 +1,6 @@
 #include "SkyTexturedRenderPass.hpp"
 #include "StarGeometryHelper.hpp"
+#include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Shader/Uniform/PerObjectUniforms.hpp"
@@ -70,7 +71,7 @@ void SkyTexturedRenderPass::Execute()
     UpdateCelestialMatrices();
 
     // Upload CelestialConstantBuffer (independent from SkyBasic)
-    Mat44 gbufferModelView = g_theGame->m_player->GetCamera()->GetViewMatrix();
+    Mat44 gbufferModelView = g_theGame->GetRenderCamera()->GetViewMatrix();
 
     celestialData.celestialAngle      = g_theGame->m_timeProvider->GetCelestialAngle();
     celestialData.sunAngle            = g_theGame->m_timeProvider->GetSunAngle();
@@ -144,7 +145,7 @@ void SkyTexturedRenderPass::RenderSun()
     modelMatrix.Append(Mat44::MakeUniformScale3D(m_sunSize));
 
     MatricesUniforms matricesUniforms;
-    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matricesUniforms);
+    g_theGame->GetRenderCamera()->UpdateMatrixUniforms(matricesUniforms);
     matricesUniforms.gbufferView        = m_celestialView;
     matricesUniforms.gbufferViewInverse = m_celestialViewInverse;
 
@@ -174,7 +175,7 @@ void SkyTexturedRenderPass::RenderMoon()
     modelMatrix.Append(Mat44::MakeUniformScale3D(m_moonSize));
 
     MatricesUniforms matricesUniforms;
-    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matricesUniforms);
+    g_theGame->GetRenderCamera()->UpdateMatrixUniforms(matricesUniforms);
     matricesUniforms.gbufferView        = m_celestialView;
     matricesUniforms.gbufferViewInverse = m_celestialViewInverse;
 
@@ -212,7 +213,7 @@ void SkyTexturedRenderPass::RenderStars()
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(celestialData);
 
     MatricesUniforms matricesUniforms;
-    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matricesUniforms);
+    g_theGame->GetRenderCamera()->UpdateMatrixUniforms(matricesUniforms);
     matricesUniforms.gbufferView        = m_celestialView;
     matricesUniforms.gbufferViewInverse = m_celestialViewInverse;
 
@@ -255,7 +256,7 @@ void SkyTexturedRenderPass::UpdateCelestialMatrices()
     m_cachedSkyAngle = g_theGame->m_timeProvider->GetSunAngle();
 
     MatricesUniforms tempMatrices;
-    g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(tempMatrices);
+    g_theGame->GetRenderCamera()->UpdateMatrixUniforms(tempMatrices);
 
     m_celestialView       = tempMatrices.gbufferView;
     float sunPathRotation = g_theGame->m_timeProvider->GetSunPathRotation();

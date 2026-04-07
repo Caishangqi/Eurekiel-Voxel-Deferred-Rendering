@@ -1,6 +1,7 @@
 #include "SkyBasicRenderPass.hpp"
 #include "SkyGeometryHelper.hpp"
 #include "SkyColorHelper.hpp"
+#include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Game/GameCommon.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
@@ -66,13 +67,13 @@ void SkyBasicRenderPass::Execute()
     auto uploadSkyScopeMatrices = [this]()
     {
         MatricesUniforms matUniform;
-        g_theGame->m_player->GetCamera()->UpdateMatrixUniforms(matUniform);
+        g_theGame->GetRenderCamera()->UpdateMatrixUniforms(matUniform);
         matUniform.gbufferView.SetTranslation3D(Vec3(0.0f, 0.0f, 0.0f));
         g_theRendererSubsystem->GetUniformManager()->UploadBuffer(matUniform);
     };
 
     // Upload CelestialConstantBuffer
-    Mat44 gbufferModelView = g_theGame->m_player->GetCamera()->GetViewMatrix();
+    Mat44 gbufferModelView = g_theGame->GetRenderCamera()->GetViewMatrix();
 
     celestialData.celestialAngle      = g_theGame->m_timeProvider->GetCelestialAngle();
     celestialData.sunAngle            = g_theGame->m_timeProvider->GetSunAngle();
@@ -212,6 +213,6 @@ bool SkyBasicRenderPass::ShouldRenderSunsetStrip(float sunAngle) const
 bool SkyBasicRenderPass::ShouldRenderVoidDome() const
 {
     constexpr float HORIZON_HEIGHT = 63.0f;
-    Vec3            cameraPos      = g_theGame->m_player->GetCamera()->GetPosition();
+    Vec3            cameraPos      = g_theGame->GetRenderCamera()->GetPosition();
     return cameraPos.z < HORIZON_HEIGHT;
 }

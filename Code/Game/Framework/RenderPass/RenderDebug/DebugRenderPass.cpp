@@ -1,6 +1,7 @@
 ﻿#include "DebugRenderPass.hpp"
 
 #include "Engine/Core/VertexUtils.hpp"
+#include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Helper/VertexConversionHelper.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Graphic/Target/RTTypes.hpp"
@@ -104,8 +105,11 @@ void DebugRenderPass::BeginPass()
 
     m_player = g_theGame->m_player.get();
     // [REFACTOR] Update only gbuffer matrices in global MATRICES_UNIFORM
-    m_player->GetCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
-    g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
+    if (g_theGame && g_theGame->GetRenderCamera())
+    {
+        g_theGame->GetRenderCamera()->UpdateMatrixUniforms(MATRICES_UNIFORM);
+        g_theRendererSubsystem->GetUniformManager()->UploadBuffer(MATRICES_UNIFORM);
+    }
 
     COMMON_UNIFORM.renderStage = ToRenderStage(WorldRenderingPhase::DEBUG);
     g_theRendererSubsystem->GetUniformManager()->UploadBuffer(COMMON_UNIFORM);
