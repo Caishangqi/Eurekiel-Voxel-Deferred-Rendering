@@ -1,5 +1,6 @@
 ﻿#include "SceneUnitTest_StencilXRay.hpp"
 
+#include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Resource/Texture/D12Texture.hpp"
 #include "Engine/Graphic/Target/RTTypes.hpp"
 #include "Engine/Graphic/Sprite/Sprite.hpp"

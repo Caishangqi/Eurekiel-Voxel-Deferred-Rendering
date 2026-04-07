@@ -188,11 +188,14 @@
             <WarningLevel>Level4</WarningLevel>
             <FunctionLevelLinking>true</FunctionLevelLinking>
             <IntrinsicFunctions>true</IntrinsicFunctions>
+            <Optimization>MaxSpeed</Optimization>
+            <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
             <SDLCheck>true</SDLCheck>
             <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
             <ConformanceMode>true</ConformanceMode>
             <LanguageStandard>stdcpp17</LanguageStandard>
             <AdditionalIncludeDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
+            <MultiProcessorCompilation>true</MultiProcessorCompilation>
         </ClCompile>
         <Link>
             <SubSystem>Windows</SubSystem>
@@ -339,162 +342,8 @@
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\program\deferred1.ps.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\program\deferred1.vs.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\deferred1.ps.hlsl"/>
-        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\deferred1.vs.hlsl">
-            <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-            <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-            <Optimization>Disabled</Optimization>
-            <SupportJustMyCode>true</SupportJustMyCode>
-            <AssemblerOutput>NoListing</AssemblerOutput>
-            <AssemblerListingLocation>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</AssemblerListingLocation>
-            <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-            <BrowseInformation>false</BrowseInformation>
-            <BrowseInformationFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</BrowseInformationFile>
-            <CompileAs>Default</CompileAs>
-            <UseDynamicDebugging>false</UseDynamicDebugging>
-            <ConformanceMode>true</ConformanceMode>
-            <DiagnosticsFormat>Column</DiagnosticsFormat>
-            <DisableLanguageExtensions>false</DisableLanguageExtensions>
-            <ErrorReporting>Prompt</ErrorReporting>
-            <ExpandAttributedSource>false</ExpandAttributedSource>
-            <ExceptionHandling>Sync</ExceptionHandling>
-            <EnableASAN>false</EnableASAN>
-            <EnableFuzzer>false</EnableFuzzer>
-            <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-            <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
-            <EnableVectorLength>NotSet</EnableVectorLength>
-            <FloatingPointModel>Precise</FloatingPointModel>
-            <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-            <GenerateModuleDependencies>false</GenerateModuleDependencies>
-            <GenerateSourceDependencies>false</GenerateSourceDependencies>
-            <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-            <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-            <IntrinsicFunctions>false</IntrinsicFunctions>
-            <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-            <LanguageStandard>stdcpp17</LanguageStandard>
-            <LanguageStandard_C>Default</LanguageStandard_C>
-            <MinimalRebuild>false</MinimalRebuild>
-            <ModuleDependenciesFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</ModuleDependenciesFile>
-            <ModuleOutputFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</ModuleOutputFile>
-            <OmitDefaultLibName>false</OmitDefaultLibName>
-            <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-            <WholeProgramOptimization>false</WholeProgramOptimization>
-            <ObjectFileName>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</ObjectFileName>
-            <CallingConvention>Cdecl</CallingConvention>
-            <ProgramDataBaseFileName>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\vc143.pdb</ProgramDataBaseFileName>
-            <PrecompiledHeader>NotUsing</PrecompiledHeader>
-            <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
-            <PrecompiledHeaderOutputFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\FGSPDX12DRECPS_Debug_x64.pch</PrecompiledHeaderOutputFile>
-            <PreprocessToFile>false</PreprocessToFile>
-            <PreprocessKeepComments>false</PreprocessKeepComments>
-            <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-            <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-            <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-            <ShowIncludes>false</ShowIncludes>
-            <SourceDependenciesFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</SourceDependenciesFile>
-            <SuppressStartupBanner>true</SuppressStartupBanner>
-            <BufferSecurityCheck>true</BufferSecurityCheck>
-            <SmallerTypeCheck>false</SmallerTypeCheck>
-            <SpectreMitigation>false</SpectreMitigation>
-            <StructMemberAlignment>Default</StructMemberAlignment>
-            <TrackerLogDirectory>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\FGSPDX12DRECPS.tlog\</TrackerLogDirectory>
-            <TranslateIncludes>false</TranslateIncludes>
-            <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-            <TreatWarningAsError>false</TreatWarningAsError>
-            <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-            <UseFullPaths>true</UseFullPaths>
-            <WarningLevel>Level4</WarningLevel>
-            <XMLDocumentationFileName>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Debug\</XMLDocumentationFileName>
-            <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-            <IntelJCCErratum>false</IntelJCCErratum>
-            <BuildStlModules>false</BuildStlModules>
-            <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-            <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-            <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-            <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-            <PreprocessorDefinitions>_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
-            <SDLCheck>true</SDLCheck>
-            <AdditionalIncludeDirectories>F:\p4\Personal\SD\Thesis\Code/;F:\p4\Personal\SD\Thesis\../Engine/Code/</AdditionalIncludeDirectories>
-            <MultiProcessorCompilation>true</MultiProcessorCompilation>
-            <LinkCompiled>true</LinkCompiled>
-        </Content>
-        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\program\composite5.ps.hlsl">
-            <AssemblerOutput>NoListing</AssemblerOutput>
-            <AssemblerListingLocation>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Release\</AssemblerListingLocation>
-            <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-            <BrowseInformation>false</BrowseInformation>
-            <BrowseInformationFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Release\</BrowseInformationFile>
-            <BasicRuntimeChecks>Default</BasicRuntimeChecks>
-            <CompileAs>Default</CompileAs>
-            <UseDynamicDebugging>false</UseDynamicDebugging>
-            <ConformanceMode>true</ConformanceMode>
-            <DiagnosticsFormat>Column</DiagnosticsFormat>
-            <DisableLanguageExtensions>false</DisableLanguageExtensions>
-            <ErrorReporting>Prompt</ErrorReporting>
-            <ExpandAttributedSource>false</ExpandAttributedSource>
-            <ExceptionHandling>Sync</ExceptionHandling>
-            <EnableASAN>false</EnableASAN>
-            <EnableFuzzer>false</EnableFuzzer>
-            <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-            <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
-            <EnableVectorLength>NotSet</EnableVectorLength>
-            <FloatingPointModel>Precise</FloatingPointModel>
-            <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-            <GenerateModuleDependencies>false</GenerateModuleDependencies>
-            <GenerateSourceDependencies>false</GenerateSourceDependencies>
-            <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-            <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-            <IntrinsicFunctions>true</IntrinsicFunctions>
-            <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-            <LanguageStandard>stdcpp17</LanguageStandard>
-            <LanguageStandard_C>Default</LanguageStandard_C>
-            <MinimalRebuild>false</MinimalRebuild>
-            <ModuleDependenciesFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Release\</ModuleDependenciesFile>
-            <ModuleOutputFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Release\</ModuleOutputFile>
-            <OmitDefaultLibName>false</OmitDefaultLibName>
-            <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-            <WholeProgramOptimization>true</WholeProgramOptimization>
-            <Optimization>MaxSpeed</Optimization>
-            <ObjectFileName>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Release\</ObjectFileName>
-            <CallingConvention>Cdecl</CallingConvention>
-            <ProgramDataBaseFileName>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Release\vc143.pdb</ProgramDataBaseFileName>
-            <PrecompiledHeader>NotUsing</PrecompiledHeader>
-            <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
-            <PrecompiledHeaderOutputFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Release\FGSPDX12DRECPS_Release_x64.pch</PrecompiledHeaderOutputFile>
-            <PreprocessToFile>false</PreprocessToFile>
-            <PreprocessKeepComments>false</PreprocessKeepComments>
-            <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-            <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-            <RuntimeLibrary>MultiThreadedDll</RuntimeLibrary>
-            <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-            <ShowIncludes>false</ShowIncludes>
-            <SourceDependenciesFile>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Release\</SourceDependenciesFile>
-            <SuppressStartupBanner>true</SuppressStartupBanner>
-            <BufferSecurityCheck>true</BufferSecurityCheck>
-            <SmallerTypeCheck>false</SmallerTypeCheck>
-            <SpectreMitigation>false</SpectreMitigation>
-            <StructMemberAlignment>Default</StructMemberAlignment>
-            <SupportJustMyCode>false</SupportJustMyCode>
-            <TrackerLogDirectory>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Release\FGSPDX12DRECPS.tlog\</TrackerLogDirectory>
-            <TranslateIncludes>false</TranslateIncludes>
-            <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-            <TreatWarningAsError>false</TreatWarningAsError>
-            <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-            <UseFullPaths>true</UseFullPaths>
-            <WarningLevel>Level4</WarningLevel>
-            <XMLDocumentationFileName>F:\p4\Personal\SD\Thesis\Temporary\FGSPDX12DRECPS_x64_Release\</XMLDocumentationFileName>
-            <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-            <IntelJCCErratum>false</IntelJCCErratum>
-            <BuildStlModules>false</BuildStlModules>
-            <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-            <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-            <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-            <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-            <PreprocessorDefinitions>NDEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
-            <FunctionLevelLinking>true</FunctionLevelLinking>
-            <SDLCheck>true</SDLCheck>
-            <AdditionalIncludeDirectories>F:\p4\Personal\SD\Thesis\Code/;F:\p4\Personal\SD\Thesis\../Engine/Code/</AdditionalIncludeDirectories>
-            <LinkCompiled>true</LinkCompiled>
-        </Content>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\bundle\mycustom_bundle_0\deferred1.vs.hlsl"/>
+        <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\program\composite5.ps.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\program\composite5.vs.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\tonemap.hlsl"/>
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\ssr.hlsl"/>
@@ -508,16 +357,19 @@
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\skyGlare.hlsl" />
         <Content Include="..\..\Run\.enigma\shaderbundles\EnigmaDefault\shaders\lib\pipelineSettings.hlsl"/>
         <ClCompile Include="Framework\GameObject\ImguiPlayerDebugInfo.cpp" />
+        <ClCompile Include="Framework\Camera\GameCameraDebugState.cpp"/>
+        <ClCompile Include="Framework\Camera\PlayerCameraRig.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiGameLogic.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiGameSettings.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiLeftDebugOverlay.cpp" />
-        <ClCompile Include="Framework\Imgui\ImguiSettingChunkBatching.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiSceneRendering.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudConfigParser.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudGeometryHelper.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudTextureData.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\ImguiSettingCloud.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderChunkBaching\ChunkBachingRenderPass.cpp"/>
+        <ClCompile Include="Framework\RenderPass\RenderChunkBaching\ImguiSettingChunkBatching.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderComposite\CompositeRenderPass.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderComposite\ImguiSettingComposite.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderDebug\DebugRenderPass.cpp" />
@@ -557,10 +409,11 @@
         <ClCompile Include="SceneTest\SceneUnitTest_StencilXRay.cpp"/>
         <ClCompile Include="SceneTest\SceneUnitTest_VertexLayoutRegistration.cpp"/>
         <ClInclude Include="Framework\GameObject\ImguiPlayerDebugInfo.hpp" />
+        <ClInclude Include="Framework\Camera\GameCameraDebugState.hpp"/>
+        <ClInclude Include="Framework\Camera\PlayerCameraRig.hpp"/>
         <ClInclude Include="Framework\Imgui\ImguiGameLogic.hpp"/>
         <ClInclude Include="Framework\Imgui\ImguiGameSettings.hpp"/>
         <ClInclude Include="Framework\Imgui\ImguiLeftDebugOverlay.hpp" />
-        <ClInclude Include="Framework\Imgui\ImguiSettingChunkBatching.hpp"/>
         <ClInclude Include="Framework\Imgui\ImguiSceneRendering.hpp"/>
         <ClInclude Include="Framework\RenderPass\ConstantBuffer\CelestialConstantBuffer.hpp"/>
         <ClInclude Include="Framework\RenderPass\ConstantBuffer\CommonConstantBuffer.hpp"/>
@@ -573,6 +426,8 @@
         <ClInclude Include="Framework\RenderPass\RenderCloud\CloudRenderPass.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderCloud\CloudTextureData.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderCloud\ImguiSettingCloud.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderChunkBaching\ChunkBachingRenderPass.hpp"/>
+        <ClInclude Include="Framework\RenderPass\RenderChunkBaching\ImguiSettingChunkBatching.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderComposite\CompositeRenderPass.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderComposite\ImguiSettingComposite.hpp"/>
         <ClInclude Include="Framework\RenderPass\RenderDebug\DebugRenderPass.hpp" />
