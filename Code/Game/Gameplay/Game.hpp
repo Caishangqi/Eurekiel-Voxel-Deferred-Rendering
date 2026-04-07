@@ -2,6 +2,8 @@
 #include <memory>
 
 #include "Engine/Core/Clock.hpp"
+#include "Engine/Graphic/Camera/PerspectiveCamera.hpp"
+#include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
 #include "Engine/Voxel/World/World.hpp"
 #include "Game/Framework/GameObject/PlayerCharacter.hpp"
 #include "Game/Framework/RenderPass/SceneRenderPass.hpp"
@@ -53,6 +55,7 @@ public:
     std::unique_ptr<SceneRenderPass> m_compositeRenderPass = nullptr;
     std::unique_ptr<SceneRenderPass> m_finalRenderPass     = nullptr;
 
+    std::unique_ptr<SceneRenderPass> m_chunkBachingRenderPass = nullptr;
     std::unique_ptr<SceneRenderPass> m_debugRenderPass = nullptr;
 
     void RenderWorld();
@@ -99,6 +102,9 @@ private:
 
 public:
     enigma::voxel::World* GetWorld() const { return m_world.get(); }
+    enigma::graphic::PerspectiveCamera* GetPlayerCamera() const;
+    enigma::graphic::PerspectiveCamera* GetRenderCamera() const;
+    enigma::graphic::PerspectiveCamera* GetChunkBatchCullingCamera() const;
     void                  UpdateWorld();
 #pragma endregion
 };

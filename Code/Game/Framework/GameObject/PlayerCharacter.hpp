@@ -1,7 +1,6 @@
 #pragma once
 #include "GameObject.hpp"
-#include "Engine/Graphic/Camera/OrthographicCamera.hpp"
-#include "Engine/Graphic/Camera/PerspectiveCamera.hpp"
+#include "Game/Framework/Camera/PlayerCameraRig.hpp"
 
 class PlayerCharacter : public GameObject
 {
@@ -15,13 +14,16 @@ public:
     // [REFACTOR] Return PerspectiveCamera* for full access to camera methods
     // SkyRenderPass needs GetPosition(), GetViewMatrix(), UpdateMatrixUniforms()
     enigma::graphic::PerspectiveCamera* GetCamera() const;
+    enigma::graphic::PerspectiveCamera* GetRenderCamera() const;
+    enigma::graphic::PerspectiveCamera* GetDebugCamera() const;
+    void                                SyncDebugCameraToGameplayCamera();
 
 private:
     void HandleInputAction(float deltaSeconds);
     void UpdateCamera(float deltaSeconds);
     void UpdatePlayerStatus(float deltaSeconds);
+    void ApplyFreeCameraInput(Vec3& position, EulerAngles& orientation, float deltaSeconds) const;
 
 private:
-    // [REFACTOR] Use PerspectiveCamera instead of deprecated EnigmaCamera
-    std::unique_ptr<enigma::graphic::PerspectiveCamera> m_camera = nullptr;
+    std::unique_ptr<PlayerCameraRig> m_cameraRig = nullptr;
 };

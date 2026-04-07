@@ -31,6 +31,8 @@
 #include "Engine/Voxel/Builtin/DefaultBlock.hpp"
 #include "Game/Framework/Imgui/ImguiGameSettings.hpp"
 #include "Game/Framework/Imgui/ImguiLeftDebugOverlay.hpp"
+#include "Game/Framework/Camera/GameCameraDebugState.hpp"
+#include "Game/Framework/RenderPass/RenderChunkBaching/ChunkBachingRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderDebug/DebugRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderDeferred/DeferredRenderPass.hpp"
 #include "Game/Framework/RenderPass/RenderShadow/ShadowRenderPass.hpp"
@@ -80,7 +82,7 @@ CommonConstantBuffer COMMON_UNIFORM     = CommonConstantBuffer();
 FogUniforms          FOG_UNIFORM        = FogUniforms();
 WorldTimeUniforms    WORLD_TIME_UNIFORM = WorldTimeUniforms();
 WorldInfoUniforms    WORLD_INFO_UNIFORM = WorldInfoUniforms();
-MatricesUniforms     MATRICES_UNIFORM   = MatricesUniforms();
+enigma::graphic::MatricesUniforms MATRICES_UNIFORM = enigma::graphic::MatricesUniforms();
 
 
 Game::Game()
@@ -121,6 +123,7 @@ Game::Game()
     m_finalRenderPass              = std::make_unique<FinalRenderPass>();
 
     /// Render Passes (Debug)
+    m_chunkBachingRenderPass = std::make_unique<ChunkBachingRenderPass>();
     m_debugRenderPass = std::make_unique<DebugRenderPass>();
 
     /// Block Registration Phase - MUST happen before World creation
@@ -255,7 +258,11 @@ void Game::Update()
 void Game::Render()
 {
     // [STEP 1] Setup Camera (Player updates camera matrices)
-    m_player->Render();
+    if (auto* renderCamera = GetRenderCamera())
+    {
+        g_theRendererSubsystem->BeginCamera(*renderCamera);
+        g_theRendererSubsystem->EndCamera(*renderCamera);
+    }
     SeedCommonUniformFramePartition();
 
     if (!m_enableSceneTest)
@@ -322,7 +329,23 @@ void Game::RenderWorld()
 void Game::RenderDebug()
 {
     EnsureCommonUniformFramePartitionSeeded();
+    m_chunkBachingRenderPass->Execute();
     m_debugRenderPass->Execute();
+}
+
+enigma::graphic::PerspectiveCamera* Game::GetPlayerCamera() const
+{
+    return m_player ? m_player->GetCamera() : nullptr;
+}
+
+enigma::graphic::PerspectiveCamera* Game::GetRenderCamera() const
+{
+    return m_player ? m_player->GetRenderCamera() : nullptr;
+}
+
+enigma::graphic::PerspectiveCamera* Game::GetChunkBatchCullingCamera() const
+{
+    return GetPlayerCamera();
 }
 
 void Game::ProcessInputAction(float deltaSeconds)
@@ -354,6 +377,7 @@ void Game::ProcessInputAction(float deltaSeconds)
     {
         m_player->m_position    = Vec3(-20, 9, 75);
         m_player->m_orientation = EulerAngles(-64, 33, 0);
+        GameCameraDebugState::RequestDebugCameraSync();
     }
 }
 

@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include <vector>
 
-#include "Engine/Graphic/Integration/RendererSubsystem.hpp"
+#include "Engine/Core/EngineCommon.hpp"
 
 
 /// Whether or not enable cosmic circle (developer)
