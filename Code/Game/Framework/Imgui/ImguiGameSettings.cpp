@@ -7,7 +7,7 @@
 #include "ImguiGameSettings.hpp"
 #include "ImguiGameLogic.hpp"
 #include "ImguiSceneRendering.hpp"
-#include "ImguiSettingChunkBatching.hpp"
+#include "Game/Framework/RenderPass/RenderChunkBaching/ImguiSettingChunkBatching.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Gameplay/Game.hpp"
 #include "ThirdParty/imgui/imgui.h"
