@@ -30,6 +30,7 @@
 #include "Engine/Registry/Core/RegisterSubsystem.hpp"
 #include "Engine/Voxel/Builtin/DefaultBlock.hpp"
 #include "Game/Framework/Imgui/ImguiGameSettings.hpp"
+#include "Game/Framework/Imgui/ImguiRenderInspection.hpp"
 #include "Game/Framework/Imgui/ImguiLeftDebugOverlay.hpp"
 #include "Game/Framework/Camera/GameCameraDebugState.hpp"
 #include "Game/Framework/RenderPass/RenderChunkBaching/ChunkBachingRenderPass.hpp"
@@ -157,6 +158,11 @@ Game::Game()
     g_theImGui->RegisterWindow("GameSetting", [this]()
     {
         ImguiGameSettings::ShowWindow(&m_showGameSettings);
+    });
+
+    g_theImGui->RegisterWindow("RenderInspection", []()
+    {
+        ImguiRenderInspection::ShowWindow();
     });
 
     g_theImGui->RegisterWindow("DebugOverlay", [this]()

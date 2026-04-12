@@ -101,7 +101,7 @@
             <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
             <ConformanceMode>true</ConformanceMode>
             <LanguageStandard>stdcpp17</LanguageStandard>
-            <AdditionalIncludeDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
+            <AdditionalIncludeDirectories>$(SolutionDir)../Engine/Code/ThirdParty/imgui;$(SolutionDir)../Engine/Code/ThirdParty/implot;$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
         </ClCompile>
         <Link>
             <SubSystem>Windows</SubSystem>
@@ -131,7 +131,7 @@
             <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
             <ConformanceMode>true</ConformanceMode>
             <LanguageStandard>stdcpp17</LanguageStandard>
-            <AdditionalIncludeDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
+            <AdditionalIncludeDirectories>$(SolutionDir)../Engine/Code/ThirdParty/imgui;$(SolutionDir)../Engine/Code/ThirdParty/implot;$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
         </ClCompile>
         <Link>
             <SubSystem>Windows</SubSystem>
@@ -161,7 +161,7 @@
             <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
             <ConformanceMode>true</ConformanceMode>
             <LanguageStandard>stdcpp17</LanguageStandard>
-            <AdditionalIncludeDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
+            <AdditionalIncludeDirectories>$(SolutionDir)../Engine/Code/ThirdParty/imgui;$(SolutionDir)../Engine/Code/ThirdParty/implot;$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
             <MultiProcessorCompilation>true</MultiProcessorCompilation>
         </ClCompile>
         <Link>
@@ -194,7 +194,7 @@
             <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
             <ConformanceMode>true</ConformanceMode>
             <LanguageStandard>stdcpp17</LanguageStandard>
-            <AdditionalIncludeDirectories>$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
+            <AdditionalIncludeDirectories>$(SolutionDir)../Engine/Code/ThirdParty/imgui;$(SolutionDir)../Engine/Code/ThirdParty/implot;$(SolutionDir)Code/;$(SolutionDir)../Engine/Code/</AdditionalIncludeDirectories>
             <MultiProcessorCompilation>true</MultiProcessorCompilation>
         </ClCompile>
         <Link>
@@ -362,7 +362,9 @@
         <ClCompile Include="Framework\Imgui\ImguiGameLogic.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiGameSettings.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiLeftDebugOverlay.cpp" />
+        <ClCompile Include="Framework\Imgui\ImguiRenderInspection.cpp"/>
         <ClCompile Include="Framework\Imgui\ImguiSceneRendering.cpp"/>
+        <ClCompile Include="Framework\RenderInspection\ImguiQueueDiagnosticsPanel.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudConfigParser.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudGeometryHelper.cpp"/>
         <ClCompile Include="Framework\RenderPass\RenderCloud\CloudRenderPass.cpp"/>
@@ -414,7 +416,9 @@
         <ClInclude Include="Framework\Imgui\ImguiGameLogic.hpp"/>
         <ClInclude Include="Framework\Imgui\ImguiGameSettings.hpp"/>
         <ClInclude Include="Framework\Imgui\ImguiLeftDebugOverlay.hpp" />
+        <ClInclude Include="Framework\Imgui\ImguiRenderInspection.hpp"/>
         <ClInclude Include="Framework\Imgui\ImguiSceneRendering.hpp"/>
+        <ClInclude Include="Framework\RenderInspection\ImguiQueueDiagnosticsPanel.hpp"/>
         <ClInclude Include="Framework\RenderPass\ConstantBuffer\CelestialConstantBuffer.hpp"/>
         <ClInclude Include="Framework\RenderPass\ConstantBuffer\CommonConstantBuffer.hpp"/>
         <ClInclude Include="Framework\RenderPass\ConstantBuffer\FogUniforms.hpp"/>

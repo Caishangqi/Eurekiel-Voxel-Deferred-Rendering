@@ -18,4 +18,7 @@ public:
     ImguiSettingChunkBatching& operator=(const ImguiSettingChunkBatching&)    = delete;
 
     static void Show(enigma::voxel::World* world);
+    static void CopyFullSnapshotToClipboard(const enigma::voxel::World& world);
+    static void CopyFrameSnapshotToClipboard(const enigma::voxel::World& world);
+    static void CopyLifetimeSnapshotToClipboard(const enigma::voxel::World& world);
 };

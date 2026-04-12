@@ -23,8 +23,38 @@
 namespace
 {
     constexpr float CHUNK_BATCH_CULLING_MAP_HEIGHT = 360.0f;
+    constexpr char  CHUNK_BATCH_ACTIVE_BACKEND_LABEL[] = "Direct precise sub-draw DrawIndexed";
+    double          s_lastCopyTime = -1000.0;
+    const char*     s_lastCopyLabel = nullptr;
 
-    struct ChunkBatchPhase2Snapshot
+    struct ChunkBatchArenaSideSnapshot
+    {
+        uint32_t growCountLifetime = 0;
+        uint32_t relocationCountLifetime = 0;
+        uint32_t relocatedElementCountLifetime = 0;
+        uint32_t lastRelocationElementCount = 0;
+        uint32_t lastRelocationSpanCount = 0;
+        uint32_t lastRequestedCapacity = 0;
+        uint32_t lastCapacityBeforeGrow = 0;
+        uint32_t lastCapacityAfterGrow = 0;
+    };
+
+    struct ChunkBatchFallbackSnapshot
+    {
+        uint32_t totalCountLifetime = 0;
+        uint32_t replacementStateInvalidCountLifetime = 0;
+        uint32_t replacementVertexOverflowCountLifetime = 0;
+        uint32_t replacementIndexOverflowCountLifetime = 0;
+        uint32_t replacementVertexUploadFailureCountLifetime = 0;
+        uint32_t replacementIndexUploadFailureCountLifetime = 0;
+        uint32_t vertexArenaGrowFailureCountLifetime = 0;
+        uint32_t indexArenaGrowFailureCountLifetime = 0;
+        uint32_t vertexArenaUploadFailureCountLifetime = 0;
+        uint32_t indexArenaUploadFailureCountLifetime = 0;
+        enigma::voxel::ChunkBatchArenaFallbackReason lastReason = enigma::voxel::ChunkBatchArenaFallbackReason::None;
+    };
+
+    struct ChunkBatchingDataSnapshot
     {
         uint32_t loadedChunks = 0;
         uint32_t residentRegions = 0;
@@ -38,7 +68,64 @@ namespace
         uint32_t vertexArenaRemaining = 0;
         uint32_t indexArenaCapacity = 0;
         uint32_t indexArenaRemaining = 0;
+        uint32_t residentOpaqueSubDraws = 0;
+        uint32_t residentCutoutSubDraws = 0;
+        uint32_t residentTranslucentSubDraws = 0;
+        ChunkBatchArenaSideSnapshot vertexArenaDiagnostics;
+        ChunkBatchArenaSideSnapshot indexArenaDiagnostics;
+        ChunkBatchFallbackSnapshot fallbackDiagnostics;
     };
+
+    const char* GetChunkBatchFallbackReasonLabel(enigma::voxel::ChunkBatchArenaFallbackReason reason)
+    {
+        using enigma::voxel::ChunkBatchArenaFallbackReason;
+
+        switch (reason)
+        {
+        case ChunkBatchArenaFallbackReason::None: return "None";
+        case ChunkBatchArenaFallbackReason::ReplacementStateInvalid: return "ReplacementStateInvalid";
+        case ChunkBatchArenaFallbackReason::ReplacementVertexOverflow: return "ReplacementVertexOverflow";
+        case ChunkBatchArenaFallbackReason::ReplacementIndexOverflow: return "ReplacementIndexOverflow";
+        case ChunkBatchArenaFallbackReason::ReplacementVertexUploadFailed: return "ReplacementVertexUploadFailed";
+        case ChunkBatchArenaFallbackReason::ReplacementIndexUploadFailed: return "ReplacementIndexUploadFailed";
+        case ChunkBatchArenaFallbackReason::VertexArenaGrowFailed: return "VertexArenaGrowFailed";
+        case ChunkBatchArenaFallbackReason::IndexArenaGrowFailed: return "IndexArenaGrowFailed";
+        case ChunkBatchArenaFallbackReason::VertexArenaUploadFailed: return "VertexArenaUploadFailed";
+        case ChunkBatchArenaFallbackReason::IndexArenaUploadFailed: return "IndexArenaUploadFailed";
+        default: return "Unknown";
+        }
+    }
+
+    void CopyArenaSideSnapshot(
+        ChunkBatchArenaSideSnapshot&                              destination,
+        const enigma::voxel::ChunkBatchArenaSideDiagnostics&      source)
+    {
+        destination.growCountLifetime = source.growCountLifetime;
+        destination.relocationCountLifetime = source.relocationCountLifetime;
+        destination.relocatedElementCountLifetime = source.relocatedElementCountLifetime;
+        destination.lastRelocationElementCount = source.lastRelocationElementCount;
+        destination.lastRelocationSpanCount = source.lastRelocationSpanCount;
+        destination.lastRequestedCapacity = source.lastRequestedCapacity;
+        destination.lastCapacityBeforeGrow = source.lastCapacityBeforeGrow;
+        destination.lastCapacityAfterGrow = source.lastCapacityAfterGrow;
+    }
+
+    void CopyFallbackSnapshot(
+        ChunkBatchFallbackSnapshot&                               destination,
+        const enigma::voxel::ChunkBatchArenaFallbackDiagnostics&  source)
+    {
+        destination.totalCountLifetime = source.totalCountLifetime;
+        destination.replacementStateInvalidCountLifetime = source.replacementStateInvalidCountLifetime;
+        destination.replacementVertexOverflowCountLifetime = source.replacementVertexOverflowCountLifetime;
+        destination.replacementIndexOverflowCountLifetime = source.replacementIndexOverflowCountLifetime;
+        destination.replacementVertexUploadFailureCountLifetime = source.replacementVertexUploadFailureCountLifetime;
+        destination.replacementIndexUploadFailureCountLifetime = source.replacementIndexUploadFailureCountLifetime;
+        destination.vertexArenaGrowFailureCountLifetime = source.vertexArenaGrowFailureCountLifetime;
+        destination.indexArenaGrowFailureCountLifetime = source.indexArenaGrowFailureCountLifetime;
+        destination.vertexArenaUploadFailureCountLifetime = source.vertexArenaUploadFailureCountLifetime;
+        destination.indexArenaUploadFailureCountLifetime = source.indexArenaUploadFailureCountLifetime;
+        destination.lastReason = source.lastReason;
+    }
 
     ImU32 ToImGuiColor(const Rgba8& color)
     {
@@ -240,10 +327,11 @@ namespace
         return static_cast<float>(culledCount) / static_cast<float>(totalCount);
     }
 
-    ChunkBatchPhase2Snapshot CollectChunkBatchPhase2Snapshot(const enigma::voxel::World& world)
+    ChunkBatchingDataSnapshot CollectChunkBatchingDataSnapshot(const enigma::voxel::World& world)
     {
-        ChunkBatchPhase2Snapshot snapshot;
-        const auto&              storage = world.GetChunkRenderRegionStorage();
+        ChunkBatchingDataSnapshot snapshot;
+        const auto&               storage = world.GetChunkRenderRegionStorage();
+        const auto&               arenaDiagnostics = storage.GetArenaDiagnostics();
 
         snapshot.loadedChunks = static_cast<uint32_t>(world.GetLoadedChunkCount());
         snapshot.residentRegions = static_cast<uint32_t>(storage.GetRegions().size());
@@ -254,6 +342,9 @@ namespace
         snapshot.vertexArenaRemaining = storage.GetVertexArenaRemainingCapacity();
         snapshot.indexArenaCapacity = storage.GetIndexArenaCapacity();
         snapshot.indexArenaRemaining = storage.GetIndexArenaRemainingCapacity();
+        CopyArenaSideSnapshot(snapshot.vertexArenaDiagnostics, arenaDiagnostics.vertex);
+        CopyArenaSideSnapshot(snapshot.indexArenaDiagnostics, arenaDiagnostics.index);
+        CopyFallbackSnapshot(snapshot.fallbackDiagnostics, arenaDiagnostics.fallback);
 
         for (const auto& regionEntry : storage.GetRegions())
         {
@@ -270,6 +361,10 @@ namespace
             {
                 snapshot.buildFailedRegions++;
             }
+
+            snapshot.residentOpaqueSubDraws += static_cast<uint32_t>(region.geometry.opaqueSubDraws.size());
+            snapshot.residentCutoutSubDraws += static_cast<uint32_t>(region.geometry.cutoutSubDraws.size());
+            snapshot.residentTranslucentSubDraws += static_cast<uint32_t>(region.geometry.translucentSubDraws.size());
         }
 
         return snapshot;
@@ -278,27 +373,35 @@ namespace
     std::string BuildChunkBatchDebugInfo(const enigma::voxel::World& world)
     {
         const auto& stats = world.GetChunkBatchStats();
-        const ChunkBatchPhase2Snapshot phase2Snapshot = CollectChunkBatchPhase2Snapshot(world);
+        const ChunkBatchingDataSnapshot batchingSnapshot = CollectChunkBatchingDataSnapshot(world);
         const float mainCullRatio = ComputeCullRatio(stats.visibleRegions, stats.culledRegions);
         const float shadowCullRatio = ComputeCullRatio(stats.shadowVisibleRegions, stats.shadowCulledRegions);
-        const uint32_t vertexArenaUsed = phase2Snapshot.vertexArenaCapacity - phase2Snapshot.vertexArenaRemaining;
-        const uint32_t indexArenaUsed = phase2Snapshot.indexArenaCapacity - phase2Snapshot.indexArenaRemaining;
+        const uint32_t vertexArenaUsed = batchingSnapshot.vertexArenaCapacity - batchingSnapshot.vertexArenaRemaining;
+        const uint32_t indexArenaUsed = batchingSnapshot.indexArenaCapacity - batchingSnapshot.indexArenaRemaining;
+        const uint32_t residentPreciseSubDraws = batchingSnapshot.residentOpaqueSubDraws +
+            batchingSnapshot.residentCutoutSubDraws +
+            batchingSnapshot.residentTranslucentSubDraws;
+        const auto& vertexDiagnostics = batchingSnapshot.vertexArenaDiagnostics;
+        const auto& indexDiagnostics = batchingSnapshot.indexArenaDiagnostics;
+        const auto& fallbackDiagnostics = batchingSnapshot.fallbackDiagnostics;
+        const char* lastFallbackReasonLabel = GetChunkBatchFallbackReasonLabel(fallbackDiagnostics.lastReason);
 
         return Stringf(
             "{\n"
             "  \"chunkBatching\": {\n"
             "    \"runtime\": {\n"
-            "      \"backend\": \"Direct region DrawIndexed\",\n"
+            "      \"backend\": \"%s\",\n"
             "      \"loadedChunks\": %u,\n"
             "      \"queuedDirtyRegions\": %u,\n"
             "      \"dirtyRegionBudget\": %u,\n"
             "      \"notes\": [\n"
             "        \"Chunk batching is always enabled.\",\n"
             "        \"Legacy per-chunk submission has been removed from runtime.\",\n"
+            "        \"Direct precise submission consumes exact sub-draw ranges and no longer submits reserved padding spans.\",\n"
             "        \"Dirty regions keep rendering the last committed region geometry until the rebuilt buffers are ready.\"\n"
             "      ]\n"
             "    },\n"
-            "    \"phase2\": {\n"
+            "    \"batchingData\": {\n"
             "      \"regionLayout\": {\n"
             "        \"sizeInChunks\": {\n"
             "          \"x\": %d,\n"
@@ -322,6 +425,12 @@ namespace
             "          \"culledRatio\": %.4f\n"
             "        }\n"
             "      },\n"
+            "      \"submission\": {\n"
+            "        \"residentOpaqueSubDraws\": %u,\n"
+            "        \"residentCutoutSubDraws\": %u,\n"
+            "        \"residentTranslucentSubDraws\": %u,\n"
+            "        \"residentPreciseSubDraws\": %u\n"
+            "      },\n"
             "      \"sharedArena\": {\n"
             "        \"vertex\": {\n"
             "          \"capacity\": %u,\n"
@@ -332,6 +441,48 @@ namespace
             "          \"capacity\": %u,\n"
             "          \"used\": %u,\n"
             "          \"remaining\": %u\n"
+            "        }\n"
+            "      },\n"
+            "      \"arenaRelocation\": {\n"
+            "        \"vertex\": {\n"
+            "          \"growCountLifetime\": %u,\n"
+            "          \"relocationCountLifetime\": %u,\n"
+            "          \"relocatedElementsLifetime\": %u,\n"
+            "          \"lastRelocation\": {\n"
+            "            \"elements\": %u,\n"
+            "            \"copySpans\": %u,\n"
+            "            \"requestedCapacity\": %u,\n"
+            "            \"capacityBeforeGrow\": %u,\n"
+            "            \"capacityAfterGrow\": %u\n"
+            "          }\n"
+            "        },\n"
+            "        \"index\": {\n"
+            "          \"growCountLifetime\": %u,\n"
+            "          \"relocationCountLifetime\": %u,\n"
+            "          \"relocatedElementsLifetime\": %u,\n"
+            "          \"lastRelocation\": {\n"
+            "            \"elements\": %u,\n"
+            "            \"copySpans\": %u,\n"
+            "            \"requestedCapacity\": %u,\n"
+            "            \"capacityBeforeGrow\": %u,\n"
+            "            \"capacityAfterGrow\": %u\n"
+            "          }\n"
+            "        }\n"
+            "      },\n"
+            "      \"fallbacks\": {\n"
+            "        \"scope\": \"lifetime\",\n"
+            "        \"totalEvents\": %u,\n"
+            "        \"lastReason\": \"%s\",\n"
+            "        \"categories\": {\n"
+            "          \"replacementStateInvalid\": %u,\n"
+            "          \"replacementVertexOverflow\": %u,\n"
+            "          \"replacementIndexOverflow\": %u,\n"
+            "          \"replacementVertexUploadFailed\": %u,\n"
+            "          \"replacementIndexUploadFailed\": %u,\n"
+            "          \"vertexArenaGrowFailed\": %u,\n"
+            "          \"indexArenaGrowFailed\": %u,\n"
+            "          \"vertexArenaUploadFailed\": %u,\n"
+            "          \"indexArenaUploadFailed\": %u\n"
             "        }\n"
             "      },\n"
             "      \"replacementUpload\": {\n"
@@ -354,30 +505,62 @@ namespace
             "    }\n"
             "  }\n"
             "}\n",
-            phase2Snapshot.loadedChunks,
+            CHUNK_BATCH_ACTIVE_BACKEND_LABEL,
+            batchingSnapshot.loadedChunks,
             world.GetChunkRenderRegionStorage().GetDirtyRegionCount(),
             world.GetMaxChunkBatchRegionRebuildsPerFrame(),
             enigma::voxel::CHUNK_BATCH_REGION_SIZE_X,
             enigma::voxel::CHUNK_BATCH_REGION_SIZE_Y,
-            phase2Snapshot.residentRegions,
-            phase2Snapshot.validBatchGeometryRegions,
-            phase2Snapshot.dirtyResidentRegions,
-            phase2Snapshot.queuedDirtyRegions,
-            phase2Snapshot.buildFailedRegions,
+            batchingSnapshot.residentRegions,
+            batchingSnapshot.validBatchGeometryRegions,
+            batchingSnapshot.dirtyResidentRegions,
+            batchingSnapshot.queuedDirtyRegions,
+            batchingSnapshot.buildFailedRegions,
             stats.visibleRegions,
             stats.culledRegions,
             mainCullRatio,
             stats.shadowVisibleRegions,
             stats.shadowCulledRegions,
             shadowCullRatio,
-            phase2Snapshot.vertexArenaCapacity,
+            batchingSnapshot.residentOpaqueSubDraws,
+            batchingSnapshot.residentCutoutSubDraws,
+            batchingSnapshot.residentTranslucentSubDraws,
+            residentPreciseSubDraws,
+            batchingSnapshot.vertexArenaCapacity,
             vertexArenaUsed,
-            phase2Snapshot.vertexArenaRemaining,
-            phase2Snapshot.indexArenaCapacity,
+            batchingSnapshot.vertexArenaRemaining,
+            batchingSnapshot.indexArenaCapacity,
             indexArenaUsed,
-            phase2Snapshot.indexArenaRemaining,
-            phase2Snapshot.replacementUploadsLifetime,
-            phase2Snapshot.replacementFallbacksLifetime,
+            batchingSnapshot.indexArenaRemaining,
+            vertexDiagnostics.growCountLifetime,
+            vertexDiagnostics.relocationCountLifetime,
+            vertexDiagnostics.relocatedElementCountLifetime,
+            vertexDiagnostics.lastRelocationElementCount,
+            vertexDiagnostics.lastRelocationSpanCount,
+            vertexDiagnostics.lastRequestedCapacity,
+            vertexDiagnostics.lastCapacityBeforeGrow,
+            vertexDiagnostics.lastCapacityAfterGrow,
+            indexDiagnostics.growCountLifetime,
+            indexDiagnostics.relocationCountLifetime,
+            indexDiagnostics.relocatedElementCountLifetime,
+            indexDiagnostics.lastRelocationElementCount,
+            indexDiagnostics.lastRelocationSpanCount,
+            indexDiagnostics.lastRequestedCapacity,
+            indexDiagnostics.lastCapacityBeforeGrow,
+            indexDiagnostics.lastCapacityAfterGrow,
+            fallbackDiagnostics.totalCountLifetime,
+            lastFallbackReasonLabel,
+            fallbackDiagnostics.replacementStateInvalidCountLifetime,
+            fallbackDiagnostics.replacementVertexOverflowCountLifetime,
+            fallbackDiagnostics.replacementIndexOverflowCountLifetime,
+            fallbackDiagnostics.replacementVertexUploadFailureCountLifetime,
+            fallbackDiagnostics.replacementIndexUploadFailureCountLifetime,
+            fallbackDiagnostics.vertexArenaGrowFailureCountLifetime,
+            fallbackDiagnostics.indexArenaGrowFailureCountLifetime,
+            fallbackDiagnostics.vertexArenaUploadFailureCountLifetime,
+            fallbackDiagnostics.indexArenaUploadFailureCountLifetime,
+            batchingSnapshot.replacementUploadsLifetime,
+            batchingSnapshot.replacementFallbacksLifetime,
             stats.visibleChunks,
             stats.visibleRegions,
             stats.culledRegions,
@@ -388,95 +571,213 @@ namespace
             world.GetMaxChunkBatchRegionRebuildsPerFrame());
     }
 
+    std::string BuildChunkBatchFrameDebugInfo(const enigma::voxel::World& world)
+    {
+        const auto& stats = world.GetChunkBatchStats();
+        const ChunkBatchingDataSnapshot batchingSnapshot = CollectChunkBatchingDataSnapshot(world);
+        const float mainCullRatio = ComputeCullRatio(stats.visibleRegions, stats.culledRegions);
+        const float shadowCullRatio = ComputeCullRatio(stats.shadowVisibleRegions, stats.shadowCulledRegions);
+        const uint32_t residentPreciseSubDraws = batchingSnapshot.residentOpaqueSubDraws +
+            batchingSnapshot.residentCutoutSubDraws +
+            batchingSnapshot.residentTranslucentSubDraws;
+
+        return Stringf(
+            "{\n"
+            "  \"chunkBatching\": {\n"
+            "    \"scope\": \"frame\",\n"
+            "    \"loadedChunks\": %u,\n"
+            "    \"residentRegions\": %u,\n"
+            "    \"queuedDirtyRegions\": %u,\n"
+            "    \"frameStats\": {\n"
+            "      \"visibleChunks\": %u,\n"
+            "      \"mainVisibleRegions\": %u,\n"
+            "      \"mainCulledRegions\": %u,\n"
+            "      \"mainCullRatio\": %.4f,\n"
+            "      \"shadowVisibleRegions\": %u,\n"
+            "      \"shadowCulledRegions\": %u,\n"
+            "      \"shadowCullRatio\": %.4f,\n"
+            "      \"batchedDraws\": %u,\n"
+            "      \"dirtyRegionRebuilds\": %u,\n"
+            "      \"dirtyRegionBudget\": %u\n"
+            "    },\n"
+            "    \"residentSubDraws\": {\n"
+            "      \"opaque\": %u,\n"
+            "      \"cutout\": %u,\n"
+            "      \"translucent\": %u,\n"
+            "      \"preciseTotal\": %u\n"
+            "    }\n"
+            "  }\n"
+            "}\n",
+            batchingSnapshot.loadedChunks,
+            batchingSnapshot.residentRegions,
+            batchingSnapshot.queuedDirtyRegions,
+            stats.visibleChunks,
+            stats.visibleRegions,
+            stats.culledRegions,
+            mainCullRatio,
+            stats.shadowVisibleRegions,
+            stats.shadowCulledRegions,
+            shadowCullRatio,
+            stats.batchedDraws,
+            stats.dirtyRegionRebuilds,
+            world.GetMaxChunkBatchRegionRebuildsPerFrame(),
+            batchingSnapshot.residentOpaqueSubDraws,
+            batchingSnapshot.residentCutoutSubDraws,
+            batchingSnapshot.residentTranslucentSubDraws,
+            residentPreciseSubDraws);
+    }
+
+    std::string BuildChunkBatchLifetimeDebugInfo(const enigma::voxel::World& world)
+    {
+        const ChunkBatchingDataSnapshot batchingSnapshot = CollectChunkBatchingDataSnapshot(world);
+        const auto& vertexDiagnostics = batchingSnapshot.vertexArenaDiagnostics;
+        const auto& indexDiagnostics = batchingSnapshot.indexArenaDiagnostics;
+        const auto& fallbackDiagnostics = batchingSnapshot.fallbackDiagnostics;
+        const char* lastFallbackReasonLabel = GetChunkBatchFallbackReasonLabel(fallbackDiagnostics.lastReason);
+
+        return Stringf(
+            "{\n"
+            "  \"chunkBatching\": {\n"
+            "    \"scope\": \"lifetime\",\n"
+            "    \"replacementUploads\": %u,\n"
+            "    \"replacementFallbacks\": %u,\n"
+            "    \"arenaRelocation\": {\n"
+            "      \"vertex\": {\n"
+            "        \"growCount\": %u,\n"
+            "        \"relocationCount\": %u,\n"
+            "        \"relocatedElements\": %u\n"
+            "      },\n"
+            "      \"index\": {\n"
+            "        \"growCount\": %u,\n"
+            "        \"relocationCount\": %u,\n"
+            "        \"relocatedElements\": %u\n"
+            "      }\n"
+            "    },\n"
+            "    \"fallbacks\": {\n"
+            "      \"totalEvents\": %u,\n"
+            "      \"lastReason\": \"%s\",\n"
+            "      \"replacementStateInvalid\": %u,\n"
+            "      \"replacementVertexOverflow\": %u,\n"
+            "      \"replacementIndexOverflow\": %u,\n"
+            "      \"replacementVertexUploadFailed\": %u,\n"
+            "      \"replacementIndexUploadFailed\": %u,\n"
+            "      \"vertexArenaGrowFailed\": %u,\n"
+            "      \"indexArenaGrowFailed\": %u,\n"
+            "      \"vertexArenaUploadFailed\": %u,\n"
+            "      \"indexArenaUploadFailed\": %u\n"
+            "    }\n"
+            "  }\n"
+            "}\n",
+            batchingSnapshot.replacementUploadsLifetime,
+            batchingSnapshot.replacementFallbacksLifetime,
+            vertexDiagnostics.growCountLifetime,
+            vertexDiagnostics.relocationCountLifetime,
+            vertexDiagnostics.relocatedElementCountLifetime,
+            indexDiagnostics.growCountLifetime,
+            indexDiagnostics.relocationCountLifetime,
+            indexDiagnostics.relocatedElementCountLifetime,
+            fallbackDiagnostics.totalCountLifetime,
+            lastFallbackReasonLabel,
+            fallbackDiagnostics.replacementStateInvalidCountLifetime,
+            fallbackDiagnostics.replacementVertexOverflowCountLifetime,
+            fallbackDiagnostics.replacementIndexOverflowCountLifetime,
+            fallbackDiagnostics.replacementVertexUploadFailureCountLifetime,
+            fallbackDiagnostics.replacementIndexUploadFailureCountLifetime,
+            fallbackDiagnostics.vertexArenaGrowFailureCountLifetime,
+            fallbackDiagnostics.indexArenaGrowFailureCountLifetime,
+            fallbackDiagnostics.vertexArenaUploadFailureCountLifetime,
+            fallbackDiagnostics.indexArenaUploadFailureCountLifetime);
+    }
+
     void CopyChunkBatchDebugInfoToClipboard(const enigma::voxel::World& world)
     {
         const std::string debugInfo = BuildChunkBatchDebugInfo(world);
         ImGui::SetClipboardText(debugInfo.c_str());
     }
+
+    void CopyChunkBatchFrameDebugInfoToClipboard(const enigma::voxel::World& world)
+    {
+        const std::string debugInfo = BuildChunkBatchFrameDebugInfo(world);
+        ImGui::SetClipboardText(debugInfo.c_str());
+    }
+
+    void CopyChunkBatchLifetimeDebugInfoToClipboard(const enigma::voxel::World& world)
+    {
+        const std::string debugInfo = BuildChunkBatchLifetimeDebugInfo(world);
+        ImGui::SetClipboardText(debugInfo.c_str());
+    }
+
+    void RecordChunkBatchCopy(const char* label)
+    {
+        s_lastCopyTime = ImGui::GetTime();
+        s_lastCopyLabel = label;
+    }
 }
 
 void ImguiSettingChunkBatching::Show(enigma::voxel::World* world)
 {
-    static double s_lastCopyTime = -1000.0;
-
     if (!world)
     {
         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "[ERROR] World is null");
         return;
     }
 
-    const bool isOpen = ImGui::CollapsingHeader("Chunk Batching", ImGuiTreeNodeFlags_DefaultOpen);
-    if (ImGui::BeginPopupContextItem("ChunkBatchingContextMenu"))
+    const auto& stats = world->GetChunkBatchStats();
+    const ChunkBatchingDataSnapshot batchingSnapshot = CollectChunkBatchingDataSnapshot(*world);
+    const float mainCullRatio = ComputeCullRatio(stats.visibleRegions, stats.culledRegions);
+    const float shadowCullRatio = ComputeCullRatio(stats.shadowVisibleRegions, stats.shadowCulledRegions);
+    const uint32_t vertexArenaUsed = batchingSnapshot.vertexArenaCapacity - batchingSnapshot.vertexArenaRemaining;
+    const uint32_t indexArenaUsed = batchingSnapshot.indexArenaCapacity - batchingSnapshot.indexArenaRemaining;
+    const uint32_t residentPreciseSubDraws = batchingSnapshot.residentOpaqueSubDraws +
+        batchingSnapshot.residentCutoutSubDraws +
+        batchingSnapshot.residentTranslucentSubDraws;
+    const auto& vertexDiagnostics = batchingSnapshot.vertexArenaDiagnostics;
+    const auto& indexDiagnostics = batchingSnapshot.indexArenaDiagnostics;
+    const auto& fallbackDiagnostics = batchingSnapshot.fallbackDiagnostics;
+
+    ImGui::TextDisabled("Right-click inside the Chunk Batching tab to copy JSON snapshots.");
+    if ((ImGui::GetTime() - s_lastCopyTime) < 1.5)
     {
-        if (ImGui::MenuItem("Copy Debug Info"))
-        {
-            CopyChunkBatchDebugInfoToClipboard(*world);
-            s_lastCopyTime = ImGui::GetTime();
-        }
-        ImGui::EndPopup();
+        ImGui::TextDisabled("%s", s_lastCopyLabel ? s_lastCopyLabel : "Copied.");
     }
 
-    if (isOpen)
+    if (ImGui::CollapsingHeader("Runtime", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::Indent();
-
-        const auto& stats = world->GetChunkBatchStats();
-        const ChunkBatchPhase2Snapshot phase2Snapshot = CollectChunkBatchPhase2Snapshot(*world);
-        const float mainCullRatio = ComputeCullRatio(stats.visibleRegions, stats.culledRegions);
-        const float shadowCullRatio = ComputeCullRatio(stats.shadowVisibleRegions, stats.shadowCulledRegions);
-        const uint32_t vertexArenaUsed = phase2Snapshot.vertexArenaCapacity - phase2Snapshot.vertexArenaRemaining;
-        const uint32_t indexArenaUsed = phase2Snapshot.indexArenaCapacity - phase2Snapshot.indexArenaRemaining;
-
-        if (ImGui::Button("Copy Debug Info"))
-        {
-            CopyChunkBatchDebugInfoToClipboard(*world);
-            s_lastCopyTime = ImGui::GetTime();
-        }
-        if (ImGui::IsItemHovered())
-        {
-            ImGui::SetTooltip("Copy the current chunk batching debug snapshot to the clipboard");
-        }
-        if ((ImGui::GetTime() - s_lastCopyTime) < 1.5)
-        {
-            ImGui::SameLine();
-            ImGui::TextDisabled("Copied.");
-        }
-
-        ImGui::SeparatorText("Debug Draw");
-        ImGui::Checkbox("Enable Region Wireframe", &ChunkBachingDebugViewState::enableRegionWireframe);
-        ImGui::TextDisabled("Colors: green=visible, red=culled, yellow=dirty, magenta=build failed, gray=invalid");
-        ImGui::SeparatorText("Culling Map");
-        DrawChunkBatchCullingMap(*world);
-
-        ImGui::TextDisabled("Chunk batching is always enabled.");
-        ImGui::TextDisabled("Legacy per-chunk submission has been removed from runtime.");
-
-        ImGui::SeparatorText("Runtime");
-        ImGui::Text("Backend: Direct region DrawIndexed");
-        ImGui::Text("Loaded Chunks: %u", phase2Snapshot.loadedChunks);
+        ImGui::Text("Backend: %s", CHUNK_BATCH_ACTIVE_BACKEND_LABEL);
+        ImGui::Text("Loaded Chunks: %u", batchingSnapshot.loadedChunks);
         ImGui::Text("Queued Dirty Regions: %u", world->GetChunkRenderRegionStorage().GetDirtyRegionCount());
         ImGui::Text("Dirty Region Budget: %u", world->GetMaxChunkBatchRegionRebuildsPerFrame());
-        ImGui::TextWrapped("Dirty regions keep rendering the last committed region geometry until the rebuilt buffers are ready.");
+        ImGui::TextDisabled("Chunk batching is always enabled.");
+        ImGui::TextDisabled("Legacy per-chunk submission has been removed from runtime.");
+        ImGui::TextWrapped("Direct precise submission consumes exact sub-draw ranges while dirty regions keep the last committed region geometry until rebuilt buffers are ready.");
+    }
 
-        ImGui::SeparatorText("Frame Stats");
+    if (ImGui::CollapsingHeader("Frame Stats", ImGuiTreeNodeFlags_DefaultOpen))
+    {
         ImGui::Text("Visible Chunks: %u", stats.visibleChunks);
         ImGui::Text("Main Visible Regions: %u", stats.visibleRegions);
         ImGui::Text("Main Culled Regions: %u", stats.culledRegions);
         ImGui::Text("Shadow Visible Regions: %u", stats.shadowVisibleRegions);
         ImGui::Text("Shadow Culled Regions: %u", stats.shadowCulledRegions);
-        ImGui::Text("Batched Draws: %u", stats.batchedDraws);
+        ImGui::Text("Exact Batched Draws: %u", stats.batchedDraws);
         ImGui::Text("Dirty Region Rebuilds: %u / %u",
             stats.dirtyRegionRebuilds,
             world->GetMaxChunkBatchRegionRebuildsPerFrame());
+    }
 
-        ImGui::SeparatorText("Phase 2");
+    if (ImGui::CollapsingHeader("Batching Data", ImGuiTreeNodeFlags_DefaultOpen))
+    {
         ImGui::Text("Region Size: %d x %d chunks",
             enigma::voxel::CHUNK_BATCH_REGION_SIZE_X,
             enigma::voxel::CHUNK_BATCH_REGION_SIZE_Y);
-        ImGui::Text("Resident Regions: %u", phase2Snapshot.residentRegions);
-        ImGui::Text("Valid Batch Regions: %u", phase2Snapshot.validBatchGeometryRegions);
-        ImGui::Text("Dirty Resident Regions: %u", phase2Snapshot.dirtyResidentRegions);
-        ImGui::Text("Build Failed Regions: %u", phase2Snapshot.buildFailedRegions);
+        ImGui::Text("Resident Regions: %u", batchingSnapshot.residentRegions);
+        ImGui::Text("Valid Batch Regions: %u", batchingSnapshot.validBatchGeometryRegions);
+        ImGui::Text("Dirty Resident Regions: %u", batchingSnapshot.dirtyResidentRegions);
+        ImGui::Text("Build Failed Regions: %u", batchingSnapshot.buildFailedRegions);
+        ImGui::Text("Resident Precise Sub-Draws: %u", residentPreciseSubDraws);
+        ImGui::Text("Resident Opaque Sub-Draws: %u", batchingSnapshot.residentOpaqueSubDraws);
+        ImGui::Text("Resident Cutout Sub-Draws: %u", batchingSnapshot.residentCutoutSubDraws);
+        ImGui::Text("Resident Translucent Sub-Draws: %u", batchingSnapshot.residentTranslucentSubDraws);
         ImGui::Text("Main Culling: %u visible / %u culled (%.1f%% culled)",
             stats.visibleRegions,
             stats.culledRegions,
@@ -485,26 +786,87 @@ void ImguiSettingChunkBatching::Show(enigma::voxel::World* world)
             stats.shadowVisibleRegions,
             stats.shadowCulledRegions,
             shadowCullRatio * 100.0f);
-        ImGui::Text("Replacement Uploads (lifetime): %u", phase2Snapshot.replacementUploadsLifetime);
+        ImGui::Text("Replacement Uploads (lifetime): %u", batchingSnapshot.replacementUploadsLifetime);
         if (ImGui::IsItemHovered())
         {
             ImGui::SetTooltip("Dirty chunk updates that stayed within reserved arena capacity and avoided a full region rebuild");
         }
-        ImGui::Text("Replacement Fallbacks (lifetime): %u", phase2Snapshot.replacementFallbacksLifetime);
+        ImGui::Text("Replacement Fallbacks (lifetime): %u", batchingSnapshot.replacementFallbacksLifetime);
         if (ImGui::IsItemHovered())
         {
             ImGui::SetTooltip("Dirty chunk updates that could not be replaced in-place and fell back to a full region rebuild");
         }
+        ImGui::Text("Storage Fallback Events (lifetime): %u", fallbackDiagnostics.totalCountLifetime);
+        ImGui::Text("Last Fallback Reason: %s", GetChunkBatchFallbackReasonLabel(fallbackDiagnostics.lastReason));
         ImGui::Text("Vertex Arena: %u used / %u total (%u free)",
             vertexArenaUsed,
-            phase2Snapshot.vertexArenaCapacity,
-            phase2Snapshot.vertexArenaRemaining);
+            batchingSnapshot.vertexArenaCapacity,
+            batchingSnapshot.vertexArenaRemaining);
         ImGui::Text("Index Arena: %u used / %u total (%u free)",
             indexArenaUsed,
-            phase2Snapshot.indexArenaCapacity,
-            phase2Snapshot.indexArenaRemaining);
-        ImGui::TextDisabled("Phase 2 replacement counters are cumulative since startup.");
-
-        ImGui::Unindent();
+            batchingSnapshot.indexArenaCapacity,
+            batchingSnapshot.indexArenaRemaining);
+        ImGui::Separator();
+        ImGui::Text("Vertex Relocation: %u grows / %u relocations / %u relocated elements (lifetime)",
+            vertexDiagnostics.growCountLifetime,
+            vertexDiagnostics.relocationCountLifetime,
+            vertexDiagnostics.relocatedElementCountLifetime);
+        ImGui::Text("Vertex Last Relocation: %u elements across %u spans, request %u, %u -> %u",
+            vertexDiagnostics.lastRelocationElementCount,
+            vertexDiagnostics.lastRelocationSpanCount,
+            vertexDiagnostics.lastRequestedCapacity,
+            vertexDiagnostics.lastCapacityBeforeGrow,
+            vertexDiagnostics.lastCapacityAfterGrow);
+        ImGui::Text("Index Relocation: %u grows / %u relocations / %u relocated elements (lifetime)",
+            indexDiagnostics.growCountLifetime,
+            indexDiagnostics.relocationCountLifetime,
+            indexDiagnostics.relocatedElementCountLifetime);
+        ImGui::Text("Index Last Relocation: %u elements across %u spans, request %u, %u -> %u",
+            indexDiagnostics.lastRelocationElementCount,
+            indexDiagnostics.lastRelocationSpanCount,
+            indexDiagnostics.lastRequestedCapacity,
+            indexDiagnostics.lastCapacityBeforeGrow,
+            indexDiagnostics.lastCapacityAfterGrow);
+        ImGui::Separator();
+        ImGui::Text("Fallback Categories:");
+        ImGui::Text("  Replacement State Invalid: %u", fallbackDiagnostics.replacementStateInvalidCountLifetime);
+        ImGui::Text("  Replacement Vertex Overflow: %u", fallbackDiagnostics.replacementVertexOverflowCountLifetime);
+        ImGui::Text("  Replacement Index Overflow: %u", fallbackDiagnostics.replacementIndexOverflowCountLifetime);
+        ImGui::Text("  Replacement Vertex Upload Failed: %u", fallbackDiagnostics.replacementVertexUploadFailureCountLifetime);
+        ImGui::Text("  Replacement Index Upload Failed: %u", fallbackDiagnostics.replacementIndexUploadFailureCountLifetime);
+        ImGui::Text("  Vertex Arena Grow Failed: %u", fallbackDiagnostics.vertexArenaGrowFailureCountLifetime);
+        ImGui::Text("  Index Arena Grow Failed: %u", fallbackDiagnostics.indexArenaGrowFailureCountLifetime);
+        ImGui::Text("  Vertex Arena Upload Failed: %u", fallbackDiagnostics.vertexArenaUploadFailureCountLifetime);
+        ImGui::Text("  Index Arena Upload Failed: %u", fallbackDiagnostics.indexArenaUploadFailureCountLifetime);
+        ImGui::TextDisabled("Replacement counters are cumulative since startup.");
     }
+
+    if (ImGui::CollapsingHeader("Debug Views", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Checkbox("Enable Region Wireframe", &ChunkBachingDebugViewState::enableRegionWireframe);
+        ImGui::TextDisabled("Colors: green=visible, red=culled, yellow=dirty, magenta=build failed, gray=invalid");
+
+        if (ImGui::CollapsingHeader("Culling Map", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            DrawChunkBatchCullingMap(*world);
+        }
+    }
+}
+
+void ImguiSettingChunkBatching::CopyFullSnapshotToClipboard(const enigma::voxel::World& world)
+{
+    CopyChunkBatchDebugInfoToClipboard(world);
+    RecordChunkBatchCopy("Full snapshot copied.");
+}
+
+void ImguiSettingChunkBatching::CopyFrameSnapshotToClipboard(const enigma::voxel::World& world)
+{
+    CopyChunkBatchFrameDebugInfoToClipboard(world);
+    RecordChunkBatchCopy("Frame snapshot copied.");
+}
+
+void ImguiSettingChunkBatching::CopyLifetimeSnapshotToClipboard(const enigma::voxel::World& world)
+{
+    CopyChunkBatchLifetimeDebugInfoToClipboard(world);
+    RecordChunkBatchCopy("Lifetime snapshot copied.");
 }
