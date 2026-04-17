@@ -62,7 +62,7 @@ void TerrainRenderPass::Execute()
     viewContext.world  = world;
     viewContext.camera = g_theGame ? g_theGame->GetChunkBatchCullingCamera() : nullptr;
 
-    const enigma::voxel::ChunkBatchCollection       collection = enigma::voxel::ChunkBatchCollector::Collect(
+    const enigma::voxel::ChunkBatchCollection collection = enigma::voxel::ChunkBatchCollector::Collect(
         viewContext,
         enigma::voxel::ChunkBatchLayer::Opaque);
     world->MutableChunkBatchStats().batchedDraws += enigma::voxel::ChunkBatchRenderer::Submit(collection);

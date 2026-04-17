@@ -79,11 +79,11 @@ namespace
 }
 
 
-CommonConstantBuffer COMMON_UNIFORM     = CommonConstantBuffer();
-FogUniforms          FOG_UNIFORM        = FogUniforms();
-WorldTimeUniforms    WORLD_TIME_UNIFORM = WorldTimeUniforms();
-WorldInfoUniforms    WORLD_INFO_UNIFORM = WorldInfoUniforms();
-enigma::graphic::MatricesUniforms MATRICES_UNIFORM = enigma::graphic::MatricesUniforms();
+CommonConstantBuffer              COMMON_UNIFORM     = CommonConstantBuffer();
+FogUniforms                       FOG_UNIFORM        = FogUniforms();
+WorldTimeUniforms                 WORLD_TIME_UNIFORM = WorldTimeUniforms();
+WorldInfoUniforms                 WORLD_INFO_UNIFORM = WorldInfoUniforms();
+enigma::graphic::MatricesUniforms MATRICES_UNIFORM   = enigma::graphic::MatricesUniforms();
 
 
 Game::Game()
@@ -125,7 +125,7 @@ Game::Game()
 
     /// Render Passes (Debug)
     m_chunkBachingRenderPass = std::make_unique<ChunkBachingRenderPass>();
-    m_debugRenderPass = std::make_unique<DebugRenderPass>();
+    m_debugRenderPass        = std::make_unique<DebugRenderPass>();
 
     /// Block Registration Phase - MUST happen before World creation
     /// [NeoForge Pattern] Registration → Freeze → Compile
@@ -199,6 +199,7 @@ Game::Game()
                 m_world->InvalidateAllChunkMeshes();
         }
     );
+    g_theLogger->SetGlobalLogLevel(LogLevel::INFO);
 }
 
 Game::~Game()
@@ -215,14 +216,9 @@ Game::~Game()
         m_onBundleUnloadedHandle = 0;
     }
 
-    // Save and close world before cleanup
+    // Close world before cleanup
     if (m_world)
     {
-        LogInfo(LogGame, "Saving world before game shutdown...");
-        m_world->SaveWorld();
-        LogInfo(LogGame, "Initiating graceful shutdown...");
-        m_world->PrepareShutdown(); // Stop new tasks
-        m_world->WaitForPendingTasks(); // Wait for completion
         LogInfo(LogGame, "Closing world...");
         m_world->CloseWorld();
         m_world.reset();
@@ -360,7 +356,7 @@ void Game::ProcessInputAction(float deltaSeconds)
     if (g_theInput->WasKeyJustPressed(KEYCODE_ESC)) g_theApp->m_isQuitting = true;
     if (g_theInput->WasKeyJustPressed(KEYCODE_TILDE)) g_theInput->GetCursorMode() == CursorMode::POINTER ? g_theInput->SetCursorMode(CursorMode::FPS) : g_theInput->SetCursorMode(CursorMode::POINTER);
 
-    // [Task 18] F1 key toggles ImGui Game Settings window
+    // F1 toggles Game Settings.
     if (g_theInput->WasKeyJustPressed(KEYCODE_F1))
     {
         m_showGameSettings = !m_showGameSettings;
