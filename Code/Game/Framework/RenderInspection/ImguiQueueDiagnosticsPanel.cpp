@@ -111,6 +111,9 @@ namespace
         HistorySeries workerMaterializationQueuedCount = {};
         HistorySeries workerMaterializationExecutingCount = {};
         HistorySeries workerMaterializationInFlight = {};
+        HistorySeries waitingForNeighborsCount = {};
+        HistorySeries partialMeshPublishedCount = {};
+        HistorySeries refinementPendingCount = {};
         HistorySeries importantPendingCount = {};
         HistorySeries importantActiveCount = {};
         HistorySeries importantQueuedCount = {};
@@ -120,6 +123,13 @@ namespace
         HistorySeries executing = {};
         HistorySeries completed = {};
         HistorySeries published = {};
+        HistorySeries neighborWaitRegistered = {};
+        HistorySeries neighborWaitWoken = {};
+        HistorySeries neighborWaitCancelled = {};
+        HistorySeries partialBuildSubmitted = {};
+        HistorySeries partialBuildPublished = {};
+        HistorySeries refinementBuildQueued = {};
+        HistorySeries refinementBuildPublished = {};
         HistorySeries mainThreadSnapshotBuildCount = {};
         HistorySeries workerMaterializationAttempts = {};
         HistorySeries workerMaterializationSucceeded = {};
@@ -611,6 +621,15 @@ namespace
         AppendHistoryValue(s_asyncChunkMeshHistory.workerMaterializationInFlight,
                            sampleWriteIndex,
                            static_cast<float>(frameSnapshot.live.workerMaterializationInFlight));
+        AppendHistoryValue(s_asyncChunkMeshHistory.waitingForNeighborsCount,
+                           sampleWriteIndex,
+                           static_cast<float>(frameSnapshot.live.waitingForNeighborsCount));
+        AppendHistoryValue(s_asyncChunkMeshHistory.partialMeshPublishedCount,
+                           sampleWriteIndex,
+                           static_cast<float>(frameSnapshot.live.partialMeshPublishedCount));
+        AppendHistoryValue(s_asyncChunkMeshHistory.refinementPendingCount,
+                           sampleWriteIndex,
+                           static_cast<float>(frameSnapshot.live.refinementPendingCount));
         AppendHistoryValue(s_asyncChunkMeshHistory.importantPendingCount, sampleWriteIndex, static_cast<float>(frameSnapshot.live.importantPendingCount));
         AppendHistoryValue(s_asyncChunkMeshHistory.importantActiveCount, sampleWriteIndex, static_cast<float>(frameSnapshot.live.importantActiveCount));
         AppendHistoryValue(s_asyncChunkMeshHistory.importantQueuedCount, sampleWriteIndex, static_cast<float>(frameSnapshot.live.importantQueuedCount));
@@ -620,6 +639,27 @@ namespace
         AppendHistoryValue(s_asyncChunkMeshHistory.executing, sampleWriteIndex, static_cast<float>(frameSnapshot.counters.executing));
         AppendHistoryValue(s_asyncChunkMeshHistory.completed, sampleWriteIndex, static_cast<float>(frameSnapshot.counters.completed));
         AppendHistoryValue(s_asyncChunkMeshHistory.published, sampleWriteIndex, static_cast<float>(frameSnapshot.counters.published));
+        AppendHistoryValue(s_asyncChunkMeshHistory.neighborWaitRegistered,
+                           sampleWriteIndex,
+                           static_cast<float>(frameSnapshot.counters.neighborWaitRegistered));
+        AppendHistoryValue(s_asyncChunkMeshHistory.neighborWaitWoken,
+                           sampleWriteIndex,
+                           static_cast<float>(frameSnapshot.counters.neighborWaitWoken));
+        AppendHistoryValue(s_asyncChunkMeshHistory.neighborWaitCancelled,
+                           sampleWriteIndex,
+                           static_cast<float>(frameSnapshot.counters.neighborWaitCancelled));
+        AppendHistoryValue(s_asyncChunkMeshHistory.partialBuildSubmitted,
+                           sampleWriteIndex,
+                           static_cast<float>(frameSnapshot.counters.partialBuildSubmitted));
+        AppendHistoryValue(s_asyncChunkMeshHistory.partialBuildPublished,
+                           sampleWriteIndex,
+                           static_cast<float>(frameSnapshot.counters.partialBuildPublished));
+        AppendHistoryValue(s_asyncChunkMeshHistory.refinementBuildQueued,
+                           sampleWriteIndex,
+                           static_cast<float>(frameSnapshot.counters.refinementBuildQueued));
+        AppendHistoryValue(s_asyncChunkMeshHistory.refinementBuildPublished,
+                           sampleWriteIndex,
+                           static_cast<float>(frameSnapshot.counters.refinementBuildPublished));
         AppendHistoryValue(s_asyncChunkMeshHistory.mainThreadSnapshotBuildCount,
                            sampleWriteIndex,
                            static_cast<float>(frameSnapshot.counters.mainThreadSnapshotBuildCount));
@@ -820,6 +860,9 @@ namespace
         liveJson["workerMaterializationQueuedCount"] = live.workerMaterializationQueuedCount;
         liveJson["workerMaterializationExecutingCount"] = live.workerMaterializationExecutingCount;
         liveJson["workerMaterializationInFlight"] = live.workerMaterializationInFlight;
+        liveJson["waitingForNeighborsCount"] = live.waitingForNeighborsCount;
+        liveJson["partialMeshPublishedCount"] = live.partialMeshPublishedCount;
+        liveJson["refinementPendingCount"] = live.refinementPendingCount;
         liveJson["importantPendingCount"] = live.importantPendingCount;
         liveJson["importantActiveCount"] = live.importantActiveCount;
         liveJson["importantQueuedCount"] = live.importantQueuedCount;
@@ -835,6 +878,13 @@ namespace
         countersJson["executing"] = counters.executing;
         countersJson["completed"] = counters.completed;
         countersJson["published"] = counters.published;
+        countersJson["neighborWaitRegistered"] = counters.neighborWaitRegistered;
+        countersJson["neighborWaitWoken"] = counters.neighborWaitWoken;
+        countersJson["neighborWaitCancelled"] = counters.neighborWaitCancelled;
+        countersJson["partialBuildSubmitted"] = counters.partialBuildSubmitted;
+        countersJson["partialBuildPublished"] = counters.partialBuildPublished;
+        countersJson["refinementBuildQueued"] = counters.refinementBuildQueued;
+        countersJson["refinementBuildPublished"] = counters.refinementBuildPublished;
         countersJson["mainThreadSnapshotBuildCount"] = counters.mainThreadSnapshotBuildCount;
         countersJson["workerMaterializationAttempts"] = counters.workerMaterializationAttempts;
         countersJson["workerMaterializationSucceeded"] = counters.workerMaterializationSucceeded;
@@ -1360,6 +1410,64 @@ namespace
         DrawAsyncSeriesSummary("Validation Failed", s_asyncChunkMeshHistory.workerMaterializationValidationFailed);
     }
 
+    void DrawAsyncChunkMeshNeighborReadinessPlot()
+    {
+        if (!HasAsyncChunkMeshHistorySamples())
+        {
+            DrawAsyncChunkMeshHistoryUnavailableText();
+            return;
+        }
+
+        PrepareAsyncChunkMeshSlidingWindowPlot({&s_asyncChunkMeshHistory.waitingForNeighborsCount,
+                                                &s_asyncChunkMeshHistory.partialMeshPublishedCount,
+                                                &s_asyncChunkMeshHistory.refinementPendingCount});
+
+        if (ImPlot::BeginPlot("Recent Neighbor Readiness Live##AsyncChunkMeshNeighborReadinessLive", ImVec2(-1.0f, 210.0f)))
+        {
+            ImPlot::SetupAxes("Recent ImGui Samples", "Chunk Count", ImPlotAxisFlags_NoInitialFit, ImPlotAxisFlags_NoInitialFit);
+            ImPlot::SetupLegend(ImPlotLocation_NorthWest, ImPlotLegendFlags_Horizontal);
+            ImPlot::PlotLine("Waiting For Neighbors", GetAsyncVisibleHistoryXs(), GetAsyncVisibleHistorySeries(s_asyncChunkMeshHistory.waitingForNeighborsCount), GetAsyncVisibleHistoryCount());
+            ImPlot::PlotLine("Partial Mesh Published", GetAsyncVisibleHistoryXs(), GetAsyncVisibleHistorySeries(s_asyncChunkMeshHistory.partialMeshPublishedCount), GetAsyncVisibleHistoryCount());
+            ImPlot::PlotLine("Refinement Pending", GetAsyncVisibleHistoryXs(), GetAsyncVisibleHistorySeries(s_asyncChunkMeshHistory.refinementPendingCount), GetAsyncVisibleHistoryCount());
+            ImPlot::TagX(GetAsyncVisibleHistoryMaxX(), ImVec4(1.0f, 1.0f, 1.0f, 0.85f), "Now");
+            ImPlot::EndPlot();
+        }
+
+        PrepareAsyncChunkMeshSlidingWindowPlot({&s_asyncChunkMeshHistory.neighborWaitRegistered,
+                                                &s_asyncChunkMeshHistory.neighborWaitWoken,
+                                                &s_asyncChunkMeshHistory.neighborWaitCancelled,
+                                                &s_asyncChunkMeshHistory.partialBuildSubmitted,
+                                                &s_asyncChunkMeshHistory.partialBuildPublished,
+                                                &s_asyncChunkMeshHistory.refinementBuildQueued,
+                                                &s_asyncChunkMeshHistory.refinementBuildPublished});
+
+        if (ImPlot::BeginPlot("Recent Neighbor Readiness Events##AsyncChunkMeshNeighborReadinessEvents", ImVec2(-1.0f, 240.0f)))
+        {
+            ImPlot::SetupAxes("Recent ImGui Samples", "Events / Sample", ImPlotAxisFlags_NoInitialFit, ImPlotAxisFlags_NoInitialFit);
+            ImPlot::SetupLegend(ImPlotLocation_NorthWest, ImPlotLegendFlags_Horizontal);
+            ImPlot::PlotLine("Wait Registered", GetAsyncVisibleHistoryXs(), GetAsyncVisibleHistorySeries(s_asyncChunkMeshHistory.neighborWaitRegistered), GetAsyncVisibleHistoryCount());
+            ImPlot::PlotLine("Wait Woken", GetAsyncVisibleHistoryXs(), GetAsyncVisibleHistorySeries(s_asyncChunkMeshHistory.neighborWaitWoken), GetAsyncVisibleHistoryCount());
+            ImPlot::PlotLine("Wait Cancelled", GetAsyncVisibleHistoryXs(), GetAsyncVisibleHistorySeries(s_asyncChunkMeshHistory.neighborWaitCancelled), GetAsyncVisibleHistoryCount());
+            ImPlot::PlotLine("Partial Submitted", GetAsyncVisibleHistoryXs(), GetAsyncVisibleHistorySeries(s_asyncChunkMeshHistory.partialBuildSubmitted), GetAsyncVisibleHistoryCount());
+            ImPlot::PlotLine("Partial Published", GetAsyncVisibleHistoryXs(), GetAsyncVisibleHistorySeries(s_asyncChunkMeshHistory.partialBuildPublished), GetAsyncVisibleHistoryCount());
+            ImPlot::PlotLine("Refinement Queued", GetAsyncVisibleHistoryXs(), GetAsyncVisibleHistorySeries(s_asyncChunkMeshHistory.refinementBuildQueued), GetAsyncVisibleHistoryCount());
+            ImPlot::PlotLine("Refinement Published", GetAsyncVisibleHistoryXs(), GetAsyncVisibleHistorySeries(s_asyncChunkMeshHistory.refinementBuildPublished), GetAsyncVisibleHistoryCount());
+            ImPlot::TagX(GetAsyncVisibleHistoryMaxX(), ImVec4(1.0f, 1.0f, 1.0f, 0.85f), "Now");
+            ImPlot::EndPlot();
+        }
+
+        DrawAsyncSeriesSummary("Waiting For Neighbors", s_asyncChunkMeshHistory.waitingForNeighborsCount);
+        DrawAsyncSeriesSummary("Partial Mesh Published", s_asyncChunkMeshHistory.partialMeshPublishedCount);
+        DrawAsyncSeriesSummary("Refinement Pending", s_asyncChunkMeshHistory.refinementPendingCount);
+        DrawAsyncSeriesSummary("Wait Registered", s_asyncChunkMeshHistory.neighborWaitRegistered);
+        DrawAsyncSeriesSummary("Wait Woken", s_asyncChunkMeshHistory.neighborWaitWoken);
+        DrawAsyncSeriesSummary("Wait Cancelled", s_asyncChunkMeshHistory.neighborWaitCancelled);
+        DrawAsyncSeriesSummary("Partial Submitted", s_asyncChunkMeshHistory.partialBuildSubmitted);
+        DrawAsyncSeriesSummary("Partial Published", s_asyncChunkMeshHistory.partialBuildPublished);
+        DrawAsyncSeriesSummary("Refinement Queued", s_asyncChunkMeshHistory.refinementBuildQueued);
+        DrawAsyncSeriesSummary("Refinement Published", s_asyncChunkMeshHistory.refinementBuildPublished);
+    }
+
     void DrawAsyncChunkMeshBoundedWaitPlot()
     {
         if (!HasAsyncChunkMeshHistorySamples())
@@ -1568,6 +1676,15 @@ void ImguiQueueDiagnosticsPanel::Show()
                         static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.workerMaterializationQueuedCount),
                         static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.workerMaterializationExecutingCount),
                         static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.workerMaterializationInFlight));
+            ImGui::Text("Neighbor Readiness Live: waiting=%llu partialPublished=%llu refinementPending=%llu",
+                        static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.waitingForNeighborsCount),
+                        static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.partialMeshPublishedCount),
+                        static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.refinementPendingCount));
+            ImGui::Text("Neighbor Readiness Frame: waitRegistered=%llu waitWoken=%llu partialPublished=%llu refinementPublished=%llu",
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.neighborWaitRegistered),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.neighborWaitWoken),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.partialBuildPublished),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.refinementBuildPublished));
             ImGui::Text("Last Worker Materialization: status=%s failure=%s",
                         asyncChunkMeshDiagnostics->lastWorkerMaterializationStatus.c_str(),
                         asyncChunkMeshDiagnostics->lastWorkerMaterializationFailureReason.c_str());
@@ -1681,12 +1798,25 @@ void ImguiQueueDiagnosticsPanel::Show()
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.workerMaterializationQueuedCount),
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.workerMaterializationExecutingCount),
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.workerMaterializationInFlight));
+            ImGui::Text("Neighbor Readiness Live: waiting=%llu partialPublished=%llu refinementPending=%llu",
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.waitingForNeighborsCount),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.partialMeshPublishedCount),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.refinementPendingCount));
             ImGui::Text("Current Frame: queued=%llu submitted=%llu executing=%llu completed=%llu published=%llu",
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.queued),
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.submitted),
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.executing),
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.completed),
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.published));
+            ImGui::Text("Neighbor Readiness Frame: waitRegistered=%llu waitWoken=%llu waitCancelled=%llu partialSubmitted=%llu",
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.neighborWaitRegistered),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.neighborWaitWoken),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.neighborWaitCancelled),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.partialBuildSubmitted));
+            ImGui::Text("Neighbor Readiness Frame Publish: partialPublished=%llu refinementQueued=%llu refinementPublished=%llu",
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.partialBuildPublished),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.refinementBuildQueued),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.refinementBuildPublished));
             ImGui::Text("Worker Frame: mainThreadSnapshot=%llu attempts=%llu succeeded=%llu retryLater=%llu",
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.mainThreadSnapshotBuildCount),
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.workerMaterializationAttempts),
@@ -1721,6 +1851,10 @@ void ImguiQueueDiagnosticsPanel::Show()
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.importantActiveCount),
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.importantQueuedCount),
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.importantExecutingCount));
+            ImGui::Text("Neighbor Readiness Live: waiting=%llu partialPublished=%llu refinementPending=%llu",
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.waitingForNeighborsCount),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.partialMeshPublishedCount),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.refinementPendingCount));
             DrawAsyncChunkMeshLivePipelinePlot();
             DrawAsyncChunkMeshImportantPipelinePlot();
             ImGui::TextDisabled("Sliding window: last %d of %d stored samples.",
@@ -1756,6 +1890,34 @@ void ImguiQueueDiagnosticsPanel::Show()
         }
     }
 
+    if (ImGui::CollapsingHeader("Async Chunk Mesh Neighbor Readiness", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        if (!asyncChunkMeshDiagnostics)
+        {
+            ImGui::TextDisabled("World unavailable. Neighbor readiness state cannot be shown.");
+        }
+        else
+        {
+            ImGui::Text("Live Readiness: waiting=%llu partialPublished=%llu refinementPending=%llu",
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.waitingForNeighborsCount),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.partialMeshPublishedCount),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.live.refinementPendingCount));
+            ImGui::Text("Frame Wait/Wake: registered=%llu woken=%llu cancelled=%llu",
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.neighborWaitRegistered),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.neighborWaitWoken),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.neighborWaitCancelled));
+            ImGui::Text("Frame Partial/Refinement: submitted=%llu published=%llu refinementQueued=%llu refinementPublished=%llu",
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.partialBuildSubmitted),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.partialBuildPublished),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.refinementBuildQueued),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.refinementBuildPublished));
+            ImGui::Text("Frame Missing-Neighbor Outcomes: materializationMissing=%llu retryLater=%llu",
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.workerMaterializationMissingNeighbors),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.retryLater));
+            DrawAsyncChunkMeshNeighborReadinessPlot();
+        }
+    }
+
     if (ImGui::CollapsingHeader("Async Chunk Mesh Frame Activity", ImGuiTreeNodeFlags_DefaultOpen))
     {
         if (!asyncChunkMeshDiagnostics)
@@ -1778,6 +1940,18 @@ void ImguiQueueDiagnosticsPanel::Show()
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.workerMaterializationAttempts),
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.workerMaterializationSucceeded),
                         static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.mainThreadSnapshotBuildCount));
+            ImGui::Text("Frame Neighbor Wait/Wake: registered=%llu woken=%llu cancelled=%llu",
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.neighborWaitRegistered),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.neighborWaitWoken),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.neighborWaitCancelled));
+            ImGui::Text("Frame Partial/Refinement: submitted=%llu published=%llu refinementQueued=%llu refinementPublished=%llu",
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.partialBuildSubmitted),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.partialBuildPublished),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.refinementBuildQueued),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.refinementBuildPublished));
+            ImGui::Text("Frame Missing-Neighbor Outcomes: materializationMissing=%llu retryLater=%llu",
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.workerMaterializationMissingNeighbors),
+                        static_cast<unsigned long long>(s_asyncChunkMeshFrameSnapshot.counters.retryLater));
             DrawAsyncChunkMeshFrameActivityPlot();
         }
     }
@@ -1835,6 +2009,15 @@ void ImguiQueueDiagnosticsPanel::Show()
                         static_cast<unsigned long long>(counters.boundedWaitTimedOut),
                         static_cast<unsigned long long>(counters.boundedWaitYieldCount),
                         static_cast<unsigned long long>(counters.boundedWaitMicroseconds));
+            ImGui::Text("Neighbor Wait/Wake: registered=%llu woken=%llu cancelled=%llu",
+                        static_cast<unsigned long long>(counters.neighborWaitRegistered),
+                        static_cast<unsigned long long>(counters.neighborWaitWoken),
+                        static_cast<unsigned long long>(counters.neighborWaitCancelled));
+            ImGui::Text("Partial/Refinement: submitted=%llu published=%llu refinementQueued=%llu refinementPublished=%llu",
+                        static_cast<unsigned long long>(counters.partialBuildSubmitted),
+                        static_cast<unsigned long long>(counters.partialBuildPublished),
+                        static_cast<unsigned long long>(counters.refinementBuildQueued),
+                        static_cast<unsigned long long>(counters.refinementBuildPublished));
             ImGui::Text("Live Snapshot: backlog=%llu pendingDispatch=%llu activeHandles=%llu",
                         static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.queuedBacklog),
                         static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.pendingDispatchCount),
@@ -1848,6 +2031,10 @@ void ImguiQueueDiagnosticsPanel::Show()
                         static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.importantActiveCount),
                         static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.importantQueuedCount),
                         static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.importantExecutingCount));
+            ImGui::Text("Neighbor Readiness Live Snapshot: waiting=%llu partialPublished=%llu refinementPending=%llu",
+                        static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.waitingForNeighborsCount),
+                        static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.partialMeshPublishedCount),
+                        static_cast<unsigned long long>(asyncChunkMeshDiagnostics->live.refinementPendingCount));
             ImGui::TextDisabled("Async mesh counters are cumulative since startup. Live snapshot reflects the latest frame sample.");
         }
     }
@@ -1930,11 +2117,42 @@ void ImguiQueueDiagnosticsPanel::Show()
 
         if (asyncChunkMeshDiagnostics)
         {
-            ImGui::TextWrapped("Async mesh cumulative published=%llu, workerAttempts=%llu, mainThreadSnapshot=%llu, retryLater=%llu, syncFallback=%llu, boundedWaitTimedOut=%llu",
+            ImGui::Separator();
+            if (asyncChunkMeshDiagnostics->cumulative.neighborWaitRegistered > 0 ||
+                asyncChunkMeshDiagnostics->cumulative.neighborWaitWoken > 0)
+            {
+                ImGui::TextWrapped("Neighbor wait registration and wake events have been observed. That indicates missing-neighbor pressure is being converted into explicit waiting/wakeup flow instead of pure retry churn.");
+            }
+            else if (asyncChunkMeshDiagnostics->cumulative.workerMaterializationMissingNeighbors > 0 ||
+                     asyncChunkMeshDiagnostics->cumulative.retryLater > 0)
+            {
+                ImGui::TextWrapped("Missing-neighbor and retry activity are still present without observed wait/wake traffic. That suggests the readiness path has not yet taken over this run.");
+            }
+
+            if (asyncChunkMeshDiagnostics->cumulative.partialBuildPublished > 0 ||
+                asyncChunkMeshDiagnostics->cumulative.refinementBuildPublished > 0)
+            {
+                ImGui::TextWrapped("Partial publish and refinement publish events have both entered the runtime counters. Nearby chunks can now converge through a visible partial-first path instead of waiting for a full neighbor set before any publish.");
+            }
+
+            if (asyncChunkMeshDiagnostics->live.waitingForNeighborsCount > 0 ||
+                asyncChunkMeshDiagnostics->live.refinementPendingCount > 0)
+            {
+                ImGui::TextWrapped("The latest live snapshot still has chunks waiting on neighbors or queued for refinement. That is expected during active streaming and should correlate with later wake/publish events rather than repeated retryLater spikes.");
+            }
+        }
+
+        if (asyncChunkMeshDiagnostics)
+        {
+            ImGui::TextWrapped("Async mesh cumulative published=%llu, workerAttempts=%llu, mainThreadSnapshot=%llu, retryLater=%llu, waitRegistered=%llu, waitWoken=%llu, partialPublished=%llu, refinementPublished=%llu, syncFallback=%llu, boundedWaitTimedOut=%llu",
                                static_cast<unsigned long long>(asyncChunkMeshDiagnostics->cumulative.published),
                                static_cast<unsigned long long>(asyncChunkMeshDiagnostics->cumulative.workerMaterializationAttempts),
                                static_cast<unsigned long long>(asyncChunkMeshDiagnostics->cumulative.mainThreadSnapshotBuildCount),
                                static_cast<unsigned long long>(asyncChunkMeshDiagnostics->cumulative.retryLater),
+                               static_cast<unsigned long long>(asyncChunkMeshDiagnostics->cumulative.neighborWaitRegistered),
+                               static_cast<unsigned long long>(asyncChunkMeshDiagnostics->cumulative.neighborWaitWoken),
+                               static_cast<unsigned long long>(asyncChunkMeshDiagnostics->cumulative.partialBuildPublished),
+                               static_cast<unsigned long long>(asyncChunkMeshDiagnostics->cumulative.refinementBuildPublished),
                                static_cast<unsigned long long>(asyncChunkMeshDiagnostics->cumulative.syncFallbackCount),
                                static_cast<unsigned long long>(asyncChunkMeshDiagnostics->cumulative.boundedWaitTimedOut));
         }
