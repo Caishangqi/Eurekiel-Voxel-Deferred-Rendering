@@ -249,11 +249,11 @@ const int shadowMapResolution = 2048; //[512 1024 2048 4096 8192]
 // Wider deadzone = VL disappears earlier at low sun angles (avoids shadow map artifacts)
 // Ref: CR composite1.glsl:39
 #ifndef VL_SUN_DEADZONE
-#define VL_SUN_DEADZONE 0.05        // [0.05 0.10 0.15 0.20 0.25] Min |SdotU| for VL to activate
+#define VL_SUN_DEADZONE 0.10        // [0.05 0.10 0.15 0.20 0.25] Min |SdotU| for VL to activate
 #endif
 
 #ifndef VL_SUN_FADE_RANGE
-#define VL_SUN_FADE_RANGE 0.20      // [0.10 0.15 0.20 0.25 0.30] |SdotU| range over which VL ramps to full
+#define VL_SUN_FADE_RANGE 0.30      // [0.10 0.15 0.20 0.25 0.30] |SdotU| range over which VL ramps to full
 #endif
 
 //============================================================================//

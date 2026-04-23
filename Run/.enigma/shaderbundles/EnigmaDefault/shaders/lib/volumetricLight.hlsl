@@ -72,8 +72,6 @@ static const float3 VL_NIGHT_COLOR = float3(0.05, 0.08, 0.16);
 
 // VL-specific shadow sampling: sharp binary comparison without distance fade.
 // Matches CR's texelFetch + 65536 approach (volumetricLight.glsl:176-177).
-// Regular SampleShadowMap has distance fade that softens the result,
-// preventing clean 0/1 values needed for the dual shadow test.
 // Returns: 1.0 = lit, 0.0 = shadowed
 float SampleShadowForVL(float3 shadowUV, Texture2D shadowTex, SamplerState samp)
 {
@@ -194,108 +192,78 @@ float3 GetVolumetricLight(
     // --- Ray marching setup ---
     float3 rayVec    = worldPos - cameraPos;
     float  rayLength = length(rayVec);
-    float  maxDist   = min(rayLength, SHADOW_DISTANCE * 0.9);
-    // CR line 106: underwater uses shorter ray march distance (80.0)
-    // Water attenuates light quickly, no need to march far
+    float3 rayDir    = rayVec / max(rayLength, 0.001);
+
+    // CR line 106: maxDist = mix(far*0.55, 80.0, vlSceneIntensity)
+    // CR uses far (render distance ~160), giving ~80-88 blocks.
+    // We use SHADOW_DISTANCE as proxy. Key: stay within shadow map's
+    // high-quality distortion region, NOT the full shadow distance.
+    float maxDist = lerp(SHADOW_DISTANCE * 0.55, 80.0, vlSceneIntensity);
     if (eyeInWater == EYE_IN_WATER)
         maxDist = min(maxDist, 80.0);
-    float3 rayDir = rayVec / max(rayLength, 0.001);
+    maxDist = min(maxDist, rayLength);
 
     float3 rayStep    = (rayDir * maxDist) / float(sampleCount);
     float3 currentPos = cameraPos + rayStep * dither;
 
-    float shadowProjZ = shadowProj._m22;
-
-    // --- Accumulate lit samples with per-sample weighting ---
-    // Ref: CR volumetricLight.glsl:168-171
-    // Further samples contribute more (percentComplete * 3.0 when no scene intensity)
+    // --- Accumulate lit samples ---
+    // CR volumetricLight.glsl:141-231
     float4 volumetricLight = float4(0.0, 0.0, 0.0, 0.0);
 
     for (int i = 0; i < sampleCount; i++)
     {
+        float currentDist = length(currentPos - cameraPos);
+
+        // CR line 156-157: default to lit — outside shadow map = no occlusion info
+        float  shadowSample = 1.0;
+        float3 vlSample     = float3(1.0, 1.0, 1.0);
+
         float3 shadowUV = WorldToShadowUV(currentPos, shadowView, shadowProj);
 
-        // CR-style dual shadow test (volumetricLight.glsl:176-192):
-        // 1. shadowtex0 (includes water) — primary occlusion
-        // 2. shadowtex1 (opaque-only) — translucent shadow detection
-        // 3. shadowcolor1 — colored light shafts through water
-        float3 vlSample = float3(0.0, 0.0, 0.0);
-        if (IsValidShadowUV(shadowUV))
+        // CR line 174: circular boundary = shadow map distortion coverage area.
+        // Inside circle: query shadow map for actual occlusion.
+        // Outside circle: keep default lit (no shadow data available).
+        float2 shadowClip = shadowUV.xy * 2.0 - 1.0;
+        if (dot(shadowClip, shadowClip) < 1.0)
         {
-            float sampleDistSq = SquaredLength(currentPos - cameraPos);
-            if (sampleDistSq < SHADOW_MAX_DIST_SQUARED)
+            // CR line 176-177: sharp binary comparison (texelFetch + 65536)
+            shadowSample = SampleShadowForVL(shadowUV, shadowTex0, samp);
+            vlSample     = float3(shadowSample, shadowSample, shadowSample);
+
+            // Colored light shaft path (CR line 181-210)
+            if (shadowSample < 0.5)
             {
-                // Above water: soft comparison (SampleShadowMap) for smooth VL without stripes
-                // Underwater: sharp binary (SampleShadowForVL) for clean dual shadow test
-                float shadow0 = (eyeInWater == EYE_IN_WATER)
-                                    ? SampleShadowForVL(shadowUV, shadowTex0, samp)
-                                    : SampleShadowMap(shadowUV, currentPos, shadowProjZ, shadowTex0, samp);
-                vlSample = float3(shadow0, shadow0, shadow0);
-
-                // Colored light shaft path: underwater only.
-                // Above water uses standard white VL (shadow0 value).
-                // CR volumetricLight.glsl:176-214: dual shadow test + translucentMult tinting
-                if (eyeInWater == EYE_IN_WATER)
+                float shadow1 = SampleShadowForVL(shadowUV, shadowTex1, samp);
+                if (shadow1 > 0.5)
                 {
-                    bool isColoredShaft = false;
-
-                    if (shadow0 < 0.5)
-                    {
-                        float shadow1 = SampleShadowForVL(shadowUV, shadowTex1, samp);
-                        if (shadow1 > 0.5)
-                        {
-                            // Colored light shaft through water (CR: colsample * 4.0, squared)
-                            // These come from the shadow map (light-space) and must be preserved
-                            // regardless of screen-space translucentMult.
-                            float3 colSample = shadowColTex.Sample(samp, shadowUV.xy).rgb * 4.0;
-                            colSample        *= colSample;
-                            colSample        *= vlColorReducer;
-                            vlSample         = colSample;
-                            isColoredShaft   = true;
-                        }
-                    }
-                    else
-                    {
-                        // Fully lit (shadow0 >= 0.5): white VL only valid if pixel has
-                        // a translucent surface. Without water surface in screen-space,
-                        // white VL underwater is physically incorrect.
-                        bool hasTranslucent = any(translucentMult < 0.999);
-                        if (!hasTranslucent)
-                            vlSample = float3(0.0, 0.0, 0.0);
-                    }
-
-                    // CR line 196-205 + 214: tint and attenuate samples past water surface
-                    // Only applies when screen-space water surface exists
-                    bool hasTranslucent = any(translucentMult < 0.999);
-                    if (hasTranslucent)
-                    {
-                        float currentDist = length(currentPos - cameraPos);
-                        if (currentDist > depth0)
-                        {
-                            float3 translucentMultM = translucentMult * 2.8;
-                            float3 tinter           = pow(max(translucentMultM, 0.001),
-                                                float3(sunVisibility * 3.0, sunVisibility * 3.0, sunVisibility * 3.0));
-                            vlSample *= tinter;
-                            vlSample *= translucentMult;
-                        }
-                    }
+                    float3 colSample = shadowColTex.Sample(samp, shadowUV.xy).rgb * 4.0;
+                    colSample        *= colSample;
+                    colSample        *= vlColorReducer;
+                    vlSample         = colSample;
+                    shadowSample     = 1.0;
                 }
+            }
+            else
+            {
+                // CR line 208: underwater, fully lit but no translucent surface = no VL
+                if (eyeInWater == EYE_IN_WATER && all(translucentMult >= 0.999))
+                    vlSample = float3(0.0, 0.0, 0.0);
             }
         }
 
-        // Per-sample weight: ramp from 0 to 3 over ray length, blend with uniform when scene-aware
-        // CR line 116: underwater uses 0.85 uniform weighting (slightly dimmer than above-water 1.0)
-        float percentComplete   = float(i + 1) / float(sampleCount);
+        // CR line 214: translucent tinting OUTSIDE circle check
+        if (currentDist > depth0)
+            vlSample *= translucentMult;
+
+        // Per-sample weight (CR line 168-171)
+        float percentComplete   = currentDist / max(maxDist, 0.001);
         float sampleMultIntense = (eyeInWater == EYE_IN_WATER) ? 0.85 : 1.0;
         float sampleMult        = lerp(percentComplete * 3.0, sampleMultIntense, vlSceneIntensity);
-        sampleMult              /= float(sampleCount);
-
-        // Near-camera fade: avoid VL popping at very close range
-        float currentDist = length(currentPos - cameraPos);
         if (currentDist < 5.0)
             sampleMult *= smoothstep(0.0, 1.0, saturate(currentDist / 5.0));
+        sampleMult /= float(sampleCount);
 
-        volumetricLight += float4(vlSample, 0.0) * sampleMult;
+        volumetricLight += float4(vlSample, shadowSample) * sampleMult;
         currentPos      += rayStep;
     }
 
