@@ -1,78 +1,94 @@
 <p align="center"><img src="https://github.com/user-attachments/assets/12663581-fb81-4364-96d6-36e57d6cfd4f" alt="Logo" width="300"></p>
 
-<h1 align="center"> Eurekiel Voxel Deferred Rendering</h1>
-<h4 align="center">Study and implement Voxel's deferred rendering pipeline suitable for Voxel Game</h4>
+<h1 align="center">Enigma DirectX 12 Voxel Renderer</h1>
+<h4 align="center">Stylized shader bundles in a real-time destructible voxel world.</h4>
+
 <p align="center">
-<a href="https://www.codefactor.io/repository/github/caishangqi/Eurekiel"><img src="https://www.codefactor.io/repository/github/caishangqi/EnigmaVoxel/badge" alt="CodeFactor" /></a>
-<img alt="Lines of code" src="https://img.shields.io/badge/Render API-DirectX12-242629">
-<img alt="Render Backend" src="https://img.shields.io/badge/C++-17-cherry">
-<img alt="GitHub branch checks state" src="https://img.shields.io/github/checks-status/Caishangqi/Eurekiel/master?label=build">
-<img alt="GitHub code size in bytes" src="https://img.shields.io/github/languages/code-size/Caishangqi/Eurekiel">
+<img alt="Render API" src="https://img.shields.io/badge/Render%20API-DirectX%2012-242629">
+<img alt="Shader Model" src="https://img.shields.io/badge/Shader%20Model-6.6-4c6fff">
+<img alt="C++" src="https://img.shields.io/badge/C%2B%2B-17-cherry">
+<img alt="Platform" src="https://img.shields.io/badge/Platform-Windows-0078d4">
 </p>
 
 ## Overview
 
-Eurekiel is a 3D and 2D game engine designed from the ground up for voxel game development and scalable projects. It provides a dedicated voxel-based render pipeline and tools for game design without
-compromising resource efficiency.
+Enigma DirectX 12 Voxel Renderer is a thesis renderer that explores an Iris-inspired deferred rendering pipeline on top of DirectX 12 and Shader Model 6.6. The project focuses on making voxel
+rendering programmable through external Shader Bundles, so lighting, atmosphere, shadows, reflections, volumetric effects, and post-processing can be authored outside the C++ frame logic.
 
-## Feature
+This repository contains the sample application, world/render-pass orchestration, shader bundles, paper assets, and profiling artifacts. The shared engine library is expected as a sibling `Engine`
+checkout.
 
-> Description of the feature here. This could be a feature that adds new functionality, improves existing features, or enhances the overall performance of the engine.
+## Highlights
 
-## Planned Feature
+- DirectX 12 renderer with Shader Model 6.6 bindless resource access.
+- Deferred, Iris-inspired frame pipeline: shadow, sky, terrain, deferred lighting, translucent terrain, cloud, composite, and final passes.
+- ShaderBundle system for loadable shader packs, fallback rules, lifecycle events, and comment directives such as `DRAWBUFFERS`, `RENDERTARGETS`, `BLEND`, `DEPTHTEST`, and `FORMAT`.
+- DXC-based HLSL compilation with include graph validation and deterministic shader program construction.
+- Voxel terrain renderer with region batching, copy-ready GPU buffers, and async chunk mesh build.
+- EnigmaDefault stylized bundle with atmosphere, soft shadows, volumetric clouds/light, SSR, underwater distortion, bloom, SSAO, sun glare, and depth of field.
 
-- Support Blindless rendering options, enable by engine.configuration.
-- Support for multiple render backends (DirectX12, DirectX11, OpenGL).
-- Support modular subsystem control with subsystem registration, and subsystem management.
-- Support for input windows console with color code support.
+## Repository Layout
 
-### Rendering Pipeline
+| Path                                       | Purpose                                                                             |
+|--------------------------------------------|-------------------------------------------------------------------------------------|
+| `Code/Game/`                               | Application layer, world logic, render-pass scheduling, and ImGui inspection tools. |
+| `Run/.enigma/`                             | Runtime configuration, engine assets, and active ShaderBundle data.                 |
+| `Run/.enigma/shaderbundles/EnigmaDefault/` | Main stylized ShaderBundle used to validate the pipeline ceiling.                   |
+| `Paper/Technical Design Document/`         | Technical design document and supporting thesis material.                           |
+| `captures/`                                | RenderDoc captures used for GPU validation and performance analysis.                |
+| `../Engine/Code/`                          | Shared engine library referenced by the Visual Studio solution.                     |
 
-TBD
+## Requirements
 
-### Voxel Module
+- Windows 10/11.
+- Visual Studio 2022 with the v143 C++ toolset.
+- Windows 10 SDK.
+- DirectX 12 capable GPU and driver with Shader Model 6.6 support.
+- A sibling `Engine` checkout next to this repository:
 
-TBD
+```text
+SD/
+  Engine/
+  Thesis/
+```
 
-### Resource Module
+## Build And Run
 
-TBD
+Open `FGSPDX12DRECPS.sln` in Visual Studio 2022, select `Debug|x64` or `Release|x64`, then build `FGSPDX12DRECPS`.
 
-## Modules
+Command-line build:
 
-| **Name**               |                               **Description**                               |     **State**     |
-|------------------------|:---------------------------------------------------------------------------:|:-----------------:|
-| `enigma::core`         |             The Core structure and classes that used in engine              |      stable       |
-| `enigma::network`      |       The Network subsystem that handles client and server behaviour        |    unavailable    |
-| `enigma::audio`        | Audio subsystem that implement FMOD API wrapper functions and encapsulation |      stable       |
-| `enigma::input`        |                 The input subsystem that use the XInput API                 |      stable       |
-| `enigma::math`         |                 The Engine math datastructures and geometry                 | unstable/refactor |
-| `enigma::graphic`      |                  The Engine voxel graphic pipeline and API                  | unstable/refactor |
-| `enigma::render::dx11` |     The DirectX 11 Renderer API that implements the rendering pipeline      |      stable       |
-| `enigma::render::dx12` |     The DirectX 12 Renderer API that implements the rendering pipeline      |       beta        |
-| `enigma::resource`     |              The Namespace resource register and cache system               |       alpha       |
-| `enigma::window`       |          The Native window API that with wrapper and encapsulation          |      stable       |
+```powershell
+msbuild "FGSPDX12DRECPS.sln" /p:Configuration=Debug /p:Platform=x64
+```
 
-##
+The post-build step copies the executable and runtime resources into `Run/`. Launch from that directory so relative `.enigma` paths resolve correctly:
 
-<p>&nbsp;
-</p>
+```powershell
+cd "Run"
+.\FGSPDX12DRECPS_Debug_x64.exe
+```
 
-<p align="center">
-<a href="https://github.com/Caishangqi/Eurekiel/issues">
-<img src="https://i.imgur.com/qPmjSXy.png" width="160" />
-</a> 
-<a href="https://github.com/Caishangqi/Eurekiel">
-<img src="https://i.imgur.com/L1bU9mr.png" width="160" />
-</a>
-<a href="[https://discord.gg/3rPcYrPnAs](https://discord.gg/3rPcYrPnAs)">
-<img src="https://i.imgur.com/uf6V9ZX.png" width="160" />
-</a> 
-<a href="https://github.com/Caishangqi">
-<img src="https://i.imgur.com/fHQ45KR.png" width="227" />
-</a>
-</p>
+## Shader Bundles
 
-<h1></h1>
-<h4 align="center">Find out more about Eurekiel on the <a href="https://github.com/Caishangqi">SMU Pages</a></h4>
-<h4 align="center">Looking for the custom support? <a href="https://github.com/Caishangqi">Find it here</a></h4>
+Shader Bundles are loadable shader packages inspired by Minecraft Iris shader packs. A bundle can provide HLSL programs, custom textures, render-target directives, material metadata, and fallback
+rules. The engine keeps render-pass scheduling and GPU resource ownership in C++, while the active bundle defines the visual behavior of each pass.
+
+The active bundle is configured through:
+
+```text
+Run/.enigma/config/engine/shaderbundle.yml
+```
+
+Current bundles include:
+
+- `EnigmaDefault`: the primary stylized bundle for atmosphere, volumetrics, reflections, underwater effects, and post-processing.
+- `GuildhallVector`: an additional runtime bundle used for experimentation.
+
+## Documentation
+
+The concise architecture reference is in the technical design document:
+
+[Paper/Technical Design Document/Technical Design Document.docx](Paper/Technical%20Design%20Document/Technical%20Design%20Document.docx)
+
+This project is a research renderer, not a packaged engine SDK. APIs, shader directives, and runtime configuration may change as the thesis implementation evolves.
