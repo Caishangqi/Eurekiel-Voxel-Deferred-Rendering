@@ -12,6 +12,13 @@
 
 ## Overview
 
+<p align="center">
+  <a href="https://blog.caiziii.com/videos/project/project_deferred_rendering/deferred-rendering-demo.mp4">
+<img width="1878" height="1056" alt="stylized rendering demo" src="https://github.com/user-attachments/assets/06ecf7c3-c71c-49c5-b6a6-becc8eb3316f" />
+</p>
+  </a>
+<p align="center" style="color: gray;">Stylized shader that Inspired by Complementary Reimaged</p>
+
 Enigma DirectX 12 Voxel Renderer is a thesis renderer that explores an Iris-inspired deferred rendering pipeline on top of DirectX 12 and Shader Model 6.6. The project focuses on making voxel
 rendering programmable through external Shader Bundles, so lighting, atmosphere, shadows, reflections, volumetric effects, and post-processing can be authored outside the C++ frame logic.
 
