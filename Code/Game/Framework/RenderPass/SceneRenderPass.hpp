@@ -19,6 +19,7 @@ public:
     virtual ~SceneRenderPass();
 
     virtual void Execute() = 0;
+    static bool ShouldSuppressWorldRenderingForReload();
 
 protected:
     virtual void BeginPass();

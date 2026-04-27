@@ -120,3 +120,10 @@ std::shared_ptr<enigma::graphic::ShaderProgram> SceneRenderPass::GetProgramFromC
     }
     return nullptr;
 }
+
+// ----------------------------------------------------------------------------
+bool SceneRenderPass::ShouldSuppressWorldRenderingForReload()
+{
+    return g_theShaderBundleSubsystem != nullptr &&
+           g_theShaderBundleSubsystem->GetReloadCoordinator().ShouldSuppressWorldRendering();
+}

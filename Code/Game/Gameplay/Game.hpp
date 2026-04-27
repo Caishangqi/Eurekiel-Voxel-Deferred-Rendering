@@ -13,7 +13,6 @@
 #include "Game/Framework/RenderPass/ConstantBuffer/FogUniforms.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/WorldTimeUniforms.hpp"
 #include "Game/Framework/RenderPass/ConstantBuffer/WorldInfoUniforms.hpp"
-#include "Engine/Graphic/Bundle/ShaderBundleEvents.hpp"
 #include "Game/SceneTest/SceneUnitTest.hpp"
 
 namespace enigma::graphic
@@ -95,10 +94,6 @@ private:
 
 private:
     std::unique_ptr<enigma::voxel::World> m_world = nullptr;
-
-    // [R5.0] ShaderBundle switch → chunk rebuild event handles
-    enigma::event::DelegateHandle m_onBundleLoadedHandle   = 0;
-    enigma::event::DelegateHandle m_onBundleUnloadedHandle = 0;
 
 public:
     enigma::voxel::World* GetWorld() const { return m_world.get(); }

@@ -24,6 +24,7 @@
 #include "Engine/Core/ImGui/ImGuiSubsystem.hpp"
 #include "Engine/Core/LogCategory/PredefinedCategories.hpp"
 #include "Engine/Core/Logger/LoggerAPI.hpp"
+#include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
 #include "Engine/Graphic/Shader/Uniform/UniformManager.hpp"
 #include "Engine/Model/ModelSubsystem.hpp"
 #include "Engine/Registry/Block/BlockRegistry.hpp"
@@ -153,6 +154,10 @@ Game::Game()
     //auto generator = std::make_unique<FlatWorldGenerator>();
     m_world = std::make_unique<World>("world", 6693073380, std::move(generator));
     m_world->SetChunkActivationRange(settings.GetInt("video.simulationDistance", 8));
+    if (g_theShaderBundleSubsystem)
+    {
+        g_theShaderBundleSubsystem->GetReloadCoordinator().SetWorldChunkReloadParticipant(m_world.get());
+    }
 
     /// Register ImGUI
     g_theImGui->RegisterWindow("GameSetting", [this]()
@@ -182,38 +187,14 @@ Game::Game()
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<WorldTimeUniforms>(1, UpdateFrequency::PerFrame, BufferSpace::Custom);
     g_theRendererSubsystem->GetUniformManager()->RegisterBuffer<WorldInfoUniforms>(3, UpdateFrequency::PerFrame, BufferSpace::Custom);
 
-    /// [R5.0] Subscribe to ShaderBundle lifecycle events for chunk mesh rebuild
-    /// When a Bundle switches, material ID mappings change — all chunks must rebuild vertices
-    /// (Reference: Iris levelRenderer.allChanged() on shader pack switch)
-    m_onBundleLoadedHandle = enigma::graphic::ShaderBundleEvents::OnBundleLoaded.Add(
-        [this](enigma::graphic::ShaderBundle*)
-        {
-            if (m_world)
-                m_world->InvalidateAllChunkMeshes();
-        }
-    );
-    m_onBundleUnloadedHandle = enigma::graphic::ShaderBundleEvents::OnBundleUnloaded.Add(
-        [this]()
-        {
-            if (m_world)
-                m_world->InvalidateAllChunkMeshes();
-        }
-    );
     g_theLogger->SetGlobalLogLevel(LogLevel::INFO);
 }
 
 Game::~Game()
 {
-    // [R5.0] Unsubscribe from ShaderBundle events before world cleanup
-    if (m_onBundleLoadedHandle != 0)
+    if (g_theShaderBundleSubsystem)
     {
-        enigma::graphic::ShaderBundleEvents::OnBundleLoaded.Remove(m_onBundleLoadedHandle);
-        m_onBundleLoadedHandle = 0;
-    }
-    if (m_onBundleUnloadedHandle != 0)
-    {
-        enigma::graphic::ShaderBundleEvents::OnBundleUnloaded.Remove(m_onBundleUnloadedHandle);
-        m_onBundleUnloadedHandle = 0;
+        g_theShaderBundleSubsystem->GetReloadCoordinator().SetWorldChunkReloadParticipant(nullptr);
     }
 
     // Close world before cleanup
@@ -288,6 +269,10 @@ void Game::Render()
 void Game::RenderWorld()
 {
     EnsureCommonUniformFramePartitionSeeded();
+    if (SceneRenderPass::ShouldSuppressWorldRenderingForReload())
+    {
+        return;
+    }
 
     // ========================================
     // Deferred Rendering Pipeline (Iris-compatible order)
@@ -331,6 +316,11 @@ void Game::RenderWorld()
 void Game::RenderDebug()
 {
     EnsureCommonUniformFramePartitionSeeded();
+    if (SceneRenderPass::ShouldSuppressWorldRenderingForReload())
+    {
+        return;
+    }
+
     m_chunkBachingRenderPass->Execute();
     m_debugRenderPass->Execute();
 }
