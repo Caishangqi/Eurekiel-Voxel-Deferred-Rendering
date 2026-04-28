@@ -1,6 +1,7 @@
 ﻿#include "Game/Framework/App.hpp"
 
 #include "Engine/Window/Window.hpp"
+#include "Engine/Window/WindowEvents.hpp"
 #include "Engine/Audio/AudioSubsystem.hpp"
 #include "Engine/Core/Clock.hpp"
 #include "Engine/Core/EngineCommon.hpp"
@@ -31,6 +32,7 @@
 // Window configuration parser
 #include "Engine/Core/ImGui/ImGuiSubsystem.hpp"
 #include "Engine/Core/ImGui/ImGuiSubsystemConfig.hpp"
+#include "Engine/Graphic/Camera/PerspectiveCamera.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Integration/RendererSubsystemImGuiContext.hpp"
 #include "Engine/Graphic/Bundle/Integration/ShaderBundleSubsystem.hpp"
@@ -128,14 +130,21 @@ void App::Startup(char*)
 
     // Start the window system - create the actual Win32 window
     g_theWindow->Startup();
+    m_windowCloseRequestedHandle = enigma::window::WindowEvents::OnWindowCloseRequested.Add(
+        this,
+        &App::HandleWindowCloseRequested);
+    m_windowClientSizeChangedHandle = enigma::window::WindowEvents::OnClientSizeChanged.Add(
+        this,
+        &App::HandleWindowClientSizeChanged);
 
     // Render Subsystem
     // [FIX] Use ParseFromYaml result, fallback to GetDefault() if parsing fails
     auto                    renderConfigOpt = RendererSubsystemConfig::ParseFromYaml(".enigma\\config\\engine\\renderer.yml");
     RendererSubsystemConfig renderConfig    = renderConfigOpt.value_or(RendererSubsystemConfig::GetDefault());
+    const IntVec2           initialClientSize = g_theWindow->GetClientDimensions();
     renderConfig.targetWindow               = g_theWindow;
-    renderConfig.renderWidth                = static_cast<uint32_t>(windowConfig.m_resolution.x);
-    renderConfig.renderHeight               = static_cast<uint32_t>(windowConfig.m_resolution.y);
+    renderConfig.renderWidth                = static_cast<uint32_t>(initialClientSize.x > 0 ? initialClientSize.x : windowConfig.m_resolution.x);
+    renderConfig.renderHeight               = static_cast<uint32_t>(initialClientSize.y > 0 ? initialClientSize.y : windowConfig.m_resolution.y);
     renderConfig.maxFramesInFlight          = 3;
     renderConfig.enableDebugLayer           = ENABLE_DEBUG;
     renderConfig.enableGPUValidation        = ENABLE_GPU_VALIDATION;
@@ -164,6 +173,7 @@ void App::Startup(char*)
 
     m_game    = std::make_unique<Game>();
     g_theGame = m_game.get();
+    ApplyClientAspectToGameCameras(g_theWindow->GetClientDimensions());
 }
 
 void App::Shutdown()
@@ -175,6 +185,17 @@ void App::Shutdown()
     // Destroy the game
     // reset: Destroy the old one and manage the new/empty one. Clean up and take over.
     // release: Give up ownership, leave the original pointer, and become empty. Hand over control.
+    if (m_windowCloseRequestedHandle != 0)
+    {
+        enigma::window::WindowEvents::OnWindowCloseRequested.Remove(m_windowCloseRequestedHandle);
+        m_windowCloseRequestedHandle = 0;
+    }
+    if (m_windowClientSizeChangedHandle != 0)
+    {
+        enigma::window::WindowEvents::OnClientSizeChanged.Remove(m_windowClientSizeChangedHandle);
+        m_windowClientSizeChangedHandle = 0;
+    }
+
     m_game.reset();
     g_theGame = nullptr;
 
@@ -215,6 +236,43 @@ bool App::IsQuitting() const
 void App::HandleQuitRequested()
 {
     m_isQuitting = true;
+}
+
+void App::HandleWindowCloseRequested(const enigma::window::WindowCloseRequest& request)
+{
+    UNUSED(request)
+    HandleQuitRequested();
+}
+
+void App::HandleWindowClientSizeChanged(const enigma::window::WindowClientSizeEvent& event)
+{
+    if (event.isMinimized || event.newClientSize.x <= 0 || event.newClientSize.y <= 0)
+    {
+        return;
+    }
+
+    ApplyClientAspectToGameCameras(event.newClientSize);
+}
+
+void App::ApplyClientAspectToGameCameras(const IntVec2& clientSize) const
+{
+    if (!g_theGame || clientSize.x <= 0 || clientSize.y <= 0)
+    {
+        return;
+    }
+
+    const float aspectRatio = static_cast<float>(clientSize.x) / static_cast<float>(clientSize.y);
+    auto*       playerCamera = g_theGame->GetPlayerCamera();
+    auto*       renderCamera = g_theGame->GetRenderCamera();
+
+    if (playerCamera)
+    {
+        playerCamera->SetAspectRatio(aspectRatio);
+    }
+    if (renderCamera && renderCamera != playerCamera)
+    {
+        renderCamera->SetAspectRatio(aspectRatio);
+    }
 }
 
 void App::HandleKeyBoardEvent()
@@ -288,11 +346,4 @@ void App::EndFrame()
 {
     if (g_theInput) g_theInput->EndFrame();
     GEngine->EndFrame();
-}
-
-bool App::WindowCloseEvent(EventArgs& args)
-{
-    UNUSED(args)
-    g_theApp->HandleQuitRequested();
-    return false;
 }

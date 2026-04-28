@@ -6,6 +6,7 @@
 #include "Engine/Graphic/Integration/RendererSubsystem.hpp"
 #include "Engine/Graphic/Shader/Uniform/MatricesUniforms.hpp"
 #include "Engine/Input/InputSystem.hpp"
+#include "Engine/Window/WindowEvents.hpp"
 #include "Game/GameCommon.hpp"
 #include "Game/Framework/App.hpp"
 #include "Game/Framework/GameObject/Geometry.hpp"
@@ -344,6 +345,13 @@ void Game::ProcessInputAction(float deltaSeconds)
 {
     UNUSED(deltaSeconds)
     if (g_theInput->WasKeyJustPressed(KEYCODE_ESC)) g_theApp->m_isQuitting = true;
+    if (g_theInput->WasKeyJustPressed(KEYCODE_F11))
+    {
+        enigma::window::WindowModeRequest request;
+        request.type   = enigma::window::WindowModeRequestType::ToggleFullscreen;
+        request.source = "Game::ProcessInputAction";
+        enigma::window::WindowModeRequestEvents::OnWindowModeRequested.Broadcast(request);
+    }
     if (g_theInput->WasKeyJustPressed(KEYCODE_TILDE)) g_theInput->GetCursorMode() == CursorMode::POINTER ? g_theInput->SetCursorMode(CursorMode::FPS) : g_theInput->SetCursorMode(CursorMode::POINTER);
 
     // F1 toggles Game Settings.

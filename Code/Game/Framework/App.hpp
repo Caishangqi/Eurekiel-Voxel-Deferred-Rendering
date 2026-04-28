@@ -1,10 +1,18 @@
 ﻿#pragma once
+#include "Engine/Core/Event/MulticastDelegate.hpp"
 #include "Engine/Core/EngineCommon.hpp"
 #include "Engine/Core/Rgba8.hpp"
 #include "Engine/Core/Yaml.hpp"
 
 class Window;
 class Game;
+struct IntVec2;
+
+namespace enigma::window
+{
+    struct WindowClientSizeEvent;
+    struct WindowCloseRequest;
+}
 
 static enigma::core::YamlConfiguration settings; // Minecraft Style global configuration
 
@@ -44,6 +52,9 @@ private:
 
     void Render() const;
     void EndFrame();
+    void HandleWindowCloseRequested(const enigma::window::WindowCloseRequest& request);
+    void HandleWindowClientSizeChanged(const enigma::window::WindowClientSizeEvent& event);
+    void ApplyClientAspectToGameCameras(const IntVec2& clientSize) const;
 
 public:
 #pragma region GAME
@@ -61,5 +72,7 @@ public:
 
     AABB2 m_consoleSpace;
 
-    STATIC bool WindowCloseEvent(EventArgs& args);
+private:
+    enigma::event::DelegateHandle m_windowCloseRequestedHandle    = 0;
+    enigma::event::DelegateHandle m_windowClientSizeChangedHandle = 0;
 };
