@@ -111,7 +111,7 @@ void PlayerCharacter::UpdatePlayerStatus(float deltaSeconds)
     if (world)
     {
         enigma::voxel::BlockState* blockState = world->GetBlockState(enigma::voxel::BlockPos((int32_t)m_position.x, (int32_t)m_position.y, (int32_t)m_position.z));
-        if (!blockState->GetFluidState().IsEmpty())
+        if (blockState && !blockState->GetFluidState().IsEmpty())
         {
             // [REFACTOR] Use global COMMON_UNIFORM instead of m_playerStatusUniform
             COMMON_UNIFORM.isEyeInWater = 1;
